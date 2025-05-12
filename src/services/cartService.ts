@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "./productService";
 
@@ -6,6 +7,12 @@ export interface CartItem {
   product_id: string;
   quantity: number;
   product: Product;
+}
+
+// Type definitions for RPC parameters
+interface CreditUpdateParam {
+  p_doctor_id: string;
+  p_amount: number;
 }
 
 // Local storage key
@@ -186,7 +193,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       const { error: creditError } = await supabase.rpc('update_doctor_credit', {
         p_doctor_id: doctorId,
         p_amount: totalAmount
-      } as any);
+      } as CreditUpdateParam);
       
       if (creditError) {
         console.error("Error updating doctor credit:", creditError);

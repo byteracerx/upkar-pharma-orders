@@ -32,7 +32,7 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
     const { data, error } = await supabase
       .rpc('get_doctor_credit_summary', { 
         p_doctor_id: doctorId 
-      } as { p_doctor_id: string });
+      } as any);
     
     if (error) {
       console.error("Error fetching doctor credit summary:", error);
@@ -73,7 +73,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
     const { data, error } = await supabase
       .rpc('get_doctor_credit_transactions', { 
         p_doctor_id: doctorId 
-      } as { p_doctor_id: string });
+      } as any);
     
     if (error) {
       console.error("Error fetching credit transactions:", error);

@@ -9,7 +9,7 @@ export interface CartItem {
   product: Product;
 }
 
-// Type definitions for RPC parameters
+// Type definition for RPC parameters
 interface CreditUpdateParam {
   p_doctor_id: string;
   p_amount: number;
@@ -193,7 +193,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       const { error: creditError } = await supabase.rpc('update_doctor_credit', {
         p_doctor_id: doctorId,
         p_amount: totalAmount
-      } as CreditUpdateParam);
+      } as Record<string, any>);
       
       if (creditError) {
         console.error("Error updating doctor credit:", creditError);

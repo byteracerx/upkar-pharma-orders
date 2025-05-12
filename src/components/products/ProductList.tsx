@@ -1,9 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProductCard from "./ProductCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,86 +11,74 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Mock product data
-const mockProducts = [
-  {
-    id: "1",
-    name: "Paracetamol 500mg",
-    price: 5.99,
-    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=500",
-    category: "Pain Relief",
-    description: "Paracetamol 500mg tablets for pain relief and fever reduction."
-  },
-  {
-    id: "2",
-    name: "Amoxicillin 250mg",
-    price: 12.50,
-    image: "https://images.unsplash.com/photo-1550572017-4fcdbb59cc32?auto=format&fit=crop&q=80&w=500",
-    category: "Antibiotics",
-    description: "Amoxicillin 250mg capsules, broad-spectrum antibiotic."
-  },
-  {
-    id: "3",
-    name: "Vitamin D3 1000 IU",
-    price: 8.75,
-    image: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=500",
-    category: "Vitamins",
-    description: "Vitamin D3 1000 IU supplements for bone health."
-  },
-  {
-    id: "4",
-    name: "Ibuprofen 400mg",
-    price: 6.25,
-    image: "https://images.unsplash.com/photo-1626716493177-0f09a8590a8f?auto=format&fit=crop&q=80&w=500",
-    category: "Pain Relief",
-    description: "Ibuprofen 400mg tablets for pain and inflammation."
-  },
-  {
-    id: "5",
-    name: "Omeprazole 20mg",
-    price: 15.30,
-    image: "https://images.unsplash.com/photo-1550989460-5a25c90cc7fe?auto=format&fit=crop&q=80&w=500",
-    category: "Gastrointestinal",
-    description: "Omeprazole 20mg capsules to reduce stomach acid production."
-  },
-  {
-    id: "6",
-    name: "Cetirizine 10mg",
-    price: 7.45,
-    image: "https://images.unsplash.com/photo-1550989460-091582563d48?auto=format&fit=crop&q=80&w=500",
-    category: "Allergy",
-    description: "Cetirizine 10mg tablets for allergy relief."
-  },
-  {
-    id: "7",
-    name: "Metformin 500mg",
-    price: 9.99,
-    image: "https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&q=80&w=500",
-    category: "Diabetes",
-    description: "Metformin 500mg tablets for type 2 diabetes management."
-  },
-  {
-    id: "8",
-    name: "Amlodipine 5mg",
-    price: 11.25,
-    image: "https://images.unsplash.com/photo-1550989459-6169adb022a3?auto=format&fit=crop&q=80&w=500",
-    category: "Cardiovascular",
-    description: "Amlodipine 5mg tablets for high blood pressure treatment."
-  }
-];
-
-const categories = ["All Categories", "Pain Relief", "Antibiotics", "Vitamins", "Gastrointestinal", "Allergy", "Diabetes", "Cardiovascular"];
+import { fetchProducts, Product } from "@/services/productService";
+import { useToast } from "@/components/ui/use-toast";
 
 const ProductList = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
   
-  const filteredProducts = mockProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All Categories" || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        const data = await fetchProducts();
+        setProducts(data);
+        
+        // Extract unique categories
+        const uniqueCategories = Array.from(
+          new Set(data.map(product => product.category).filter(Boolean) as string[])
+        );
+        
+        setCategories(["All Categories", ...uniqueCategories]);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Failed to load products:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load products. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }
+    };
+    
+    loadProducts();
+  }, [toast]);
+  
+  useEffect(() => {
+    // Filter products based on search query and category
+    let filtered = products;
+    
+    if (searchQuery) {
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    if (selectedCategory !== "All Categories") {
+      filtered = filtered.filter(product => product.category === selectedCategory);
+    }
+    
+    setFilteredProducts(filtered);
+  }, [products, searchQuery, selectedCategory]);
+  
+  const handleSearch = () => {
+    // Already handled by the effect, this is just for the search button
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+      </div>
+    );
+  }
   
   return (
     <div>
@@ -104,7 +92,7 @@ const ProductList = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button>
+            <Button onClick={handleSearch}>
               <Search className="h-4 w-4 mr-2" />
               Search
             </Button>

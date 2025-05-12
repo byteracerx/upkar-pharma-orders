@@ -1,43 +1,19 @@
+
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
 import {
   Pill,
   ChevronLeft,
   ShoppingCart,
   Plus,
-  Minus
+  Minus,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-
-// Mock product data
-const mockProducts = [
-  {
-    id: "1",
-    name: "Paracetamol 500mg",
-    price: 5.99,
-    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=500",
-    category: "Pain Relief",
-    description: "Paracetamol 500mg tablets for pain relief and fever reduction. Each tablet contains 500mg of Paracetamol (Acetaminophen). Used to treat mild to moderate pain including headache, toothache, backache, period pain, and high temperature.",
-    manufacturer: "Cipla Pharmaceuticals",
-    pack: "Strip of 10 tablets",
-    dosage: "One or two tablets every 4-6 hours as needed, not exceeding 8 tablets in 24 hours."
-  },
-  {
-    id: "2",
-    name: "Amoxicillin 250mg",
-    price: 12.50,
-    image: "https://images.unsplash.com/photo-1550572017-4fcdbb59cc32?auto=format&fit=crop&q=80&w=500",
-    category: "Antibiotics",
-    description: "Amoxicillin 250mg capsules, broad-spectrum antibiotic used to treat a wide range of bacterial infections, including respiratory tract, urinary tract, and skin infections.",
-    manufacturer: "Sun Pharmaceuticals",
-    pack: "Strip of 10 capsules",
-    dosage: "One capsule three times daily or as directed by the physician."
-  },
-  // Other products...
-];
+import { fetchProductById, Product } from "@/services/productService";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,9 +21,41 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Find the product with the matching ID
-  const product = mockProducts.find(p => p.id === id);
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        const productData = await fetchProductById(id);
+        setProduct(productData);
+      } catch (error) {
+        console.error("Failed to load product:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load product details. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadProduct();
+  }, [id, toast]);
+  
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container-custom py-8 flex justify-center items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+        </div>
+      </Layout>
+    );
+  }
   
   if (!product) {
     return (
@@ -64,7 +72,7 @@ const ProductDetail = () => {
   }
 
   const incrementQuantity = () => {
-    setQuantity(prev => prev + 1);
+    setQuantity(prev => Math.min(prev + 1, product.stock));
   };
 
   const decrementQuantity = () => {
@@ -75,7 +83,7 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (isAuthenticated) {
-      // Add to cart logic would go here
+      // Add to cart logic will be implemented in a future update
       toast({
         title: "Added to Cart",
         description: `${quantity} ${quantity === 1 ? 'unit' : 'units'} of ${product.name} added to your cart.`,
@@ -101,7 +109,7 @@ const ProductDetail = () => {
           {/* Product Image */}
           <div className="bg-white p-4 rounded-lg shadow">
             <img 
-              src={product.image} 
+              src={product.image_url || "https://via.placeholder.com/500x400?text=No+Image"} 
               alt={product.name} 
               className="w-full h-auto object-contain rounded-md"
               style={{ maxHeight: "400px" }}
@@ -111,12 +119,12 @@ const ProductDetail = () => {
           {/* Product Details */}
           <div>
             <span className="inline-block bg-upkar-light-gray text-gray-600 px-3 py-1 rounded-full text-sm font-medium mb-2">
-              {product.category}
+              {product.category || "General"}
             </span>
             <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
             <div className="flex items-center mb-4">
               <Pill className="h-5 w-5 text-upkar-blue mr-2" />
-              <span className="text-gray-600">{product.manufacturer}</span>
+              <span className="text-gray-600">In stock: {product.stock} units</span>
             </div>
             <p className="text-2xl font-semibold text-upkar-blue mb-6">
               ₹{product.price.toFixed(2)}
@@ -129,6 +137,7 @@ const ProductDetail = () => {
                   <button 
                     onClick={decrementQuantity} 
                     className="px-3 py-2 hover:bg-gray-100"
+                    disabled={quantity <= 1}
                   >
                     <Minus className="h-4 w-4" />
                   </button>
@@ -136,6 +145,7 @@ const ProductDetail = () => {
                   <button 
                     onClick={incrementQuantity}
                     className="px-3 py-2 hover:bg-gray-100"
+                    disabled={quantity >= product.stock}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -158,18 +168,7 @@ const ProductDetail = () => {
             
             <div className="border-t border-gray-200 pt-4">
               <h2 className="text-lg font-semibold mb-2">Product Description</h2>
-              <p className="text-gray-600 mb-4">{product.description}</p>
-              
-              <div className="space-y-2">
-                <div className="flex">
-                  <span className="font-medium w-24">Pack:</span>
-                  <span className="text-gray-600">{product.pack}</span>
-                </div>
-                <div className="flex">
-                  <span className="font-medium w-24">Dosage:</span>
-                  <span className="text-gray-600">{product.dosage}</span>
-                </div>
-              </div>
+              <p className="text-gray-600 mb-4">{product.description || "No description available for this product."}</p>
             </div>
           </div>
         </div>

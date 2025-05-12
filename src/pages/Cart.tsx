@@ -1,71 +1,107 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
-import { ShoppingCart, Trash2, ChevronLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ShoppingCart, Trash2, ChevronLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Mock cart data
-const mockCartItems = [
-  {
-    id: "1",
-    name: "Paracetamol 500mg",
-    price: 5.99,
-    quantity: 2,
-    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=500"
-  },
-  {
-    id: "2",
-    name: "Amoxicillin 250mg",
-    price: 12.50,
-    quantity: 1,
-    image: "https://images.unsplash.com/photo-1550572017-4fcdbb59cc32?auto=format&fit=crop&q=80&w=500"
-  }
-];
+import { getCartItems, updateCartItemQuantity, removeFromCart, placeOrder, CartItem } from "@/services/cartService";
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState(mockCartItems);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  useEffect(() => {
+    // Load cart items from localStorage
+    const items = getCartItems();
+    setCartItems(items);
+    setIsLoading(false);
+  }, []);
+  
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const shipping = subtotal > 0 ? 50.00 : 0;
   const total = subtotal + shipping;
   
   const updateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     
-    setCartItems(prevItems =>
-      prevItems.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    const success = updateCartItemQuantity(id, newQuantity);
+    if (success) {
+      // Update local state
+      setCartItems(prev => 
+        prev.map(item => 
+          item.id === id ? { ...item, quantity: newQuantity } : item
+        )
+      );
+    }
   };
   
-  const removeItem = (id: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
-    toast({
-      title: "Item Removed",
-      description: "The item has been removed from your cart."
-    });
+  const handleRemoveItem = (id: string) => {
+    const success = removeFromCart(id);
+    if (success) {
+      setCartItems(prev => prev.filter(item => item.id !== id));
+      toast({
+        title: "Item Removed",
+        description: "The item has been removed from your cart."
+      });
+    }
   };
   
-  const placeOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "You need to be logged in to place an order.",
+        variant: "destructive"
+      });
+      navigate("/login");
+      return;
+    }
+    
     setIsPlacingOrder(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const result = await placeOrder(user.id);
+      
+      if (result.success) {
+        toast({
+          title: "Order Placed Successfully",
+          description: "Your order has been submitted and is pending approval."
+        });
+        setCartItems([]);
+      } else {
+        toast({
+          title: "Order Failed",
+          description: result.error || "There was an issue placing your order. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error placing order:", error);
       toast({
-        title: "Order Placed Successfully",
-        description: "Your order has been submitted and is pending approval."
+        title: "Error",
+        description: "An unexpected error occurred. Please try again later.",
+        variant: "destructive"
       });
-      setCartItems([]);
+    } finally {
       setIsPlacingOrder(false);
-    }, 1500);
+    }
   };
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="container-custom py-8 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+        </div>
+      </Layout>
+    );
+  }
   
   return (
     <Layout>
@@ -112,11 +148,15 @@ const Cart = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-16 w-16 flex-shrink-0">
-                              <img className="h-full w-full object-cover rounded" src={item.image} alt={item.name} />
+                              <img 
+                                className="h-full w-full object-cover rounded" 
+                                src={item.product.image_url || "https://via.placeholder.com/150?text=No+Image"} 
+                                alt={item.product.name} 
+                              />
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                              <div className="text-sm text-gray-500">₹{item.price.toFixed(2)} per unit</div>
+                              <div className="text-sm font-medium text-gray-900">{item.product.name}</div>
+                              <div className="text-sm text-gray-500">₹{item.product.price.toFixed(2)} per unit</div>
                             </div>
                           </div>
                         </td>
@@ -125,6 +165,7 @@ const Cart = () => {
                             <button 
                               onClick={() => updateQuantity(item.id, item.quantity - 1)} 
                               className="px-3 py-1 hover:bg-gray-100"
+                              disabled={item.quantity <= 1}
                             >
                               -
                             </button>
@@ -138,11 +179,11 @@ const Cart = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          ₹{(item.price * item.quantity).toFixed(2)}
+                          ₹{(item.product.price * item.quantity).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
-                            onClick={() => removeItem(item.id)} 
+                            onClick={() => handleRemoveItem(item.id)} 
                             className="text-red-600 hover:text-red-800"
                           >
                             <Trash2 className="h-5 w-5" />
@@ -175,20 +216,22 @@ const Cart = () => {
                 </div>
               </div>
               
-              <div className="mb-4">
-                <div className="text-sm font-medium mb-2">Shipping Address:</div>
-                <div className="text-gray-600 text-sm">
-                  {user?.name}<br />
-                  123 Medical Plaza<br />
-                  Mumbai, Maharashtra<br />
-                  India - 400001
+              {user && (
+                <div className="mb-4">
+                  <div className="text-sm font-medium mb-2">Delivery Address:</div>
+                  <div className="text-gray-600 text-sm">
+                    {user.name}<br />
+                    {/* We would normally fetch and display the address from the DB */}
+                    Doctor's Clinic Address<br />
+                    Contact: {user.email}
+                  </div>
                 </div>
-              </div>
+              )}
               
               <Button 
                 className="w-full" 
-                onClick={placeOrder} 
-                disabled={isPlacingOrder}
+                onClick={handlePlaceOrder} 
+                disabled={isPlacingOrder || cartItems.length === 0}
               >
                 {isPlacingOrder ? "Processing..." : "Place Order"}
               </Button>

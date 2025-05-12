@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 const HeroSection = () => {
   return (
-    <section className="hero-section section-padding">
+    <section className="hero-section bg-gradient-to-b from-upkar-blue to-upkar-blue-dark text-white py-16">
       <div className="container-custom">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <div className="space-y-6">

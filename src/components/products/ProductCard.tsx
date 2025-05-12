@@ -4,26 +4,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { ShoppingCart } from "lucide-react";
+import { Product } from "@/services/productService";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ProductCardProps {
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    image: string;
-    category: string;
-  };
+  product: Product;
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  
+  const handleAddToCart = () => {
+    // Cart functionality will be implemented later
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
   
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <Link to={`/products/${product.id}`}>
         <div className="h-48 overflow-hidden">
           <img 
-            src={product.image} 
+            src={product.image_url || "https://via.placeholder.com/300x200?text=No+Image"} 
             alt={product.name} 
             className="w-full h-full object-cover transition-transform hover:scale-105"
           />
@@ -33,7 +38,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       <CardContent className="p-4">
         <div className="mb-2">
           <span className="text-xs font-medium bg-upkar-light-gray text-gray-600 px-2 py-1 rounded-full">
-            {product.category}
+            {product.category || "General"}
           </span>
         </div>
         <Link to={`/products/${product.id}`} className="block">
@@ -49,7 +54,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       
       <CardFooter className="p-4 pt-0">
         {isAuthenticated ? (
-          <Button className="w-full flex items-center gap-2">
+          <Button className="w-full flex items-center gap-2" onClick={handleAddToCart}>
             <ShoppingCart className="h-4 w-4" />
             Add to Cart
           </Button>

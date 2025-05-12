@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "./productService";
 
@@ -186,7 +187,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       const { error: creditError } = await supabase.rpc('update_doctor_credit', {
         p_doctor_id: doctorId,
         p_amount: totalAmount
-      } as any); // Type assertion to bypass TypeScript checking
+      });
       
       if (creditError) {
         console.error("Error updating doctor credit:", creditError);

@@ -10,7 +10,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// This function is designed to be triggered by a cron job (weekly)
+interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -19,47 +24,68 @@ serve(async (req) => {
   
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    console.log('Starting weekly credit report generation')
     
-    console.log("Starting weekly credit summary scheduler")
+    // Get list of approved doctors with outstanding credit
+    const { data: doctors, error: doctorsError } = await supabase
+      .from('doctors')
+      .select('id, name, email')
+      .eq('is_approved', true)
     
-    // Get all doctors with outstanding credit
-    const { data: doctorsWithCredit, error: doctorError } = await supabase
-      .rpc('get_all_doctor_credit_summaries')
-    
-    if (doctorError) {
-      throw new Error(`Error fetching doctors: ${doctorError.message}`)
+    if (doctorsError) {
+      throw new Error(`Failed to fetch doctors: ${doctorsError.message}`)
     }
     
-    console.log(`Found ${doctorsWithCredit.length} doctors with credit accounts`)
+    console.log(`Found ${doctors?.length || 0} doctors to process`)
     
-    // For each doctor, generate and send a credit summary
-    const processedDoctors = []
-    
-    for (const doctor of doctorsWithCredit) {
+    // Process each doctor
+    const results = await Promise.allSettled((doctors || []).map(async (doctor: Doctor) => {
       try {
-        // In a real implementation, you'd call send-credit-summary for each doctor
-        // or implement the email sending logic directly here
-        console.log(`Would send weekly summary to: ${doctor.doctor_name} (${doctor.doctor_email})`)
-        console.log(`Current balance: ₹${doctor.total_credit.toLocaleString()}`)
+        // Get doctor's credit balance
+        const { data: creditSummary, error: creditError } = await supabase
+          .rpc('get_doctor_credit_summary', { p_doctor_id: doctor.id } as Record<string, any>)
         
-        processedDoctors.push({
-          doctor_id: doctor.doctor_id,
-          name: doctor.doctor_name,
-          email: doctor.doctor_email,
-          status: "queued"
+        if (creditError || !creditSummary) {
+          throw new Error(`Failed to fetch credit summary for doctor ${doctor.id}: ${creditError?.message || 'No data returned'}`)
+        }
+        
+        // Get recent transactions
+        const { data: recentTransactions, error: transactionsError } = await supabase
+          .rpc('get_doctor_credit_transactions', { p_doctor_id: doctor.id } as Record<string, any>)
+          .limit(5)
+        
+        if (transactionsError) {
+          console.error(`Failed to fetch transactions for doctor ${doctor.id}: ${transactionsError.message}`)
+          // Continue with empty transactions
+        }
+        
+        // Send email notification
+        await supabase.functions.invoke('doctor-email-notifications', {
+          body: {
+            type: 'credit_report',
+            doctorId: doctor.id,
+            additionalData: {
+              creditBalance: creditSummary.total_credit,
+              transactions: recentTransactions || []
+            }
+          }
         })
         
-        // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100))
-      } catch (err) {
-        console.error(`Error processing doctor ${doctor.doctor_id}:`, err)
+        return { doctorId: doctor.id, success: true }
+      } catch (error) {
+        console.error(`Error processing doctor ${doctor.id}:`, error)
+        return { doctorId: doctor.id, success: false, error: error.message }
       }
-    }
+    }))
     
-    return new Response(JSON.stringify({ 
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length
+    
+    console.log(`Weekly report job completed. Successfully processed: ${successful}, Failed: ${failed}`)
+    
+    return new Response(JSON.stringify({
       success: true,
-      processed: processedDoctors.length,
-      total: doctorsWithCredit.length
+      summary: { total: doctors?.length || 0, successful, failed }
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })

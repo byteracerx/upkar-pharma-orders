@@ -1,9 +1,16 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.8.0'
+import twilio from 'https://esm.sh/twilio@4.19.0'
 
 const supabaseUrl = 'https://hohfvjzagukucseffpmc.supabase.co'
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+// Twilio configuration
+const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || ''
+const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') || ''
+const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER') || ''
+const adminPhoneNumber = Deno.env.get('ADMIN_PHONE_NUMBER') || ''
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,15 +38,32 @@ serve(async (req) => {
     
     console.log(`New order notification: Order ${orderId} from ${doctorName}`)
     
-    // TODO: Integrate with a real WhatsApp API (Twilio or similar)
-    // For now we'll just log the message that would be sent
-    
+    // Create message content
     const messageText = `🆕 New Order Alert!\n\nOrder ID: ${orderId}\nDoctor: ${doctorName}\nPhone: ${doctorPhone}\nTotal Amount: ₹${totalAmount.toFixed(2)}\nItems: ${itemCount}\n\nPlease review this order in the admin panel.`
     
-    console.log("WhatsApp message that would be sent to admin:")
-    console.log(messageText)
+    // Log message that would be sent
+    console.log("WhatsApp message content:", messageText)
     
-    // You would add the actual WhatsApp sending logic here using Twilio or any other provider
+    // Initialize Twilio client if credentials are available
+    if (twilioAccountSid && twilioAuthToken && twilioFromNumber && adminPhoneNumber) {
+      try {
+        const twilioClient = twilio(twilioAccountSid, twilioAuthToken)
+        
+        // Send WhatsApp message using Twilio
+        const message = await twilioClient.messages.create({
+          body: messageText,
+          from: `whatsapp:${twilioFromNumber}`,
+          to: `whatsapp:${adminPhoneNumber}`
+        })
+        
+        console.log('WhatsApp notification sent successfully:', message.sid)
+      } catch (twilioError) {
+        console.error('Error sending WhatsApp notification:', twilioError)
+        // We don't fail the function just because WhatsApp notification failed
+      }
+    } else {
+      console.log('Twilio configuration missing. WhatsApp notification not sent.')
+    }
     
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

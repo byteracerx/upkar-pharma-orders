@@ -126,8 +126,7 @@ export const updateOrderStatus = async (orderId: string, newStatus: string): Pro
         *,
         doctor:doctor_id (
           name,
-          phone,
-          email
+          phone
         )
       `)
       .eq("id", orderId)
@@ -170,7 +169,8 @@ export const updateOrderStatus = async (orderId: string, newStatus: string): Pro
           doctorName: orderData.doctor?.name,
           doctorPhone: orderData.doctor?.phone,
           newStatus,
-          doctorEmail: orderData.doctor?.email
+          // We don't have email in the doctor object from this query
+          doctorEmail: null
         }
       });
     } catch (notifyError) {

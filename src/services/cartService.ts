@@ -165,7 +165,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
     if (!doctorError && doctorData) {
       // Send notification to admin
       try {
-        const response = await supabase.functions.invoke('notify-admin-new-order', {
+        await supabase.functions.invoke('notify-admin-new-order', {
           body: {
             orderId,
             doctorName: doctorData.name,
@@ -175,7 +175,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
           }
         });
         
-        console.log("Admin notification sent:", response);
+        console.log("Admin notification sent:", orderId);
       } catch (notifyError) {
         console.error("Failed to send admin notification:", notifyError);
         // We don't fail the order just because notification failed

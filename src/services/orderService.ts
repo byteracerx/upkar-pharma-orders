@@ -119,6 +119,26 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
 // Update order status (for admin)
 export const updateOrderStatus = async (orderId: string, newStatus: string): Promise<boolean> => {
   try {
+    // First, get the order details to get doctor information
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone,
+          email
+        )
+      `)
+      .eq("id", orderId)
+      .single();
+    
+    if (orderError || !orderData) {
+      console.error("Error fetching order details:", orderError);
+      return false;
+    }
+    
+    // Update the order status
     const { error } = await supabase
       .from("orders")
       .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -127,6 +147,35 @@ export const updateOrderStatus = async (orderId: string, newStatus: string): Pro
     if (error) {
       console.error("Error updating order status:", error);
       return false;
+    }
+    
+    // If status changed to 'accepted', generate invoice
+    if (newStatus === 'accepted') {
+      try {
+        // Call edge function to generate invoice and send email
+        await supabase.functions.invoke('generate-invoice', {
+          body: { orderId }
+        });
+      } catch (invoiceError) {
+        console.error("Error generating invoice:", invoiceError);
+        // We don't fail the status update just because invoice generation failed
+      }
+    }
+    
+    // Notify doctor about status update
+    try {
+      await supabase.functions.invoke('notify-doctor-status-update', {
+        body: {
+          orderId,
+          doctorName: orderData.doctor?.name,
+          doctorPhone: orderData.doctor?.phone,
+          newStatus,
+          doctorEmail: orderData.doctor?.email
+        }
+      });
+    } catch (notifyError) {
+      console.error("Error notifying doctor:", notifyError);
+      // We don't fail the status update just because notification failed
     }
     
     return true;

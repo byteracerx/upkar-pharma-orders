@@ -155,6 +155,48 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       return { success: false, error: itemsError.message };
     }
     
+    // Fetch doctor information for notification
+    const { data: doctorData, error: doctorError } = await supabase
+      .from("doctors")
+      .select("name, phone")
+      .eq("id", doctorId)
+      .single();
+      
+    if (!doctorError && doctorData) {
+      // Send notification to admin
+      try {
+        const response = await supabase.functions.invoke('notify-admin-new-order', {
+          body: {
+            orderId,
+            doctorName: doctorData.name,
+            doctorPhone: doctorData.phone,
+            totalAmount: totalAmount,
+            itemCount: cartItems.length
+          }
+        });
+        
+        console.log("Admin notification sent:", response);
+      } catch (notifyError) {
+        console.error("Failed to send admin notification:", notifyError);
+        // We don't fail the order just because notification failed
+      }
+    }
+    
+    // Update doctor's credit balance
+    try {
+      const { error: creditError } = await supabase.rpc('update_doctor_credit', {
+        p_doctor_id: doctorId,
+        p_amount: totalAmount
+      });
+      
+      if (creditError) {
+        console.error("Error updating doctor credit:", creditError);
+      }
+    } catch (creditUpdateError) {
+      console.error("Failed to update credit balance:", creditUpdateError);
+      // We don't fail the order just because credit update failed
+    }
+    
     // Clear the cart after successful order
     clearCart();
     

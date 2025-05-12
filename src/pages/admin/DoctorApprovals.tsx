@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import DoctorApprovalCard from "@/components/admin/DoctorApprovalCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Users } from "lucide-react";
 
 // Mock data for pending approvals
 const mockPendingDoctors = [

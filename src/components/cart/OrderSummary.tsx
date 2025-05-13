@@ -42,12 +42,11 @@ const OrderSummary = ({
       
       {user && (
         <div className="mb-4">
-          <div className="text-sm font-medium mb-2">Delivery Address:</div>
+          <div className="text-sm font-medium mb-2">Order Information:</div>
           <div className="text-gray-600 text-sm">
-            {user?.user_metadata?.name || 'User'}<br />
-            {/* We would normally fetch and display the address from the DB */}
-            Doctor's Clinic Address<br />
-            Contact: {user.email}
+            <p>• Your order will be reviewed by our team</p>
+            <p>• You'll receive a WhatsApp notification when your order status changes</p>
+            <p>• An invoice will be sent to your email once your order is accepted</p>
           </div>
         </div>
       )}

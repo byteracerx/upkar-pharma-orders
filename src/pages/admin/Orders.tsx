@@ -159,21 +159,50 @@ const AdminOrders = () => {
         description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
       });
       
-      // If status changed to delivered, generate invoice
-      if (newStatus === "delivered") {
-        // In a real app, you would call a serverless function to generate and send the invoice
-        toast.info("Invoice will be generated automatically", {
-          description: "The system will generate and send the invoice to the doctor."
-        });
-      }
-      
-      // Send notification to doctor about status change
-      // In a real app, you would call a serverless function to send WhatsApp/SMS
+      // Get the order details for notifications
       const order = orders.find(o => o.id === orderId);
+      
       if (order && order.doctor) {
-        console.log(`Notification would be sent to ${order.doctor.name} about order status change to ${newStatus}`);
+        // Send notification to doctor about status change
+        try {
+          await supabase.functions.invoke('notify-doctor-status-update', {
+            body: {
+              orderId,
+              doctorName: order.doctor.name,
+              doctorPhone: order.doctor.phone,
+              doctorEmail: order.doctor.email || '',
+              newStatus
+            }
+          });
+          
+          toast.success("Notification Sent", {
+            description: `WhatsApp notification sent to ${order.doctor.name}`
+          });
+        } catch (notifyError) {
+          console.error("Error sending notification:", notifyError);
+          toast.error("Notification Failed", {
+            description: "Could not send WhatsApp notification to doctor."
+          });
+        }
       }
       
+      // If status changed to accepted, generate invoice
+      if (newStatus === "accepted") {
+        try {
+          await supabase.functions.invoke('generate-invoice', {
+            body: { orderId }
+          });
+          
+          toast.success("Invoice Generated", {
+            description: "The invoice has been generated and sent to the doctor."
+          });
+        } catch (invoiceError) {
+          console.error("Error generating invoice:", invoiceError);
+          toast.error("Invoice Generation Failed", {
+            description: "Could not generate invoice for this order."
+          });
+        }
+      }
     } catch (error: any) {
       console.error("Error updating order status:", error);
       toast.error("Failed to update order status", {
@@ -187,8 +216,10 @@ const AdminOrders = () => {
     try {
       setIsGeneratingInvoice(true);
       
-      // In a real app, you would call a serverless function to generate the invoice
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      // Call the serverless function to generate the invoice
+      await supabase.functions.invoke('generate-invoice', {
+        body: { orderId }
+      });
       
       toast.success("Invoice Generated", {
         description: "The invoice has been generated and sent to the doctor."
@@ -208,11 +239,26 @@ const AdminOrders = () => {
     try {
       setIsSendingNotification(true);
       
-      // In a real app, you would call a serverless function to send the notification
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      // Get the order details
+      const order = orders.find(o => o.id === orderId);
+      
+      if (!order || !order.doctor) {
+        throw new Error("Order or doctor information not found");
+      }
+      
+      // Send notification to doctor
+      await supabase.functions.invoke('notify-doctor-status-update', {
+        body: {
+          orderId,
+          doctorName: order.doctor.name,
+          doctorPhone: order.doctor.phone,
+          doctorEmail: order.doctor.email || '',
+          newStatus: order.status
+        }
+      });
       
       toast.success("Notification Sent", {
-        description: "The notification has been sent to the doctor."
+        description: `WhatsApp notification sent to ${order.doctor.name}`
       });
     } catch (error: any) {
       console.error("Error sending notification:", error);

@@ -81,13 +81,112 @@ serve(async (req) => {
     
     console.log(`Invoice ${invoiceNumber} created for order ${orderId}`)
     
-    // 4. In a real implementation, we would:
-    // - Generate a PDF using a library
-    // - Upload it to Supabase Storage
-    // - Update the invoice record with the PDF URL
-    // - Send the PDF via email
+    // 4. Generate a simple HTML invoice
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Invoice ${invoiceNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+          .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); }
+          .invoice-box table { width: 100%; line-height: inherit; text-align: left; }
+          .invoice-box table td { padding: 5px; vertical-align: top; }
+          .invoice-box table tr td:nth-child(2) { text-align: right; }
+          .invoice-box table tr.top table td { padding-bottom: 20px; }
+          .invoice-box table tr.top table td.title { font-size: 45px; line-height: 45px; color: #333; }
+          .invoice-box table tr.information table td { padding-bottom: 40px; }
+          .invoice-box table tr.heading td { background: #eee; border-bottom: 1px solid #ddd; font-weight: bold; }
+          .invoice-box table tr.details td { padding-bottom: 20px; }
+          .invoice-box table tr.item td{ border-bottom: 1px solid #eee; }
+          .invoice-box table tr.item.last td { border-bottom: none; }
+          .invoice-box table tr.total td:nth-child(2) { border-top: 2px solid #eee; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-box">
+          <table cellpadding="0" cellspacing="0">
+            <tr class="top">
+              <td colspan="4">
+                <table>
+                  <tr>
+                    <td class="title">
+                      <img src="https://hohfvjzagukucseffpmc.supabase.co/storage/v1/object/public/public/logo.png" style="width:100px; max-width:300px;">
+                    </td>
+                    <td>
+                      Invoice #: ${invoiceNumber}<br>
+                      Created: ${new Date(orderData.created_at).toLocaleDateString()}<br>
+                      Due: ${new Date(orderData.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            
+            <tr class="information">
+              <td colspan="4">
+                <table>
+                  <tr>
+                    <td>
+                      Upkar Pharma<br>
+                      123 Pharma Street<br>
+                      New Delhi, 110001
+                    </td>
+                    <td>
+                      ${orderData.doctor.name}<br>
+                      ${orderData.doctor.email || ''}<br>
+                      ${orderData.doctor.phone || ''}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            
+            <tr class="heading">
+              <td>Payment Method</td>
+              <td colspan="3">Credit Account</td>
+            </tr>
+            
+            <tr class="details">
+              <td>Credit</td>
+              <td colspan="3">₹${orderData.total_amount.toFixed(2)}</td>
+            </tr>
+            
+            <tr class="heading">
+              <td>Item</td>
+              <td>Quantity</td>
+              <td>Price</td>
+              <td>Total</td>
+            </tr>
+            
+            ${orderItems.map(item => `
+              <tr class="item">
+                <td>${item.product.name}</td>
+                <td>${item.quantity}</td>
+                <td>₹${item.price_per_unit.toFixed(2)}</td>
+                <td>₹${item.total_price.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+            
+            <tr class="total">
+              <td colspan="3"></td>
+              <td>Total: ₹${orderData.total_amount.toFixed(2)}</td>
+            </tr>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
     
-    console.log("Email that would be sent to doctor:")
+    // In a real implementation, we would:
+    // 1. Convert this HTML to PDF using a library like puppeteer
+    // 2. Upload the PDF to Supabase Storage
+    // 3. Update the invoice record with the PDF URL
+    // 4. Send the PDF via email
+    
+    // For now, we'll just log what would be sent
+    console.log("Email that would be sent to doctor:");
     console.log(`
       Subject: Your Invoice ${invoiceNumber} from Upkar Pharma
       
@@ -104,7 +203,9 @@ serve(async (req) => {
       
       Regards,
       Upkar Pharma Team
-    `)
+    `);
+    
+    // In a production environment, we would use a service like SendGrid or AWS SES to send the email with the PDF attachment
     
     return new Response(JSON.stringify({ 
       success: true,

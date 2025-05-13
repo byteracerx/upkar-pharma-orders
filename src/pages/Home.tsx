@@ -3,6 +3,7 @@ import Layout from "@/components/layout/Layout";
 import HeroSection from "@/components/home/HeroSection";
 import FeaturesSection from "@/components/home/FeaturesSection";
 import TestimonialsSection from "@/components/home/TestimonialsSection";
+import PhotoGallery from "@/components/home/PhotoGallery";
 import CtaSection from "@/components/home/CtaSection";
 import { useAuth } from "@/contexts/AuthContext";
 import ProductList from "@/components/products/ProductList";
@@ -16,6 +17,7 @@ const Home = () => {
         <>
           <HeroSection />
           <FeaturesSection />
+          <PhotoGallery />
           <TestimonialsSection />
         </>
       )}

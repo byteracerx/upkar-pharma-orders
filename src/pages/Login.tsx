@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import AdminLoginInfo from "@/components/auth/AdminLoginInfo";
 
 const Login = () => {
   const { user, signIn } = useAuth();
@@ -18,7 +20,7 @@ const Login = () => {
 
   // If the user is already logged in, redirect to the appropriate dashboard
   if (user) {
-    if (user.email === "admin@upkar.com") {
+    if (user.isAdmin) {
       return <Navigate to="/admin" />;
     }
     return <Navigate to="/dashboard" />;
@@ -26,23 +28,80 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form fields
+    if (!email || !password) {
+      toast.error("Missing Fields", {
+        description: "Please enter both email and password"
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      // Check if trying to login as admin
+      const isAdminLogin = email.toLowerCase() === 'admin@upkar.com';
+      
+      console.log("Attempting login with:", { email, password: "***" });
+      
+      // Perform the login directly with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password
+      });
 
       if (error) {
-        toast.error("Login Failed", {
-          description: error.message || "Please check your credentials and try again"
-        });
+        console.error("Login error:", error);
+        
+        // If admin login failed, suggest creating the admin account
+        if (isAdminLogin) {
+          toast.error("Admin Login Failed", {
+            description: (
+              <div>
+                <p>{error.message || "Admin account may not exist yet."}</p>
+                <a 
+                  href="/create-admin" 
+                  className="text-blue-500 underline mt-2 block"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/create-admin');
+                  }}
+                >
+                  Click here to create the admin account
+                </a>
+              </div>
+            )
+          });
+        } else {
+          toast.error("Login Failed", {
+            description: error.message || "Please check your credentials and try again"
+          });
+        }
       } else {
+        console.log("Login successful:", data);
+        
+        // Get the current user after login
+        const currentUser = data.user;
+        
+        // Check if the user is admin
+        const isAdmin = currentUser?.email === 'admin@upkar.com';
+        
         toast.success("Login Successful", {
-          description: "Welcome back to Upkar Pharma"
+          description: isAdmin 
+            ? "Welcome to the Admin Dashboard" 
+            : "Welcome back to Upkar Pharma"
         });
         
-        // Navigate based on user role - handled by the redirect above once user state updates
+        // Navigate based on user role
+        if (isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (error: any) {
+      console.error("Unexpected login error:", error);
       toast.error("An unexpected error occurred", {
         description: error.message || "Please try again later"
       });
@@ -111,6 +170,8 @@ const Login = () => {
                 Register
               </Link>
             </p>
+            
+            <AdminLoginInfo />
           </CardFooter>
         </form>
       </Card>

@@ -169,6 +169,38 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       return { success: false, error: itemsError.message };
     }
 
+    // Get doctor information for notification
+    const { data: doctorData, error: doctorError } = await supabase
+      .from('doctors')
+      .select('name, phone, email')
+      .eq('id', doctorId)
+      .single();
+
+    if (!doctorError && doctorData) {
+      // Send WhatsApp notification to admin
+      try {
+        // Get a summary of items for the notification
+        const itemSummary = cartItems.map(item => 
+          `${item.product.name} x ${item.quantity}`
+        ).join(', ');
+
+        // Call the serverless function to notify admin
+        await supabase.functions.invoke('notify-admin-new-order', {
+          body: {
+            orderId,
+            doctorName: doctorData.name,
+            doctorPhone: doctorData.phone,
+            totalAmount,
+            itemCount: cartItems.length,
+            itemSummary
+          }
+        });
+      } catch (notifyError) {
+        console.error("Error notifying admin:", notifyError);
+        // We don't fail the order just because notification failed
+      }
+    }
+
     // Clear the cart
     clearCart();
     

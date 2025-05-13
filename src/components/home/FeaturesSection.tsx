@@ -1,11 +1,11 @@
 
-import { Truck, Clock, CreditCard, Stethoscope } from "lucide-react";
+import { Truck, DollarSign, Users } from "lucide-react";
 
 const features = [
   {
-    icon: <Stethoscope className="h-10 w-10" />,
-    title: "For Medical Professionals",
-    description: "Created exclusively for doctors and medical practitioners to simplify pharmaceutical ordering."
+    icon: <DollarSign className="h-10 w-10" />,
+    title: "Affordable",
+    description: "We offer the best quality medicines at prices that won't break the bank."
   },
   {
     icon: <Truck className="h-10 w-10" />,
@@ -13,14 +13,9 @@ const features = [
     description: "Quick and reliable delivery directly to your clinic or hospital."
   },
   {
-    icon: <Clock className="h-10 w-10" />,
-    title: "Save Time",
-    description: "No more lengthy calls or manual processes. Order with just a few clicks."
-  },
-  {
-    icon: <CreditCard className="h-10 w-10" />,
-    title: "Credit System",
-    description: "Flexible payment options with integrated credit management for registered doctors."
+    icon: <Users className="h-10 w-10" />,
+    title: "Trusted by 100+ Doctors",
+    description: "Join our growing community of healthcare professionals who trust our service."
   }
 ];
 

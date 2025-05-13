@@ -1,16 +1,19 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { 
   ShoppingCart, 
   Menu, 
   X, 
   ChevronDown,
   LogOut,
-  User
+  User,
+  Search
 } from "lucide-react";
+import { fetchProducts, Product } from "@/services/productService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +26,52 @@ import {
 const Navbar = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performSearch();
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const performSearch = async () => {
+    try {
+      const results = await fetchProducts(searchQuery);
+      setSearchResults(results.slice(0, 5)); // Limit to 5 results
+      setShowResults(true);
+    } catch (error) {
+      console.error("Error searching products:", error);
+    }
+  };
+
+  const handleSearchSelect = (productId: string) => {
+    navigate(`/products/${productId}`);
+    setShowResults(false);
+    setSearchQuery("");
+  };
 
   const handleLogout = () => {
     logout();
@@ -47,10 +95,47 @@ const Navbar = () => {
             </div>
           </Link>
 
+          {/* Search Bar */}
+          <div className="hidden md:flex relative" ref={searchRef}>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search medicines..."
+                className="w-64 pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.trim() && setShowResults(true)}
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+            
+            {/* Search Results Dropdown */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full mt-1 w-full bg-white shadow-lg rounded-md z-50 max-h-80 overflow-y-auto">
+                {searchResults.map((product) => (
+                  <div
+                    key={product.id}
+                    className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
+                    onClick={() => handleSearchSelect(product.id)}
+                  >
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-sm text-gray-500">₹{product.price.toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/products" className="text-gray-600 hover:text-upkem-green transition-colors">
               Products
+            </Link>
+            <Link to="/about" className="text-gray-600 hover:text-upkem-green transition-colors">
+              About Us
+            </Link>
+            <Link to="/contact" className="text-gray-600 hover:text-upkem-green transition-colors">
+              Contact
             </Link>
             
             {isAuthenticated ? (
@@ -70,12 +155,28 @@ const Navbar = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      {isAdmin ? 'Admin Account' : 'My Account'}
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Dashboard</span>
-                    </DropdownMenuItem>
+                    {isAdmin ? (
+                      <>
+                        <DropdownMenuItem onClick={() => navigate('/admin')}>
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Admin Dashboard</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate('/admin/orders')}>
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          <span>Manage Orders</span>
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>My Dashboard</span>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Logout</span>
@@ -114,6 +215,20 @@ const Navbar = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Products
+              </Link>
+              <Link
+                to="/about"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                About Us
+              </Link>
+              <Link
+                to="/contact"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
               </Link>
               
               {isAuthenticated ? (

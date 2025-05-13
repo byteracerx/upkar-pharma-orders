@@ -1,9 +1,15 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.8.0'
+import twilio from 'https://esm.sh/twilio@4.19.0'
 
 const supabaseUrl = 'https://hohfvjzagukucseffpmc.supabase.co'
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+// Twilio configuration
+const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || ''
+const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') || ''
+const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER') || ''
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,12 +60,36 @@ serve(async (req) => {
     // Format WhatsApp message
     const messageText = `📋 Order Status Update\n\nHi Dr. ${doctorName},\n\n${statusMessage}\n\nOrder ID: ${orderId}\nStatus: ${newStatus.toUpperCase()}\n\nThank you for choosing Upkar Pharma!`
     
-    console.log("WhatsApp message that would be sent to doctor:")
+    console.log("WhatsApp message to be sent to doctor:")
     console.log(messageText)
-    console.log(`Would be sent to: ${doctorPhone}`)
+    console.log(`Will be sent to: ${doctorPhone}`)
     
-    // You would add the actual WhatsApp sending logic here
-    // Also, you can implement email sending here
+    // Send WhatsApp message using Twilio
+    if (twilioAccountSid && twilioAuthToken && twilioFromNumber && doctorPhone) {
+      try {
+        const twilioClient = twilio(twilioAccountSid, twilioAuthToken)
+        
+        // Send WhatsApp message
+        const message = await twilioClient.messages.create({
+          body: messageText,
+          from: `whatsapp:${twilioFromNumber}`,
+          to: `whatsapp:${doctorPhone}`
+        })
+        
+        console.log('WhatsApp notification sent successfully to doctor:', message.sid)
+      } catch (twilioError) {
+        console.error('Error sending WhatsApp notification to doctor:', twilioError)
+        // We don't fail the function just because WhatsApp notification failed
+      }
+    } else {
+      console.log('Twilio configuration missing or doctor phone not available. WhatsApp notification not sent.')
+    }
+    
+    // If we have the doctor's email, also send an email notification
+    if (doctorEmail) {
+      // Email notification logic would go here
+      console.log(`Email notification would be sent to: ${doctorEmail}`)
+    }
     
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

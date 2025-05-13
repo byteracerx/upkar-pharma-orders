@@ -23,6 +23,7 @@ interface NotifyAdminRequest {
   doctorPhone: string;
   totalAmount: number;
   itemCount: number;
+  itemSummary: string;
 }
 
 serve(async (req) => {
@@ -34,12 +35,12 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
-    const { orderId, doctorName, doctorPhone, totalAmount, itemCount } = await req.json() as NotifyAdminRequest
+    const { orderId, doctorName, doctorPhone, totalAmount, itemCount, itemSummary } = await req.json() as NotifyAdminRequest
     
     console.log(`New order notification: Order ${orderId} from ${doctorName}`)
     
     // Create message content
-    const messageText = `🆕 New Order Alert!\n\nOrder ID: ${orderId}\nDoctor: ${doctorName}\nPhone: ${doctorPhone}\nTotal Amount: ₹${totalAmount.toFixed(2)}\nItems: ${itemCount}\n\nPlease review this order in the admin panel.`
+    const messageText = `🆕 New Order Alert!\n\nOrder ID: ${orderId}\nDoctor: ${doctorName}\nPhone: ${doctorPhone}\nTotal Amount: ₹${totalAmount.toFixed(2)}\nItems: ${itemCount}\n\nOrder Summary: ${itemSummary}\n\nPlease review this order in the admin panel or reply with "ACCEPT ${orderId}" to accept or "DECLINE ${orderId}" to decline.`
     
     // Log message that would be sent
     console.log("WhatsApp message content:", messageText)

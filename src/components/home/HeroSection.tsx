@@ -2,9 +2,58 @@
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { fetchProducts, Product } from "@/services/productService";
 
 const HeroSection = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performSearch();
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const performSearch = async () => {
+    try {
+      const results = await fetchProducts(searchQuery);
+      setSearchResults(results.slice(0, 5)); // Limit to 5 results
+      setShowResults(true);
+    } catch (error) {
+      console.error("Error searching products:", error);
+    }
+  };
+
+  const handleSearchSelect = (productId: string) => {
+    navigate(`/products/${productId}`);
+    setShowResults(false);
+    setSearchQuery("");
+  };
+
   return (
     <section className="bg-gradient-to-b from-upkem-green to-upkem-dark-green text-white py-16">
       <div className="container-custom">
@@ -23,10 +72,10 @@ const HeroSection = () => {
             </div>
             
             <h2 className="text-2xl md:text-4xl font-bold leading-tight">
-              Pharmaceutical Solutions for Healthcare Professionals
+              No calls, just clicks
             </h2>
             <p className="text-lg md:text-xl opacity-90">
-              Streamlined ordering system for medical professionals with fast delivery and reliable service.
+              Best quality medicines at affordable prices
             </p>
             
             <div className="flex items-center gap-4">
@@ -39,16 +88,37 @@ const HeroSection = () => {
             </div>
           </div>
           
-          <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
+          <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm" ref={searchRef}>
             <h2 className="text-xl font-semibold mb-4">Search Medicines</h2>
             <div className="flex gap-2">
-              <div className="flex-grow">
+              <div className="flex-grow relative">
                 <Input 
                   placeholder="Search by medicine name" 
                   className="bg-white/80 border-0 focus-visible:ring-white" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery.trim() && setShowResults(true)}
                 />
+                {/* Search Results Dropdown */}
+                {showResults && searchResults.length > 0 && (
+                  <div className="absolute top-full mt-1 w-full bg-white shadow-lg rounded-md z-50 max-h-80 overflow-y-auto">
+                    {searchResults.map((product) => (
+                      <div
+                        key={product.id}
+                        className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
+                        onClick={() => handleSearchSelect(product.id)}
+                      >
+                        <div className="font-medium text-gray-800">{product.name}</div>
+                        <div className="text-sm text-gray-500">₹{product.price.toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <Button className="bg-white text-upkem-green hover:bg-gray-100">
+              <Button 
+                className="bg-white text-upkem-green hover:bg-gray-100"
+                onClick={performSearch}
+              >
                 <Search className="h-4 w-4 mr-2" />
                 Search
               </Button>
@@ -60,6 +130,10 @@ const HeroSection = () => {
                   <span 
                     key={term} 
                     className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-full text-sm cursor-pointer transition"
+                    onClick={() => {
+                      setSearchQuery(term);
+                      performSearch();
+                    }}
                   >
                     {term}
                   </span>

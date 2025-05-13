@@ -143,9 +143,26 @@ const AdminProducts = () => {
       toast.success("Product added successfully");
     } catch (error: any) {
       console.error("Error adding product:", error);
-      toast.error("Failed to add product", {
-        description: error.message
-      });
+      // Check if this is an RLS policy error
+      if (error.message.includes("row-level security policy")) {
+        toast.error("Permission Error", {
+          description: (
+            <div>
+              <p>You don't have permission to add products.</p>
+              <a 
+                href="/admin/setup-rls" 
+                className="text-blue-500 underline mt-2 block"
+              >
+                Click here to setup admin permissions
+              </a>
+            </div>
+          )
+        });
+      } else {
+        toast.error("Failed to add product", {
+          description: error.message
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -185,9 +202,26 @@ const AdminProducts = () => {
       toast.success("Product updated successfully");
     } catch (error: any) {
       console.error("Error updating product:", error);
-      toast.error("Failed to update product", {
-        description: error.message
-      });
+      // Check if this is an RLS policy error
+      if (error.message.includes("row-level security policy")) {
+        toast.error("Permission Error", {
+          description: (
+            <div>
+              <p>You don't have permission to update products.</p>
+              <a 
+                href="/admin/setup-rls" 
+                className="text-blue-500 underline mt-2 block"
+              >
+                Click here to setup admin permissions
+              </a>
+            </div>
+          )
+        });
+      } else {
+        toast.error("Failed to update product", {
+          description: error.message
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -214,9 +248,26 @@ const AdminProducts = () => {
       toast.success("Product deleted successfully");
     } catch (error: any) {
       console.error("Error deleting product:", error);
-      toast.error("Failed to delete product", {
-        description: error.message
-      });
+      // Check if this is an RLS policy error
+      if (error.message.includes("row-level security policy")) {
+        toast.error("Permission Error", {
+          description: (
+            <div>
+              <p>You don't have permission to delete products.</p>
+              <a 
+                href="/admin/setup-rls" 
+                className="text-blue-500 underline mt-2 block"
+              >
+                Click here to setup admin permissions
+              </a>
+            </div>
+          )
+        });
+      } else {
+        toast.error("Failed to delete product", {
+          description: error.message
+        });
+      }
     } finally {
       setIsLoading(false);
     }

@@ -21,13 +21,15 @@ export interface CreditSummary {
 }
 
 // Define the RPC parameter types
-type RPCParams = Record<string, unknown>;
+interface DoctorIdParam {
+  doctor_id: string;
+}
 
 // Get credit history for a doctor
 export const fetchCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_doctor_credit_history', { doctor_id: doctorId } as RPCParams);
+      .rpc('get_doctor_credit_history', { doctor_id: doctorId });
     
     if (error) throw error;
     return data || [];
@@ -41,7 +43,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
 export const fetchDoctorCreditSummary = async (doctorId: string): Promise<CreditSummary> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_doctor_credit_summary', { doctor_id: doctorId } as RPCParams);
+      .rpc('get_doctor_credit_summary', { doctor_id: doctorId });
     
     if (error) throw error;
     return data;
@@ -55,7 +57,7 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
 export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_all_doctor_credits');
+      .rpc('get_all_doctor_credits', {});
     
     if (error) throw error;
     return data || [];
@@ -65,6 +67,14 @@ export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
   }
 };
 
+// Define interface for payment parameters
+interface PaymentParams {
+  doctor_id: string;
+  payment_amount: number;
+  payment_method: string;
+  payment_notes: string;
+}
+
 // Record a payment for a doctor
 export const recordDoctorPayment = async (
   doctorId: string, 
@@ -72,13 +82,15 @@ export const recordDoctorPayment = async (
   notes: string
 ): Promise<boolean> => {
   try {
+    const params: PaymentParams = {
+      doctor_id: doctorId,
+      payment_amount: amount,
+      payment_method: 'cash', // Default payment method
+      payment_notes: notes
+    };
+    
     const { data, error } = await supabase
-      .rpc('record_doctor_payment', { 
-        doctor_id: doctorId, 
-        payment_amount: amount,
-        payment_method: 'cash', // Default payment method
-        payment_notes: notes 
-      } as RPCParams);
+      .rpc('record_doctor_payment', params);
     
     if (error) throw error;
     return true;

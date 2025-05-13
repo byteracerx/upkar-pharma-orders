@@ -14,9 +14,9 @@ const CartTable = ({ cartItems, updateQuantity, handleRemoveItem }: CartTablePro
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Price</th>
             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
@@ -25,14 +25,7 @@ const CartTable = ({ cartItems, updateQuantity, handleRemoveItem }: CartTablePro
             <tr key={item.id}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
-                  <div className="h-16 w-16 flex-shrink-0">
-                    <img 
-                      className="h-full w-full object-cover rounded" 
-                      src={item.product.image_url || "https://via.placeholder.com/150?text=No+Image"} 
-                      alt={item.product.name} 
-                    />
-                  </div>
-                  <div className="ml-4">
+                  <div className="ml-0">
                     <div className="text-sm font-medium text-gray-900">{item.product.name}</div>
                     <div className="text-sm text-gray-500">₹{item.product.price.toFixed(2)} per unit</div>
                   </div>

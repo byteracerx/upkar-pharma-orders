@@ -49,8 +49,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const extendedUser = newSession.user as ExtendedUser;
           // Add name from user metadata if available
           extendedUser.name = extendedUser.user_metadata?.name || '';
-          // Check if user is admin (this would normally be a role check)
-          extendedUser.isAdmin = extendedUser.email?.endsWith('@admin.com') || false;
+          // Check if user is admin - using the admin email or role in metadata
+          extendedUser.isAdmin = 
+            extendedUser.email === 'admin@upkar.com' || 
+            extendedUser.user_metadata?.role === 'admin' || 
+            false;
         }
         setSession(newSession);
         setUser(newSession?.user as ExtendedUser ?? null);
@@ -63,8 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const extendedUser = currentSession.user as ExtendedUser;
         // Add name from user metadata if available
         extendedUser.name = extendedUser.user_metadata?.name || '';
-        // Check if user is admin (this would normally be a role check)
-        extendedUser.isAdmin = extendedUser.email?.endsWith('@admin.com') || false;
+        // Check if user is admin - using the admin email or role in metadata
+        extendedUser.isAdmin = 
+          extendedUser.email === 'admin@upkar.com' || 
+          extendedUser.user_metadata?.role === 'admin' || 
+          false;
         setSession(currentSession);
         setUser(extendedUser);
       }

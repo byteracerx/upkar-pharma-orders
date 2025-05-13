@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Trash2, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
+import { ShoppingCart, Trash2, ChevronLeft, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCartItems, updateCartItemQuantity, removeFromCart, placeOrder, CartItem } from "@/services/cartService";
 import {
@@ -54,7 +54,7 @@ const Cart = () => {
     const success = removeFromCart(id);
     if (success) {
       setCartItems(prev => prev.filter(item => item.id !== id));
-      toast.success("Item Removed", {
+      toast.toast.success("Item Removed", {
         description: "The item has been removed from your cart."
       });
     }
@@ -62,7 +62,7 @@ const Cart = () => {
   
   const handlePlaceOrder = async () => {
     if (!user?.id) {
-      toast.error("Authentication Required", {
+      toast.toast.error("Authentication Required", {
         description: "You need to be logged in to place an order."
       });
       navigate("/login");
@@ -79,13 +79,13 @@ const Cart = () => {
         setOrderSuccessOpen(true);
         setCartItems([]);
       } else {
-        toast.error("Order Failed", {
+        toast.toast.error("Order Failed", {
           description: result.error || "There was an issue placing your order. Please try again."
         });
       }
     } catch (error: any) {
       console.error("Error placing order:", error);
-      toast.error("Error", {
+      toast.toast.error("Error", {
         description: error.message || "An unexpected error occurred. Please try again later."
       });
     } finally {
@@ -225,7 +225,7 @@ const Cart = () => {
                 <div className="mb-4">
                   <div className="text-sm font-medium mb-2">Delivery Address:</div>
                   <div className="text-gray-600 text-sm">
-                    {user.name}<br />
+                    {user?.user_metadata?.name || 'User'}<br />
                     {/* We would normally fetch and display the address from the DB */}
                     Doctor's Clinic Address<br />
                     Contact: {user.email}

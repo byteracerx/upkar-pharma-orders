@@ -11,7 +11,7 @@ import {
   Minus,
   Loader2
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { fetchProductById, Product } from "@/services/productService";
 import { addToCart } from "@/services/cartService";
 
@@ -34,7 +34,7 @@ const ProductDetail = () => {
         setProduct(productData);
       } catch (error) {
         console.error("Failed to load product:", error);
-        toast.error("Error", {
+        toast.toast.error("Error", {
           description: "Failed to load product details. Please try again."
         });
       } finally {
@@ -84,11 +84,11 @@ const ProductDetail = () => {
       const success = await addToCart(product.id, quantity);
       
       if (success) {
-        toast.success("Added to Cart", {
+        toast.toast.success("Added to Cart", {
           description: `${quantity} ${quantity === 1 ? 'unit' : 'units'} of ${product.name} added to your cart.`
         });
       } else {
-        toast.error("Error", {
+        toast.toast.error("Error", {
           description: "Failed to add product to cart. Please try again."
         });
       }

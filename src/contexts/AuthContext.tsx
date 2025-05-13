@@ -3,14 +3,23 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+// Extend User type to include custom metadata properties
+interface ExtendedUser extends User {
+  name?: string;
+  isAdmin?: boolean;
+}
+
 // Define the AuthContext type
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   session: Session | null;
-  isAuthenticated: boolean;  // Add isAuthenticated property
+  isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<{ error: any | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: any | null }>;  // Alias for login
   register: (email: string, password: string, userData: any) => Promise<{ error: any | null; }>;
-  logout: () => Promise<void>; // Add logout function
+  signUp: (email: string, password: string, userData: any) => Promise<{ error: any | null; }>;  // Alias for register
+  logout: () => Promise<void>;
 }
 
 // Create the AuthContext
@@ -18,14 +27,17 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isAuthenticated: false,
+  isAdmin: false,
   login: async () => ({ error: null }),
+  signIn: async () => ({ error: null }),
   register: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
   logout: async () => {},
 });
 
 // Create the AuthProvider
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,15 +45,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
+        if (newSession) {
+          const extendedUser = newSession.user as ExtendedUser;
+          // Add name from user metadata if available
+          extendedUser.name = extendedUser.user_metadata?.name || '';
+          // Check if user is admin (this would normally be a role check)
+          extendedUser.isAdmin = extendedUser.email?.endsWith('@admin.com') || false;
+        }
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+        setUser(newSession?.user as ExtendedUser ?? null);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      if (currentSession) {
+        const extendedUser = currentSession.user as ExtendedUser;
+        // Add name from user metadata if available
+        extendedUser.name = extendedUser.user_metadata?.name || '';
+        // Check if user is admin (this would normally be a role check)
+        extendedUser.isAdmin = extendedUser.email?.endsWith('@admin.com') || false;
+        setSession(currentSession);
+        setUser(extendedUser);
+      }
       setLoading(false);
     });
 
@@ -85,8 +111,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     session,
     isAuthenticated: !!user,
+    isAdmin: user?.isAdmin || false,
     login,
+    signIn: login, // Alias for login
     register,
+    signUp: register, // Alias for register
     logout,
   };
 

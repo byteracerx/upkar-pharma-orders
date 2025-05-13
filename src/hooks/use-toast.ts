@@ -1,8 +1,8 @@
 
 import { toast as sonnerToast } from "sonner";
-import { type ToastProps as SonnerToastProps } from "sonner";
+import { type ToasterProps } from "sonner"; // Changed from ToastProps to ToasterProps
 
-export type ToastProps = SonnerToastProps;
+export type ToastProps = ToasterProps;
 
 // Re-export the sonner toast for convenience
 export const toast = sonnerToast;

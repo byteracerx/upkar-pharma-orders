@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Type for RPC parameters
@@ -103,7 +104,7 @@ export const updateOrderStatus = async (
         // Get doctor details separately to include email
         const { data: doctorData, error: doctorError } = await supabase
           .from("doctors")
-          .select("id, name, phone")
+          .select("id, name, phone, email")
           .eq("id", orderData.doctor_id)
           .single();
           
@@ -118,6 +119,7 @@ export const updateOrderStatus = async (
             doctorId: doctorData.id,
             doctorName: doctorData.name,
             doctorPhone: doctorData.phone,
+            doctorEmail: doctorData.email,
             newStatus,
             totalAmount: orderData.total_amount
           }
@@ -178,7 +180,7 @@ export const markCreditPaid = async (
     // Fetch doctor information
     const { data: doctor, error: doctorError } = await supabase
       .from("doctors")
-      .select("name, phone")
+      .select("name, phone, email")
       .eq("id", doctorId)
       .single();
     
@@ -193,6 +195,7 @@ export const markCreditPaid = async (
             doctorId,
             doctorName: doctor?.name,
             doctorPhone: doctor?.phone,
+            doctorEmail: doctor?.email,
             paymentAmount: amount,
             paymentNotes: notes
           }

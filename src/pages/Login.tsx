@@ -1,59 +1,50 @@
 
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Pill } from "lucide-react";
-
-const formSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const Login = () => {
-  const { login } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, signIn } = useAuth();
   const navigate = useNavigate();
-  
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = async (data: FormValues) => {
+  // If the user is already logged in, redirect to the appropriate dashboard
+  if (user) {
+    if (user.email === "admin@upkar.com") {
+      return <Navigate to="/admin" />;
+    }
+    return <Navigate to="/dashboard" />;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      const success = await login(data.email, data.password);
-      
-      if (success) {
-        toast.success("Login successful", {
-          description: "You have been successfully logged in."
+      const { error } = await signIn(email, password);
+
+      if (error) {
+        toast.error("Login Failed", {
+          description: error.message || "Please check your credentials and try again"
         });
-        navigate("/");
+      } else {
+        toast.success("Login Successful", {
+          description: "Welcome back to Upkar Pharma"
+        });
+        
+        // Navigate based on user role - handled by the redirect above once user state updates
       }
-      // No need for else block as the login function already shows error toasts
     } catch (error: any) {
-      console.error("Login error:", error);
-      toast.error("Login failed", {
-        description: error.message || "An error occurred during login. Please try again."
+      toast.error("An unexpected error occurred", {
+        description: error.message || "Please try again later"
       });
     } finally {
       setIsLoading(false);
@@ -61,86 +52,68 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <Pill className="h-12 w-12 text-upkar-blue" />
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Log in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{" "}
-          <Link
-            to="/register"
-            className="font-medium text-upkar-blue hover:text-upkar-blue/90"
-          >
-            register a new account
-          </Link>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="your@email.com" {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-upkar-blue">Login to Upkar Pharma</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="doctor@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
-              
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="••••••••" 
-                        {...field} 
-                        disabled={isLoading} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-upkar-blue hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <Link
-                    to="#"
-                    className="font-medium text-upkar-blue hover:text-upkar-blue/90"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Log in"}
-              </Button>
-              
-              <div className="mt-4 text-sm text-center text-gray-600">
-                <p className="mb-2">Demo Accounts:</p>
-                <p>Admin: admin@upkar.com / admin123</p>
-                <p>Doctor: doctor@example.com / doctor123</p>
-              </div>
-            </form>
-          </Form>
-        </div>
-      </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
+            </Button>
+            <p className="text-sm text-center text-gray-600">
+              Don't have an account?{" "}
+              <Link to="/register" className="text-upkar-blue hover:underline">
+                Register
+              </Link>
+            </p>
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 };

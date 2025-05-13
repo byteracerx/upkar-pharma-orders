@@ -1,6 +1,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+// Type for RPC parameters
+type RpcParams = Record<string, any>;
+
 export interface CreditSummary {
   doctor_id: string;
   total_credit: number;
@@ -26,15 +29,13 @@ export interface CreditTransaction {
   reference_id: string | null;
 }
 
-
-
 // Fetch credit summary for a doctor
 export const fetchDoctorCreditSummary = async (doctorId: string): Promise<CreditSummary | null> => {
   try {
     const { data, error } = await supabase
       .rpc('get_doctor_credit_summary', { 
         p_doctor_id: doctorId 
-      });
+      } as RpcParams);
     
     if (error) {
       console.error("Error fetching doctor credit summary:", error);
@@ -75,7 +76,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
     const { data, error } = await supabase
       .rpc('get_doctor_credit_transactions', { 
         p_doctor_id: doctorId 
-      });
+      } as RpcParams);
     
     if (error) {
       console.error("Error fetching credit transactions:", error);
@@ -116,7 +117,7 @@ export const recordDoctorPayment = async (doctorId: string, amount: number, note
 export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_all_doctor_credit_summaries', {});
+      .rpc('get_all_doctor_credit_summaries', {} as RpcParams);
     
     if (error) {
       console.error("Error fetching all doctor credits:", error);

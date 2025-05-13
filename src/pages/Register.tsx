@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,7 +64,7 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await signUp(values.email, values.password, {
+      const { error } = await signUp(values.email, values.password, {
         name: values.name,
         phone: values.phone,
         address: values.address,

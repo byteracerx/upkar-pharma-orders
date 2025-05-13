@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import ProductCard from "./ProductCard";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchProducts, Product } from "@/services/productService";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,8 +37,7 @@ const ProductList = () => {
         setIsLoading(false);
       } catch (error) {
         console.error("Failed to load products:", error);
-        toast({
-          description: "Failed to load products. Please try again.",
+        toast("Failed to load products. Please try again.", {
           variant: "destructive",
         });
         setIsLoading(false);

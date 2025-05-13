@@ -1,3 +1,4 @@
+
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
@@ -34,7 +35,7 @@ const ProductDetail = () => {
         setProduct(productData);
       } catch (error) {
         console.error("Failed to load product:", error);
-        toast.toast.error("Error", {
+        toast.error("Error", {
           description: "Failed to load product details. Please try again."
         });
       } finally {
@@ -84,11 +85,11 @@ const ProductDetail = () => {
       const success = await addToCart(product.id, quantity);
       
       if (success) {
-        toast.toast.success("Added to Cart", {
+        toast.success("Added to Cart", {
           description: `${quantity} ${quantity === 1 ? 'unit' : 'units'} of ${product.name} added to your cart.`
         });
       } else {
-        toast.toast.error("Error", {
+        toast.error("Error", {
           description: "Failed to add product to cart. Please try again."
         });
       }

@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchProducts, Product } from "@/services/productService";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
 const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,7 +21,6 @@ const ProductList = () => {
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
   
   useEffect(() => {
     const loadProducts = async () => {
@@ -40,7 +39,6 @@ const ProductList = () => {
       } catch (error) {
         console.error("Failed to load products:", error);
         toast({
-          title: "Error",
           description: "Failed to load products. Please try again.",
           variant: "destructive",
         });
@@ -49,7 +47,7 @@ const ProductList = () => {
     };
     
     loadProducts();
-  }, [toast]);
+  }, []);
   
   useEffect(() => {
     // Filter products based on search query and category

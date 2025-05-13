@@ -1,113 +1,96 @@
-
 import { useState, useEffect } from "react";
-import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CreditCard, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import Layout from "@/components/layout/Layout";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fetchDoctorCreditSummary, fetchCreditTransactions, CreditTransaction, CreditSummary } from "@/services/creditService";
 import { 
-  CreditSummary, 
-  CreditTransaction, 
-  Payment,
-  fetchDoctorCreditSummary, 
-  fetchCreditTransactions,
-  fetchDoctorPayments
-} from "@/services/creditService";
-import { supabase } from "@/integrations/supabase/client";
+  CreditCard, 
+  Clock, 
+  ArrowLeftCircle, 
+  ArrowRightCircle, 
+  BadgeDollarSign, 
+  ShoppingBag, 
+  Loader2 
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
-const DoctorCreditHistory = () => {
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric'
+  });
+};
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2
+  }).format(amount);
+};
+
+const CreditHistory = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [creditSummary, setCreditSummary] = useState<CreditSummary | null>(null);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("summary");
+  
   useEffect(() => {
-    if (user?.id) {
-      fetchCreditData(user.id);
-    }
-  }, [user]);
-
-  const fetchCreditData = async (doctorId: string) => {
-    setLoading(true);
-    try {
-      const summary = await fetchDoctorCreditSummary(doctorId);
-      const transactionData = await fetchCreditTransactions(doctorId);
-      const paymentData = await fetchDoctorPayments(doctorId);
+    const fetchData = async () => {
+      if (!user?.id) return;
       
-      setCreditSummary(summary);
-      setTransactions(transactionData);
-      setPayments(paymentData);
-    } catch (error) {
-      console.error("Error fetching credit data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load your credit information. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const requestCreditSummary = async () => {
-    if (!user?.id) return;
+      setIsLoading(true);
+      
+      try {
+        const summary = await fetchDoctorCreditSummary(user.id);
+        const transactionData = await fetchCreditTransactions(user.id);
+        
+        setCreditSummary(summary);
+        setTransactions(transactionData);
+      } catch (error) {
+        console.error("Error fetching credit data:", error);
+        toast.error("Error", {
+          description: "Failed to load credit information. Please try again later."
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    try {
-      await supabase.functions.invoke('send-credit-summary', {
-        body: { doctorId: user.id }
-      });
-      
-      toast({
-        title: "Email Sent",
-        description: "Credit summary has been sent to your email."
-      });
-    } catch (error) {
-      console.error("Error requesting credit summary:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send credit summary email.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  const lastPayment = payments.length > 0 ? payments[0] : null;
-
-  if (loading) {
+    fetchData();
+  }, [user?.id]);
+  
+  if (isLoading) {
     return (
       <Layout>
-        <div className="container-custom py-8 flex justify-center items-center">
+        <div className="container py-12 flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+        </div>
+      </Layout>
+    );
+  }
+  
+  if (!creditSummary) {
+    return (
+      <Layout>
+        <div className="container py-12 text-center">
+          <Card>
+            <CardContent className="p-8">
+              <BadgeDollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">No Credit Information</h2>
+              <p className="text-gray-600 mb-6">
+                We couldn't find any credit information for your account.
+              </p>
+              <Button asChild>
+                <a href="/products">Browse Products</a>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </Layout>
     );
@@ -115,171 +98,97 @@ const DoctorCreditHistory = () => {
 
   return (
     <Layout>
-      <div className="container-custom py-8">
-        <h1 className="text-3xl font-bold mb-6">Credit Management</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Current Credit Due
-              </CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ₹{creditSummary?.total_credit.toLocaleString() || "0"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Outstanding balance
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Last Payment Made
-              </CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {lastPayment ? `₹${lastPayment.amount.toLocaleString()}` : "No payments"}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {lastPayment 
-                  ? `on ${new Date(lastPayment.payment_date).toLocaleDateString()}` 
-                  : "Make your first payment"
-                }
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Transactions
-              </CardTitle>
-              <ArrowDownRight className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{transactions.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Credit and debit entries
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={requestCreditSummary} variant="outline" size="sm" className="w-full">
-                Email Credit Summary
-              </Button>
-            </CardFooter>
-          </Card>
+      <div className="container py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Credit History</h1>
         </div>
-        
-        <Tabs defaultValue="transactions" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="transactions">Credit Transactions</TabsTrigger>
-            <TabsTrigger value="payments">Payment History</TabsTrigger>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Credit Transaction History</CardTitle>
-                <CardDescription>
-                  View all your order and payment transactions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableCaption>Your complete credit history</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.length > 0 ? (
-                      transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell>
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>{transaction.description}</TableCell>
-                          <TableCell>
-                            {transaction.reference_id 
-                              ? transaction.reference_id.substring(0, 8) + "..." 
-                              : "N/A"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className={transaction.type === 'credit' 
-                              ? "text-red-600" 
-                              : "text-green-600"
-                            }>
-                              {transaction.type === 'credit' ? '+' : '-'} ₹{transaction.amount.toLocaleString()}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                          No transactions found.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+
+          <TabsContent value="summary">
+            <Card className="bg-white shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-4 mb-4">
+                  <CreditCard className="h-8 w-8 text-upkar-blue" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Credit Summary</h2>
+                    <p className="text-gray-500">
+                      As of {formatDate(new Date().toISOString())}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-600">Total Credit:</p>
+                    <p className="text-2xl font-semibold">
+                      {formatCurrency(creditSummary.total_credit)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Account Details:</p>
+                    <p>Name: {creditSummary.doctor_name}</p>
+                    <p>Phone: {creditSummary.doctor_phone}</p>
+                    <p>Email: {creditSummary.doctor_email}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
-          <TabsContent value="payments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment History</CardTitle>
-                <CardDescription>
-                  View all your payment records
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableCaption>Your payment history</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Notes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.length > 0 ? (
-                      payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>
-                            {new Date(payment.payment_date).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            ₹{payment.amount.toLocaleString()}
-                          </TableCell>
-                          <TableCell>{payment.notes || "N/A"}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center py-8 text-gray-500">
-                          No payment records found.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+
+          <TabsContent value="transactions">
+            <div className="bg-white shadow rounded-md overflow-x-auto">
+              <table className="min-w-full leading-normal">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Description
+                    </th>
+                    <th className="px-5 py-3 border-b-2 border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-5 py-3 border-b-2 border-gray-200 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Type
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id}>
+                      <td className="px-5 py-5 border-b border-gray-200 text-sm">
+                        {formatDate(transaction.date)}
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 text-sm">
+                        {transaction.description}
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 text-sm text-center">
+                        {formatCurrency(transaction.amount)}
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 text-sm text-center">
+                        {transaction.type === 'credit' ? (
+                          <span className="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight">
+                            <span aria-hidden className="absolute inset-0 bg-green-200 opacity-50 rounded-full"></span>
+                            <span className="relative">Credit</span>
+                          </span>
+                        ) : (
+                          <span className="relative inline-block px-3 py-1 font-semibold text-red-900 leading-tight">
+                            <span aria-hidden className="absolute inset-0 bg-red-200 opacity-50 rounded-full"></span>
+                            <span className="relative">Debit</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -287,4 +196,4 @@ const DoctorCreditHistory = () => {
   );
 };
 
-export default DoctorCreditHistory;
+export default CreditHistory;

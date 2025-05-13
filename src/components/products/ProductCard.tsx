@@ -20,11 +20,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
     const success = await addToCart(product.id, 1);
     
     if (success) {
-      toast.toast.success("Added to cart", {
+      toast.success("Added to cart", {
         description: `${product.name} has been added to your cart.`
       });
     } else {
-      toast.toast.error("Error", {
+      toast.error("Error", {
         description: "Could not add item to cart. Please try again."
       });
     }

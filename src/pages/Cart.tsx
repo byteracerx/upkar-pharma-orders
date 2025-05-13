@@ -54,7 +54,7 @@ const Cart = () => {
     const success = removeFromCart(id);
     if (success) {
       setCartItems(prev => prev.filter(item => item.id !== id));
-      toast.toast.success("Item Removed", {
+      toast.success("Item Removed", {
         description: "The item has been removed from your cart."
       });
     }
@@ -62,7 +62,7 @@ const Cart = () => {
   
   const handlePlaceOrder = async () => {
     if (!user?.id) {
-      toast.toast.error("Authentication Required", {
+      toast.error("Authentication Required", {
         description: "You need to be logged in to place an order."
       });
       navigate("/login");
@@ -79,13 +79,13 @@ const Cart = () => {
         setOrderSuccessOpen(true);
         setCartItems([]);
       } else {
-        toast.toast.error("Order Failed", {
+        toast.error("Order Failed", {
           description: result.error || "There was an issue placing your order. Please try again."
         });
       }
     } catch (error: any) {
       console.error("Error placing order:", error);
-      toast.toast.error("Error", {
+      toast.error("Error", {
         description: error.message || "An unexpected error occurred. Please try again later."
       });
     } finally {

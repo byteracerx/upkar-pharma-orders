@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Type for RPC parameters
@@ -19,12 +18,21 @@ export const approveDoctor = async (doctorId: string): Promise<boolean> => {
       return false;
     }
     
-    // Send welcome email to doctor
+    // Send welcome email to doctor - first get the doctor's email from auth.users
     try {
+      // Get email from auth.users
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(doctorId);
+      
+      if (userError || !userData) {
+        console.error("Error getting user data:", userError);
+        return true; // Still return true since the approval worked
+      }
+      
       await supabase.functions.invoke('doctor-email-notifications', {
         body: {
           type: 'welcome',
-          doctorId
+          doctorId,
+          email: userData.user?.email
         }
       });
     } catch (emailError) {
@@ -101,16 +109,24 @@ export const updateOrderStatus = async (
     // Notify doctor about the status update
     try {
       if (orderData.doctor) {
-        // Get doctor details separately to include email
+        // Get doctor details from the doctors table
         const { data: doctorData, error: doctorError } = await supabase
           .from("doctors")
-          .select("id, name, phone, email")
+          .select("id, name, phone")
           .eq("id", orderData.doctor_id)
           .single();
           
         if (doctorError || !doctorData) {
           console.error("Error fetching doctor details:", doctorError);
           return false;
+        }
+        
+        // Get email from auth.users
+        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(doctorData.id);
+        
+        if (userError || !userData) {
+          console.error("Error getting user data:", userError);
+          return true; // Still return true since the status update worked
         }
           
         await supabase.functions.invoke('notify-doctor-status-update', {
@@ -119,7 +135,7 @@ export const updateOrderStatus = async (
             doctorId: doctorData.id,
             doctorName: doctorData.name,
             doctorPhone: doctorData.phone,
-            doctorEmail: doctorData.email,
+            doctorEmail: userData.user?.email,
             newStatus,
             totalAmount: orderData.total_amount
           }
@@ -180,7 +196,7 @@ export const markCreditPaid = async (
     // Fetch doctor information
     const { data: doctor, error: doctorError } = await supabase
       .from("doctors")
-      .select("name, phone, email")
+      .select("name, phone")
       .eq("id", doctorId)
       .single();
     
@@ -188,6 +204,9 @@ export const markCreditPaid = async (
       console.error("Error fetching doctor information:", doctorError);
       // Continue without doctor info
     } else {
+      // Get email from auth.users
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(doctorId);
+      
       // Notify doctor about the payment
       try {
         await supabase.functions.invoke('notify-doctor-payment', {
@@ -195,7 +214,7 @@ export const markCreditPaid = async (
             doctorId,
             doctorName: doctor?.name,
             doctorPhone: doctor?.phone,
-            doctorEmail: doctor?.email,
+            doctorEmail: userData?.user?.email,
             paymentAmount: amount,
             paymentNotes: notes
           }

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Sample Doctor - Upkar Pharma</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2563eb;
+    }
+    .instructions {
+      background-color: #f3f4f6;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .doctor-details {
+      background-color: #e0f2fe;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+    .copy-btn {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+    .copy-btn:hover {
+      background-color: #1d4ed8;
+    }
+    .field {
+      margin-bottom: 10px;
+    }
+    .field-name {
+      font-weight: bold;
+      display: inline-block;
+      width: 120px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Register Sample Doctor - Upkar Pharma</h1>
+  
+  <div class="instructions">
+    <h2>Instructions</h2>
+    <p>To register a sample doctor account:</p>
+    <ol>
+      <li>Go to the <a href="/register" target="_blank">registration page</a></li>
+      <li>Fill in the form with the details provided below</li>
+      <li>Submit the form</li>
+      <li>The account will be created but will need admin approval</li>
+      <li>Login as an admin and approve the doctor account</li>
+    </ol>
+  </div>
+  
+  <div class="doctor-details">
+    <h2>Sample Doctor Details</h2>
+    <p>Use these details to register a sample doctor account:</p>
+    
+    <div class="field">
+      <span class="field-name">Full Name:</span>
+      <span id="name">Dr. Sample Doctor</span>
+      <button class="copy-btn" onclick="copyToClipboard('name')">Copy</button>
+    </div>
+    
+    <div class="field">
+      <span class="field-name">Email:</span>
+      <span id="email">doctor.sample@example.com</span>
+      <button class="copy-btn" onclick="copyToClipboard('email')">Copy</button>
+    </div>
+    
+    <div class="field">
+      <span class="field-name">Phone:</span>
+      <span id="phone">9876543210</span>
+      <button class="copy-btn" onclick="copyToClipboard('phone')">Copy</button>
+    </div>
+    
+    <div class="field">
+      <span class="field-name">Address:</span>
+      <span id="address">123 Medical Street, Healthcare City, India</span>
+      <button class="copy-btn" onclick="copyToClipboard('address')">Copy</button>
+    </div>
+    
+    <div class="field">
+      <span class="field-name">GST Number:</span>
+      <span id="gst">GSTIN1234567890Z</span>
+      <button class="copy-btn" onclick="copyToClipboard('gst')">Copy</button>
+    </div>
+    
+    <div class="field">
+      <span class="field-name">Password:</span>
+      <span id="password">Password123!</span>
+      <button class="copy-btn" onclick="copyToClipboard('password')">Copy</button>
+    </div>
+  </div>
+  
+  <script>
+    function copyToClipboard(elementId) {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert(`Copied: ${text}`);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    }
+  </script>
+</body>
+</html>

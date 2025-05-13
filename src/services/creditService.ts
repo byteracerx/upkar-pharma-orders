@@ -56,11 +56,62 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
 // Get credit summaries for all doctors (admin view)
 export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
   try {
-    const { data, error } = await supabase
-      .rpc('get_all_doctor_credits', {});
+    // First try using the RPC function
+    try {
+      const { data, error } = await supabase
+        .rpc('get_all_doctor_credits');
+      
+      if (!error && data) {
+        return data || [];
+      }
+    } catch (rpcError) {
+      console.warn("RPC function get_all_doctor_credits failed, falling back to direct query:", rpcError);
+    }
     
-    if (error) throw error;
-    return data || [];
+    // Fallback to direct query if RPC fails
+    const { data: doctors, error: doctorsError } = await supabase
+      .from("doctors")
+      .select("id, name, phone")
+      .eq("is_approved", true);
+    
+    if (doctorsError) throw doctorsError;
+    
+    // Get credit transactions for each doctor
+    const creditSummaries: CreditSummary[] = [];
+    
+    for (const doctor of doctors) {
+      try {
+        const { data: transactions, error: transactionsError } = await supabase
+          .from("credit_transactions")
+          .select("amount, type")
+          .eq("doctor_id", doctor.id);
+        
+        if (transactionsError) throw transactionsError;
+        
+        // Calculate total credit
+        const totalCredit = transactions.reduce((total, transaction) => {
+          if (transaction.type === 'credit') {
+            return total + transaction.amount;
+          } else if (transaction.type === 'debit') {
+            return total - transaction.amount;
+          }
+          return total;
+        }, 0);
+        
+        creditSummaries.push({
+          doctor_id: doctor.id,
+          doctor_name: doctor.name,
+          doctor_phone: doctor.phone,
+          doctor_email: '', // Email not available in this fallback
+          total_credit: totalCredit
+        });
+      } catch (error) {
+        console.error(`Error processing credit for doctor ${doctor.id}:`, error);
+        // Continue with other doctors even if one fails
+      }
+    }
+    
+    return creditSummaries;
   } catch (error) {
     console.error("Error getting all doctor credits:", error);
     throw error;

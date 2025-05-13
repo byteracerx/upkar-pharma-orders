@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Sample Data - Upkar Pharma</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2563eb;
+    }
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      background-color: #f3f4f6;
+      white-space: pre-wrap;
+    }
+    .success {
+      border-left: 4px solid #10b981;
+    }
+    .error {
+      border-left: 4px solid #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <h1>Add Sample Data - Upkar Pharma</h1>
+  <p>This page allows you to add sample products to the Upkar Pharma database.</p>
+  
+  <div>
+    <h2>Sample Products</h2>
+    <ul>
+      <li>Paracetamol 500mg (Pain Relief)</li>
+      <li>Amoxicillin 250mg (Antibiotics)</li>
+      <li>Cetirizine 10mg (Allergy Relief)</li>
+      <li>Omeprazole 20mg (Digestive Health)</li>
+      <li>Metformin 500mg (Diabetes Care)</li>
+    </ul>
+  </div>
+  
+  <button id="addProductsBtn">Add Sample Products</button>
+  
+  <div id="result" class="result" style="display: none;"></div>
+  
+  <script>
+    document.getElementById('addProductsBtn').addEventListener('click', addSampleProducts);
+    
+    async function addSampleProducts() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = 'Adding sample products...';
+      resultDiv.className = 'result';
+      
+      try {
+        // Get Supabase URL and key from the environment
+        const supabaseUrl = window.location.origin;
+        
+        // This is just for demonstration - in a real app, you'd need to handle authentication properly
+        // This won't work without proper authentication
+        const supabase = supabase.createClient(supabaseUrl, 'public-anon-key');
+        
+        // Sample products data
+        const sampleProducts = [
+          {
+            name: 'Paracetamol 500mg',
+            description: 'Pain reliever and fever reducer. Used for mild to moderate pain and fever.',
+            price: 25.50,
+            category: 'Pain Relief',
+            stock: 100,
+            image_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          },
+          {
+            name: 'Amoxicillin 250mg',
+            description: 'Antibiotic used to treat a number of bacterial infections.',
+            price: 75.00,
+            category: 'Antibiotics',
+            stock: 50,
+            image_url: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          },
+          {
+            name: 'Cetirizine 10mg',
+            description: 'Antihistamine used to relieve allergy symptoms such as watery eyes, runny nose, itching, and sneezing.',
+            price: 35.75,
+            category: 'Allergy Relief',
+            stock: 75,
+            image_url: 'https://images.unsplash.com/photo-1550572017-edd951b55104?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          },
+          {
+            name: 'Omeprazole 20mg',
+            description: 'Proton pump inhibitor used to treat certain stomach and esophagus problems.',
+            price: 85.25,
+            category: 'Digestive Health',
+            stock: 60,
+            image_url: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          },
+          {
+            name: 'Metformin 500mg',
+            description: 'Oral diabetes medicine that helps control blood sugar levels.',
+            price: 45.50,
+            category: 'Diabetes Care',
+            stock: 40,
+            image_url: 'https://images.unsplash.com/photo-1576602976047-174e57a47881?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+          }
+        ];
+        
+        // Insert products
+        const { data, error } = await supabase
+          .from('products')
+          .insert(sampleProducts)
+          .select();
+        
+        if (error) throw error;
+        
+        resultDiv.innerHTML = `Successfully added ${data.length} sample products:\n\n${JSON.stringify(data, null, 2)}`;
+        resultDiv.classList.add('success');
+      } catch (error) {
+        console.error('Error adding sample products:', error);
+        resultDiv.innerHTML = `Error adding sample products: ${error.message}\n\nNote: This page requires proper authentication to work. Please use the Node.js script instead.`;
+        resultDiv.classList.add('error');
+      }
+    }
+  </script>
+</body>
+</html>

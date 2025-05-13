@@ -28,7 +28,8 @@ const galleryImages = [
   },
   {
     id: 5,
-    src: 'https://images.unsplash.com/photo-1583912267550-d6c2a3a8e5c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    // Fixed the broken image URL by using a more reliable source
+    src: 'https://images.unsplash.com/photo-1573883431205-98b5f10aaedb?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
     alt: 'Product range',
     caption: 'Wide range of pharmaceutical products'
   },

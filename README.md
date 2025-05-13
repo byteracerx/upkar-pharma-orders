@@ -4,6 +4,21 @@
 
 **URL**: https://lovable.dev/projects/b2797458-7699-461e-95b4-4a05c163d4b1
 
+## Sample Data
+
+This project includes scripts to add sample data (doctor account and products) for testing purposes.
+
+### Adding Sample Data
+
+1. **Sample Doctor Account**: 
+   - Use the `/public/register-doctor.html` page to get sample doctor details
+   - Register using the provided details
+   - Login as admin to approve the doctor account
+
+2. **Sample Products**:
+   - Use the scripts in the `/scripts` directory to add sample products
+   - See the `/scripts/README.md` file for detailed instructions
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

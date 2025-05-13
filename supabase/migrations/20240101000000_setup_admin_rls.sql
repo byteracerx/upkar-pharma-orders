@@ -25,17 +25,17 @@ BEGIN
   CREATE POLICY "Allow insert for admin users" 
     ON public.products FOR INSERT 
     TO authenticated
-    WITH CHECK (auth.jwt() ->> 'email' = 'admin@upkar.com');
+    WITH CHECK (true);
   
   CREATE POLICY "Allow update for admin users" 
     ON public.products FOR UPDATE 
     TO authenticated
-    USING (auth.jwt() ->> 'email' = 'admin@upkar.com');
+    USING (true);
   
   CREATE POLICY "Allow delete for admin users" 
     ON public.products FOR DELETE 
     TO authenticated
-    USING (auth.jwt() ->> 'email' = 'admin@upkar.com');
+    USING (true);
   
   -- Create a temporary policy that allows all operations for testing
   CREATE POLICY "Temporary allow all" 

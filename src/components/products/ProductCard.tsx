@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ShoppingCart } from "lucide-react";
 import { Product } from "@/services/productService";
 import { addToCart } from "@/services/cartService";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -66,9 +66,19 @@ const ProductCard = ({ product }: ProductCardProps) => {
             Add to Cart
           </Button>
         ) : (
-          <Button variant="secondary" asChild className="w-full">
-            <Link to={`/products/${product.id}`}>View Details</Link>
-          </Button>
+          <div className="w-full grid grid-cols-2 gap-2">
+            <Button variant="secondary" asChild>
+              <Link to={`/products/${product.id}`}>View Details</Link>
+            </Button>
+            <Button variant="default" onClick={() => {
+              toast.info("Login Required", {
+                description: "Please login to add items to your cart."
+              });
+            }}>
+              <ShoppingCart className="h-4 w-4 mr-1" />
+              Add to Cart
+            </Button>
+          </div>
         )}
       </CardFooter>
     </Card>

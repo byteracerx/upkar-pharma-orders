@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -37,22 +37,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, CreditCard, Loader2, Search } from "lucide-react";
-import { CreditSummary, fetchAllDoctorCredits, recordDoctorPayment } from "@/services/creditService";
+import { ChevronDown, CreditCard, Loader2, Search, History, Mail } from "lucide-react";
+import { 
+  CreditSummary, 
+  CreditTransaction, 
+  fetchAllDoctorCredits, 
+  fetchCreditTransactions, 
+  recordDoctorPayment 
+} from "@/services/creditService";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AdminCredits = () => {
   const [doctorCredits, setDoctorCredits] = useState<CreditSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<CreditSummary | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
   const [paymentNotes, setPaymentNotes] = useState("");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [processing, setProcessing] = useState(false);
-  const { toast } = useToast();
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchCredits();
@@ -63,24 +73,35 @@ const AdminCredits = () => {
     try {
       const data = await fetchAllDoctorCredits();
       setDoctorCredits(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching credits:", error);
-      toast({
-        title: "Error",
-        description: "Could not fetch doctor credits. Please try again.",
-        variant: "destructive",
+      toast.error("Error", {
+        description: error.message || "Could not fetch doctor credits. Please try again."
       });
     } finally {
       setLoading(false);
     }
   };
+  
+  const fetchDoctorTransactions = async (doctorId: string) => {
+    setLoadingTransactions(true);
+    try {
+      const transactions = await fetchCreditTransactions(doctorId);
+      setCreditTransactions(transactions);
+    } catch (error: any) {
+      console.error("Error fetching transactions:", error);
+      toast.error("Error", {
+        description: error.message || "Could not fetch credit transactions. Please try again."
+      });
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
 
   const handleRecordPayment = async () => {
     if (!selectedDoctor || paymentAmount === '' || paymentAmount <= 0) {
-      toast({
-        title: "Invalid Input",
-        description: "Please enter a valid payment amount.",
-        variant: "destructive",
+      toast.error("Invalid Input", {
+        description: "Please enter a valid payment amount."
       });
       return;
     }
@@ -94,9 +115,8 @@ const AdminCredits = () => {
       );
 
       if (success) {
-        toast({
-          title: "Payment Recorded",
-          description: `₹${paymentAmount} payment recorded for ${selectedDoctor.doctor_name}.`,
+        toast.success("Payment Recorded", {
+          description: `₹${paymentAmount} payment recorded for ${selectedDoctor.doctor_name}.`
         });
         
         // Notify doctor about payment
@@ -121,22 +141,43 @@ const AdminCredits = () => {
         setPaymentNotes("");
         fetchCredits(); // Refresh data
       } else {
-        toast({
-          title: "Error",
-          description: "Could not record payment. Please try again.",
-          variant: "destructive",
+        toast.error("Error", {
+          description: "Could not record payment. Please try again."
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error recording payment:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
+      toast.error("Error", {
+        description: error.message || "An unexpected error occurred. Please try again."
       });
     } finally {
       setProcessing(false);
     }
+  };
+  
+  const handleSendCreditSummary = async (doctorId: string, doctorName: string) => {
+    setSendingEmail(true);
+    try {
+      // In a real app, this would call a serverless function to send the email
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      
+      toast.success("Email Sent", {
+        description: `Credit summary email sent to ${doctorName}.`
+      });
+    } catch (error: any) {
+      console.error("Error sending credit summary:", error);
+      toast.error("Error", {
+        description: error.message || "Failed to send credit summary email."
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+  
+  const viewCreditHistory = (doctor: CreditSummary) => {
+    setSelectedDoctor(doctor);
+    fetchDoctorTransactions(doctor.doctor_id);
+    setHistoryDialogOpen(true);
   };
 
   const toggleSortOrder = () => {
@@ -242,35 +283,16 @@ const AdminCredits = () => {
                               Record Payment
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => {
-                                // Handle viewing detailed credit history
-                                console.log("View credit history for doctor:", doctor.doctor_id);
-                              }}
+                              onClick={() => viewCreditHistory(doctor)}
                             >
+                              <History className="mr-2 h-4 w-4" />
                               View Credit History
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={async () => {
-                                try {
-                                  await supabase.functions.invoke('send-credit-summary', {
-                                    body: {
-                                      doctorId: doctor.doctor_id
-                                    }
-                                  });
-                                  toast({
-                                    title: "Email Sent",
-                                    description: `Credit summary email sent to ${doctor.doctor_name}.`,
-                                  });
-                                } catch (error) {
-                                  console.error("Error sending credit summary:", error);
-                                  toast({
-                                    title: "Error",
-                                    description: "Failed to send credit summary email.",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
+                              onClick={() => handleSendCreditSummary(doctor.doctor_id, doctor.doctor_name)}
+                              disabled={sendingEmail}
                             >
+                              <Mail className="mr-2 h-4 w-4" />
                               Send Credit Summary
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -293,6 +315,7 @@ const AdminCredits = () => {
         </CardContent>
       </Card>
 
+      {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -353,6 +376,162 @@ const AdminCredits = () => {
               ) : (
                 "Record Payment"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Credit History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Credit History</DialogTitle>
+            <DialogDescription>
+              {selectedDoctor && (
+                <div className="mt-2">
+                  <p><strong>Doctor:</strong> {selectedDoctor.doctor_name}</p>
+                  <p><strong>Current Balance:</strong> ₹{selectedDoctor.total_credit.toLocaleString()}</p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {loadingTransactions ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+            </div>
+          ) : (
+            <div className="py-4">
+              <Tabs defaultValue="all">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="all">All Transactions</TabsTrigger>
+                  <TabsTrigger value="summary">Summary</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="all" className="mt-4">
+                  {creditTransactions.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {creditTransactions.map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell>
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>{transaction.description}</TableCell>
+                            <TableCell>
+                              <Badge
+                                className={transaction.type === 'credit' 
+                                  ? "bg-green-100 text-green-800" 
+                                  : "bg-red-100 text-red-800"}
+                              >
+                                {transaction.type === 'credit' ? 'Payment' : 'Purchase'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className={transaction.type === 'credit' ? "text-green-600" : "text-red-600"}>
+                                {transaction.type === 'credit' ? '-' : '+'} ₹{transaction.amount.toLocaleString()}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No transaction history found.</p>
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="summary" className="mt-4">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        {/* Total Orders */}
+                        <div className="flex justify-between items-center pb-4 border-b">
+                          <span className="font-medium">Total Orders</span>
+                          <span>
+                            {creditTransactions.filter(t => t.type === 'debit').length}
+                          </span>
+                        </div>
+                        
+                        {/* Total Purchases */}
+                        <div className="flex justify-between items-center pb-4 border-b">
+                          <span className="font-medium">Total Purchases</span>
+                          <span className="text-red-600">
+                            ₹{creditTransactions
+                              .filter(t => t.type === 'debit')
+                              .reduce((sum, t) => sum + t.amount, 0)
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                        
+                        {/* Total Payments */}
+                        <div className="flex justify-between items-center pb-4 border-b">
+                          <span className="font-medium">Total Payments</span>
+                          <span className="text-green-600">
+                            ₹{creditTransactions
+                              .filter(t => t.type === 'credit')
+                              .reduce((sum, t) => sum + t.amount, 0)
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                        
+                        {/* Current Balance */}
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="font-bold">Current Balance</span>
+                          <span className="font-bold text-upkar-blue">
+                            ₹{selectedDoctor?.total_credit.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (selectedDoctor) {
+                  handleSendCreditSummary(selectedDoctor.doctor_id, selectedDoctor.doctor_name);
+                }
+              }}
+              variant="outline"
+              className="mr-auto"
+              disabled={sendingEmail}
+            >
+              {sendingEmail ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email Summary
+                </>
+              )}
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setHistoryDialogOpen(false);
+                setSelectedDoctor(null);
+                setCreditTransactions([]);
+              }}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

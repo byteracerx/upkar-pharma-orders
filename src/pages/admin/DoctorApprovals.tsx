@@ -1,88 +1,87 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DoctorApprovalCard from "@/components/admin/DoctorApprovalCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Search, Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-// Mock data for pending approvals
-const mockPendingDoctors = [
-  {
-    id: "1",
-    name: "Dr. Rajesh Kumar",
-    email: "rajesh.kumar@example.com",
-    phone: "9876543210",
-    gstNumber: "27AAPFU0939F1ZV",
-    registrationDate: "2023-05-12",
-    status: "pending"
-  },
-  {
-    id: "2",
-    name: "Dr. Priya Sharma",
-    email: "priya.sharma@example.com",
-    phone: "9876543211",
-    gstNumber: "27AAPFU0939F2ZV",
-    registrationDate: "2023-05-13",
-    status: "pending"
-  },
-  {
-    id: "3",
-    name: "Dr. Amit Patel",
-    email: "amit.patel@example.com",
-    phone: "9876543212",
-    gstNumber: "27AAPFU0939F3ZV",
-    registrationDate: "2023-05-14",
-    status: "pending"
-  },
-  {
-    id: "4",
-    name: "Dr. Neha Singh",
-    email: "neha.singh@example.com",
-    phone: "9876543213",
-    gstNumber: "27AAPFU0939F4ZV",
-    registrationDate: "2023-05-15",
-    status: "pending"
-  },
-];
-
-const mockApprovedDoctors = [
-  {
-    id: "5",
-    name: "Dr. Vikram Singh",
-    email: "vikram.singh@example.com",
-    phone: "9876543214",
-    gstNumber: "27AAPFU0939F5ZV",
-    registrationDate: "2023-05-10",
-    status: "approved"
-  },
-  {
-    id: "6",
-    name: "Dr. Ananya Desai",
-    email: "ananya.desai@example.com",
-    phone: "9876543215",
-    gstNumber: "27AAPFU0939F6ZV",
-    registrationDate: "2023-05-11",
-    status: "approved"
-  },
-];
-
-const mockRejectedDoctors = [
-  {
-    id: "7",
-    name: "Dr. Suresh Joshi",
-    email: "suresh.joshi@example.com",
-    phone: "9876543216",
-    gstNumber: "27AAPFU0939F7ZV",
-    registrationDate: "2023-05-08",
-    status: "rejected"
-  },
-];
+interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  gstNumber: string;
+  registrationDate: string;
+  status: "pending" | "approved" | "rejected";
+}
 
 const DoctorApprovals = () => {
-  const [pendingDoctors, setPendingDoctors] = useState(mockPendingDoctors);
-  const [approvedDoctors, setApprovedDoctors] = useState(mockApprovedDoctors);
-  const [rejectedDoctors, setRejectedDoctors] = useState(mockRejectedDoctors);
+  const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
+  const [approvedDoctors, setApprovedDoctors] = useState<Doctor[]>([]);
+  const [rejectedDoctors, setRejectedDoctors] = useState<Doctor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Fetch doctors from Supabase
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch pending doctors (not approved)
+        const { data: pendingData, error: pendingError } = await supabase
+          .from('doctors')
+          .select('*')
+          .eq('is_approved', false);
+          
+        if (pendingError) throw pendingError;
+        
+        // Fetch approved doctors
+        const { data: approvedData, error: approvedError } = await supabase
+          .from('doctors')
+          .select('*')
+          .eq('is_approved', true);
+          
+        if (approvedError) throw approvedError;
+        
+        // Format the data
+        const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
+          id: doctor.id,
+          name: doctor.name,
+          email: doctor.email || '',
+          phone: doctor.phone,
+          gstNumber: doctor.gst_number,
+          registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
+          status: 'pending'
+        }));
+        
+        const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
+          id: doctor.id,
+          name: doctor.name,
+          email: doctor.email || '',
+          phone: doctor.phone,
+          gstNumber: doctor.gst_number,
+          registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
+          status: 'approved'
+        }));
+        
+        setPendingDoctors(formattedPendingDoctors);
+        setApprovedDoctors(formattedApprovedDoctors);
+        
+      } catch (error: any) {
+        console.error("Error fetching doctors:", error);
+        toast.error("Failed to load doctors", {
+          description: error.message
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchDoctors();
+  }, []);
   
   const handleApproveDoctor = (id: string) => {
     const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);

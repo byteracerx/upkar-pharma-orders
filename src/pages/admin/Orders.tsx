@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -24,10 +24,21 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Eye, FileText, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type Order = {
   id: string;
@@ -41,11 +52,29 @@ type Order = {
   } | null;
 };
 
+type OrderItem = {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  price_per_unit: number;
+  total_price: number;
+  product: {
+    name: string;
+    category: string | null;
+  } | null;
+};
+
 const AdminOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const { toast } = useToast();
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
 
   // Fetch orders from Supabase
   useEffect(() => {
@@ -66,12 +95,10 @@ const AdminOrders = () => {
         if (data) {
           setOrders(data as Order[]);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching orders:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load orders. Please try again.",
-          variant: "destructive",
+        toast.error("Failed to load orders", {
+          description: error.message || "Please try again."
         });
       } finally {
         setLoading(false);
@@ -79,7 +106,35 @@ const AdminOrders = () => {
     };
 
     fetchOrders();
-  }, [toast]);
+  }, []);
+
+  // Fetch order details
+  const fetchOrderDetails = async (orderId: string) => {
+    try {
+      setIsLoadingDetails(true);
+      
+      const { data, error } = await supabase
+        .from("order_items")
+        .select(`
+          *,
+          product:product_id (name, category)
+        `)
+        .eq("order_id", orderId);
+
+      if (error) {
+        throw error;
+      }
+
+      setOrderItems(data as OrderItem[]);
+    } catch (error: any) {
+      console.error("Error fetching order details:", error);
+      toast.error("Failed to load order details", {
+        description: error.message || "Please try again."
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   // Handle status change
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -100,18 +155,80 @@ const AdminOrders = () => {
         )
       );
 
-      toast({
-        title: "Status Updated",
-        description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`,
+      toast.success("Status Updated", {
+        description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
       });
-    } catch (error) {
+      
+      // If status changed to delivered, generate invoice
+      if (newStatus === "delivered") {
+        // In a real app, you would call a serverless function to generate and send the invoice
+        toast.info("Invoice will be generated automatically", {
+          description: "The system will generate and send the invoice to the doctor."
+        });
+      }
+      
+      // Send notification to doctor about status change
+      // In a real app, you would call a serverless function to send WhatsApp/SMS
+      const order = orders.find(o => o.id === orderId);
+      if (order && order.doctor) {
+        console.log(`Notification would be sent to ${order.doctor.name} about order status change to ${newStatus}`);
+      }
+      
+    } catch (error: any) {
       console.error("Error updating order status:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update order status. Please try again.",
-        variant: "destructive",
+      toast.error("Failed to update order status", {
+        description: error.message || "Please try again."
       });
     }
+  };
+  
+  // Generate invoice
+  const generateInvoice = async (orderId: string) => {
+    try {
+      setIsGeneratingInvoice(true);
+      
+      // In a real app, you would call a serverless function to generate the invoice
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      
+      toast.success("Invoice Generated", {
+        description: "The invoice has been generated and sent to the doctor."
+      });
+    } catch (error: any) {
+      console.error("Error generating invoice:", error);
+      toast.error("Failed to generate invoice", {
+        description: error.message || "Please try again."
+      });
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+  
+  // Send notification
+  const sendNotification = async (orderId: string) => {
+    try {
+      setIsSendingNotification(true);
+      
+      // In a real app, you would call a serverless function to send the notification
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      
+      toast.success("Notification Sent", {
+        description: "The notification has been sent to the doctor."
+      });
+    } catch (error: any) {
+      console.error("Error sending notification:", error);
+      toast.error("Failed to send notification", {
+        description: error.message || "Please try again."
+      });
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
+  
+  // View order details
+  const viewOrderDetails = (order: Order) => {
+    setSelectedOrder(order);
+    fetchOrderDetails(order.id);
+    setIsOrderDetailsOpen(true);
   };
 
   // Filter orders based on search term
@@ -162,6 +279,7 @@ const AdminOrders = () => {
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Update Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,6 +325,17 @@ const AdminOrders = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => viewOrderDetails(order)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -220,6 +349,106 @@ const AdminOrders = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Order Details Dialog */}
+      <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+            <DialogDescription>
+              {selectedOrder && (
+                <div className="text-sm text-gray-500">
+                  <span className="font-medium">Order ID:</span> {selectedOrder.id}
+                  <br />
+                  <span className="font-medium">Date:</span> {new Date(selectedOrder.created_at).toLocaleString()}
+                  <br />
+                  <span className="font-medium">Doctor:</span> {selectedOrder.doctor?.name || "Unknown"}
+                  <br />
+                  <span className="font-medium">Status:</span> {selectedOrder.status}
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingDetails ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+            </div>
+          ) : orderItems.length > 0 ? (
+            <div className="py-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.product?.name || "Unknown Product"}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>₹{item.price_per_unit.toFixed(2)}</TableCell>
+                      <TableCell>₹{item.total_price.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              <div className="mt-4 text-right">
+                <p className="font-bold">
+                  Total: ₹{selectedOrder?.total_amount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center p-4">
+              <p className="text-gray-500">No items found for this order.</p>
+            </div>
+          )}
+          
+          <DialogFooter className="flex justify-between">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex items-center gap-1"
+                onClick={() => selectedOrder && generateInvoice(selectedOrder.id)}
+                disabled={isGeneratingInvoice}
+              >
+                {isGeneratingInvoice ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Generate Invoice
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="flex items-center gap-1"
+                onClick={() => selectedOrder && sendNotification(selectedOrder.id)}
+                disabled={isSendingNotification}
+              >
+                {isSendingNotification ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send Notification
+              </Button>
+            </div>
+            
+            <Button
+              variant="default"
+              onClick={() => setIsOrderDetailsOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

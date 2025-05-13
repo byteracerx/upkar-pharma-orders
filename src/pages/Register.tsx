@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Pill } from "lucide-react";
 
@@ -38,7 +38,6 @@ const Register = () => {
   const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -66,24 +65,16 @@ const Register = () => {
       });
       
       if (success) {
-        toast({
-          title: "Registration successful",
-          description: "Your account has been created and is pending approval.",
+        toast.success("Registration successful", {
+          description: "Your account has been created and is pending approval."
         });
         navigate("/login");
-      } else {
-        toast({
-          title: "Registration failed",
-          description: "There was an error creating your account. Please try again.",
-          variant: "destructive",
-        });
       }
-    } catch (error) {
+      // No need for else block as the register function already shows error toasts
+    } catch (error: any) {
       console.error("Registration error:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred during registration. Please try again.",
-        variant: "destructive",
+      toast.error("Registration failed", {
+        description: error.message || "An error occurred during registration. Please try again."
       });
     } finally {
       setIsLoading(false);

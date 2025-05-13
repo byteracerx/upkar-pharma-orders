@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Check, X, User } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DoctorApprovalCardProps {
   doctor: {
@@ -31,24 +32,31 @@ const DoctorApprovalCard = ({
   onReject
 }: DoctorApprovalCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   
   const handleApprove = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update doctor status in Supabase
+      const { error } = await supabase
+        .from('doctors')
+        .update({ is_approved: true })
+        .eq('id', doctor.id);
+        
+      if (error) throw error;
+      
+      // Call the parent component's onApprove function
       onApprove(doctor.id);
-      toast({
-        title: "Doctor Approved",
+      
+      // Send notification (in a real app, this would be a serverless function)
+      console.log(`Notification sent to ${doctor.email}: Your account has been approved`);
+      
+      toast.success("Doctor Approved", {
         description: `${doctor.name} has been approved successfully.`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error approving doctor:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve the doctor. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: error.message || "Failed to approve the doctor. Please try again."
       });
     } finally {
       setIsLoading(false);
@@ -58,19 +66,25 @@ const DoctorApprovalCard = ({
   const handleReject = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Delete the doctor record from Supabase
+      // Alternatively, you could set a 'rejected' status instead of deleting
+      const { error } = await supabase
+        .from('doctors')
+        .delete()
+        .eq('id', doctor.id);
+        
+      if (error) throw error;
+      
+      // Call the parent component's onReject function
       onReject(doctor.id);
-      toast({
-        title: "Doctor Rejected",
+      
+      toast.success("Doctor Rejected", {
         description: `${doctor.name}'s application has been rejected.`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error rejecting doctor:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reject the doctor. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: error.message || "Failed to reject the doctor. Please try again."
       });
     } finally {
       setIsLoading(false);

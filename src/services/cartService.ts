@@ -9,8 +9,7 @@ export interface CartItem {
   product: Product;
 }
 
-// Type definition for RPC parameters
-type RpcParams = Record<string, any>;
+
 
 // Local storage key
 const CART_STORAGE_KEY = "upkar_cart";
@@ -190,7 +189,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       const { error: creditError } = await supabase.rpc('update_doctor_credit', {
         p_doctor_id: doctorId,
         p_amount: totalAmount
-      } as RpcParams);
+      });
       
       if (creditError) {
         console.error("Error updating doctor credit:", creditError);

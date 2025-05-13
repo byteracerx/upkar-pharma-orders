@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Pill } from "lucide-react";
 
@@ -29,7 +29,6 @@ const Login = () => {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -45,24 +44,16 @@ const Login = () => {
       const success = await login(data.email, data.password);
       
       if (success) {
-        toast({
-          title: "Login successful",
-          description: "You have been successfully logged in.",
+        toast.success("Login successful", {
+          description: "You have been successfully logged in."
         });
         navigate("/");
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
       }
-    } catch (error) {
+      // No need for else block as the login function already shows error toasts
+    } catch (error: any) {
       console.error("Login error:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred during login. Please try again.",
-        variant: "destructive",
+      toast.error("Login failed", {
+        description: error.message || "An error occurred during login. Please try again."
       });
     } finally {
       setIsLoading(false);

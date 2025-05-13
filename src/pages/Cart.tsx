@@ -3,16 +3,25 @@ import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Trash2, ChevronLeft, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { ShoppingCart, Trash2, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCartItems, updateCartItemQuantity, removeFromCart, placeOrder, CartItem } from "@/services/cartService";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const [orderSuccessOpen, setOrderSuccessOpen] = useState(false);
+  const [orderId, setOrderId] = useState<string | undefined>(undefined);
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -45,8 +54,7 @@ const Cart = () => {
     const success = removeFromCart(id);
     if (success) {
       setCartItems(prev => prev.filter(item => item.id !== id));
-      toast({
-        title: "Item Removed",
+      toast.success("Item Removed", {
         description: "The item has been removed from your cart."
       });
     }
@@ -54,10 +62,8 @@ const Cart = () => {
   
   const handlePlaceOrder = async () => {
     if (!user?.id) {
-      toast({
-        title: "Authentication Required",
-        description: "You need to be logged in to place an order.",
-        variant: "destructive"
+      toast.error("Authentication Required", {
+        description: "You need to be logged in to place an order."
       });
       navigate("/login");
       return;
@@ -69,28 +75,27 @@ const Cart = () => {
       const result = await placeOrder(user.id);
       
       if (result.success) {
-        toast({
-          title: "Order Placed Successfully",
-          description: "Your order has been submitted and is pending approval."
-        });
+        setOrderId(result.orderId);
+        setOrderSuccessOpen(true);
         setCartItems([]);
       } else {
-        toast({
-          title: "Order Failed",
-          description: result.error || "There was an issue placing your order. Please try again.",
-          variant: "destructive"
+        toast.error("Order Failed", {
+          description: result.error || "There was an issue placing your order. Please try again."
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error placing order:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again later.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: error.message || "An unexpected error occurred. Please try again later."
       });
     } finally {
       setIsPlacingOrder(false);
     }
+  };
+  
+  const viewOrderDetails = () => {
+    setOrderSuccessOpen(false);
+    navigate("/dashboard");
   };
   
   if (isLoading) {

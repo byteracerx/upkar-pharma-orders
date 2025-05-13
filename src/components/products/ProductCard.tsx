@@ -13,8 +13,9 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const isAuthenticated = !!user;
   
   const handleAddToCart = async () => {
     const success = await addToCart(product.id, 1);

@@ -87,12 +87,7 @@ export const updateOrderStatus = async (
       .from("orders")
       .select(`
         *,
-        doctor:doctor_id (
-          id,
-          name,
-          phone,
-          email
-        )
+        doctor:doctor_id (*)
       `)
       .eq("id", orderId)
       .single();
@@ -105,13 +100,24 @@ export const updateOrderStatus = async (
     // Notify doctor about the status update
     try {
       if (orderData.doctor) {
+        // Get doctor details separately to include email
+        const { data: doctorData, error: doctorError } = await supabase
+          .from("doctors")
+          .select("id, name, phone")
+          .eq("id", orderData.doctor_id)
+          .single();
+          
+        if (doctorError || !doctorData) {
+          console.error("Error fetching doctor details:", doctorError);
+          return false;
+        }
+          
         await supabase.functions.invoke('notify-doctor-status-update', {
           body: {
             orderId,
-            doctorId: orderData.doctor.id,
-            doctorName: orderData.doctor.name,
-            doctorPhone: orderData.doctor.phone,
-            doctorEmail: orderData.doctor.email,
+            doctorId: doctorData.id,
+            doctorName: doctorData.name,
+            doctorPhone: doctorData.phone,
             newStatus,
             totalAmount: orderData.total_amount
           }
@@ -128,7 +134,7 @@ export const updateOrderStatus = async (
         await supabase.functions.invoke('generate-invoice', {
           body: {
             orderId,
-            doctorId: orderData.doctor.id
+            doctorId: orderData.doctor_id
           }
         });
       } catch (invoiceError) {
@@ -172,7 +178,7 @@ export const markCreditPaid = async (
     // Fetch doctor information
     const { data: doctor, error: doctorError } = await supabase
       .from("doctors")
-      .select("name, email, phone")
+      .select("name, phone")
       .eq("id", doctorId)
       .single();
     
@@ -187,7 +193,6 @@ export const markCreditPaid = async (
             doctorId,
             doctorName: doctor?.name,
             doctorPhone: doctor?.phone,
-            doctorEmail: doctor?.email,
             paymentAmount: amount,
             paymentNotes: notes
           }

@@ -5,8 +5,8 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { ShoppingCart } from "lucide-react";
 import { Product } from "@/services/productService";
-import { useToast } from "@/components/ui/use-toast";
 import { addToCart } from "@/services/cartService";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -14,22 +14,18 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const isAuthenticated = !!user;
   
   const handleAddToCart = async () => {
     const success = await addToCart(product.id, 1);
     
     if (success) {
-      toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart.`,
+      toast.success("Added to cart", {
+        description: `${product.name} has been added to your cart.`
       });
     } else {
-      toast({
-        title: "Error",
-        description: "Could not add item to cart. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: "Could not add item to cart. Please try again."
       });
     }
   };

@@ -1,4 +1,3 @@
-
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
@@ -12,7 +11,7 @@ import {
   Minus,
   Loader2
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { fetchProductById, Product } from "@/services/productService";
 import { addToCart } from "@/services/cartService";
 
@@ -20,7 +19,6 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,10 +34,8 @@ const ProductDetail = () => {
         setProduct(productData);
       } catch (error) {
         console.error("Failed to load product:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load product details. Please try again.",
-          variant: "destructive",
+        toast.error("Error", {
+          description: "Failed to load product details. Please try again."
         });
       } finally {
         setLoading(false);
@@ -47,7 +43,7 @@ const ProductDetail = () => {
     };
     
     loadProduct();
-  }, [id, toast]);
+  }, [id]);
   
   if (loading) {
     return (
@@ -88,15 +84,12 @@ const ProductDetail = () => {
       const success = await addToCart(product.id, quantity);
       
       if (success) {
-        toast({
-          title: "Added to Cart",
-          description: `${quantity} ${quantity === 1 ? 'unit' : 'units'} of ${product.name} added to your cart.`,
+        toast.success("Added to Cart", {
+          description: `${quantity} ${quantity === 1 ? 'unit' : 'units'} of ${product.name} added to your cart.`
         });
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to add product to cart. Please try again.",
-          variant: "destructive",
+        toast.error("Error", {
+          description: "Failed to add product to cart. Please try again."
         });
       }
     } else {

@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import DoctorDashboard from "./pages/doctor/Dashboard";
 import DoctorCreditHistory from "./pages/doctor/CreditHistory";
 import NotFound from "./pages/NotFound";
+import InvoiceExample from "./pages/InvoiceExample";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/invoice-example" element={<InvoiceExample />} />
             <Route path="/admin/*" element={<AdminDashboard />} />
             <Route path="/dashboard/*" element={<DoctorDashboard />} />
             <Route path="/credit-history" element={<DoctorCreditHistory />} />

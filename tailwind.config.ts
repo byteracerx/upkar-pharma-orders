@@ -70,6 +70,13 @@ export default {
 					'light-green': '#34D399',
 					gray: '#9CA3AF',
 					'light-gray': '#F3F4F6'
+				},
+				upkem: {
+					green: '#2A5A37',
+					'light-green': '#3D7A4A',
+					'dark-green': '#1D4A29',
+					gray: '#717171',
+					'light-gray': '#F5F5F5'
 				}
 			},
 			borderRadius: {

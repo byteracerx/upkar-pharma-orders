@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { 
-  Pill, 
   ShoppingCart, 
   Menu, 
   X, 
@@ -37,21 +36,28 @@ const Navbar = () => {
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <Pill className="h-8 w-8 text-upkar-blue" />
-            <span className="text-xl font-poppins font-bold text-upkar-blue">Upkar Pharma</span>
+            <img 
+              src="/lovable-uploads/65d9d55e-5ea8-491a-8500-3328aa065695.png" 
+              alt="Upkem Labs Logo" 
+              className="h-10" 
+            />
+            <div className="flex flex-col">
+              <span className="text-xl font-poppins font-bold text-upkem-green">UPKEM LABS</span>
+              <span className="text-xs text-gray-500">We Build trust not medicine</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/products" className="text-gray-600 hover:text-upkar-blue transition-colors">
+            <Link to="/products" className="text-gray-600 hover:text-upkem-green transition-colors">
               Products
             </Link>
             
             {isAuthenticated ? (
               <>
                 <Link to="/cart" className="relative">
-                  <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkar-blue transition-colors" />
-                  <span className="absolute -top-2 -right-2 bg-upkar-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkem-green transition-colors" />
+                  <span className="absolute -top-2 -right-2 bg-upkem-green text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                     0
                   </span>
                 </Link>
@@ -120,7 +126,7 @@ const Navbar = () => {
                     <span>Cart</span>
                     <div className="relative">
                       <ShoppingCart className="h-5 w-5" />
-                      <span className="absolute -top-2 -right-2 bg-upkar-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      <span className="absolute -top-2 -right-2 bg-upkem-green text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                         0
                       </span>
                     </div>
@@ -153,7 +159,7 @@ const Navbar = () => {
                       Login
                     </Link>
                   </Button>
-                  <Button className="w-full" asChild>
+                  <Button className="w-full bg-upkem-green hover:bg-upkem-green/90" asChild>
                     <Link to="/register" onClick={() => setIsMenuOpen(false)}>
                       Register
                     </Link>

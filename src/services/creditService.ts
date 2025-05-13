@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // Define the types for credit-related data
@@ -8,6 +9,7 @@ export interface CreditTransaction {
   amount: number;
   type: 'credit' | 'debit';
   description: string;
+  reference_id?: string; // Added missing field
 }
 
 export interface CreditSummary {

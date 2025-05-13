@@ -37,9 +37,7 @@ const ProductList = () => {
         setIsLoading(false);
       } catch (error) {
         console.error("Failed to load products:", error);
-        toast("Failed to load products. Please try again.", {
-          variant: "destructive",
-        });
+        toast("Failed to load products. Please try again.");
         setIsLoading(false);
       }
     };

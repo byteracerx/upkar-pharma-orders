@@ -1,8 +1,10 @@
+
 import { useState, useEffect } from "react";
-import DoctorApprovalCard from "@/components/admin/DoctorApprovalCard";
+import DoctorList from "@/components/admin/DoctorList";
+import DoctorSearch from "@/components/admin/DoctorSearch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,66 +28,62 @@ const DoctorApprovals = () => {
   
   // Fetch doctors from Supabase
   useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        setIsLoading(true);
-        
-        // This is a workaround since we can't directly query auth.users
-        // in the client. In a real application, we would use a server function or
-        // store email in the doctors table
-        
-        // Fetch pending doctors (not approved)
-        const { data: pendingData, error: pendingError } = await supabase
-          .from('doctors')
-          .select('*')
-          .eq('is_approved', false);
-          
-        if (pendingError) throw pendingError;
-        
-        // Fetch approved doctors
-        const { data: approvedData, error: approvedError } = await supabase
-          .from('doctors')
-          .select('*')
-          .eq('is_approved', true);
-          
-        if (approvedError) throw approvedError;
-        
-        // Format the data - using placeholder emails since we can't query auth.users directly
-        const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
-          id: doctor.id,
-          name: doctor.name,
-          email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
-          phone: doctor.phone,
-          gstNumber: doctor.gst_number,
-          registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
-          status: 'pending'
-        }));
-        
-        const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
-          id: doctor.id,
-          name: doctor.name,
-          email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
-          phone: doctor.phone,
-          gstNumber: doctor.gst_number,
-          registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
-          status: 'approved'
-        }));
-        
-        setPendingDoctors(formattedPendingDoctors);
-        setApprovedDoctors(formattedApprovedDoctors);
-        
-      } catch (error: any) {
-        console.error("Error fetching doctors:", error);
-        toast.error("Failed to load doctors", {
-          description: error.message
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     fetchDoctors();
   }, []);
+
+  const fetchDoctors = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch pending doctors (not approved)
+      const { data: pendingData, error: pendingError } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('is_approved', false);
+        
+      if (pendingError) throw pendingError;
+      
+      // Fetch approved doctors
+      const { data: approvedData, error: approvedError } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('is_approved', true);
+        
+      if (approvedError) throw approvedError;
+      
+      // Format the data - using placeholder emails since we can't query auth.users directly
+      const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
+        id: doctor.id,
+        name: doctor.name,
+        email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
+        phone: doctor.phone,
+        gstNumber: doctor.gst_number,
+        registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
+        status: 'pending'
+      }));
+      
+      const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
+        id: doctor.id,
+        name: doctor.name,
+        email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
+        phone: doctor.phone,
+        gstNumber: doctor.gst_number,
+        registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
+        status: 'approved'
+      }));
+      
+      setPendingDoctors(formattedPendingDoctors);
+      setApprovedDoctors(formattedApprovedDoctors);
+      
+    } catch (error: any) {
+      console.error("Error fetching doctors:", error);
+      toast.error("Failed to load doctors", {
+        description: error.message
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleApproveDoctor = (id: string) => {
     const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);
@@ -131,15 +129,7 @@ const DoctorApprovals = () => {
       </div>
       
       <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            placeholder="Search by name, email or phone..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <DoctorSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -157,81 +147,43 @@ const DoctorApprovals = () => {
         </TabsList>
         
         <TabsContent value="pending">
-          {filteredPendingDoctors.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPendingDoctors.map(doctor => (
-                <DoctorApprovalCard
-                  key={doctor.id}
-                  doctor={doctor}
-                  onApprove={handleApproveDoctor}
-                  onReject={handleRejectDoctor}
-                />
-              ))}
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <div className="text-center p-8 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No pending doctor approvals found.</p>
-            </div>
+            <DoctorList 
+              doctors={filteredPendingDoctors} 
+              status="pending"
+              onApprove={handleApproveDoctor}
+              onReject={handleRejectDoctor}
+            />
           )}
         </TabsContent>
         
         <TabsContent value="approved">
-          {filteredApprovedDoctors.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredApprovedDoctors.map(doctor => (
-                <div key={doctor.id} className="bg-white p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-green-100 p-2 rounded-full">
-                      <Users className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{doctor.name}</h3>
-                      <p className="text-sm text-gray-500">{doctor.email}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Phone:</span> {doctor.phone}</p>
-                    <p><span className="font-medium">GST Number:</span> {doctor.gstNumber}</p>
-                    <p><span className="font-medium">Registered:</span> {doctor.registrationDate}</p>
-                    <p className="text-green-600 font-medium">Approved</p>
-                  </div>
-                </div>
-              ))}
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <div className="text-center p-8 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No approved doctors found.</p>
-            </div>
+            <DoctorList 
+              doctors={filteredApprovedDoctors} 
+              status="approved"
+            />
           )}
         </TabsContent>
         
         <TabsContent value="rejected">
-          {filteredRejectedDoctors.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRejectedDoctors.map(doctor => (
-                <div key={doctor.id} className="bg-white p-6 rounded-lg shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-red-100 p-2 rounded-full">
-                      <Users className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{doctor.name}</h3>
-                      <p className="text-sm text-gray-500">{doctor.email}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Phone:</span> {doctor.phone}</p>
-                    <p><span className="font-medium">GST Number:</span> {doctor.gstNumber}</p>
-                    <p><span className="font-medium">Registered:</span> {doctor.registrationDate}</p>
-                    <p className="text-red-600 font-medium">Rejected</p>
-                  </div>
-                </div>
-              ))}
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <div className="text-center p-8 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No rejected doctors found.</p>
-            </div>
+            <DoctorList 
+              doctors={filteredRejectedDoctors} 
+              status="rejected"
+            />
           )}
         </TabsContent>
       </Tabs>

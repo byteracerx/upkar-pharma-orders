@@ -61,7 +61,8 @@ const DoctorApprovals = () => {
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+        // Generate an email if it doesn't exist using the doctor's name or id
+        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
@@ -71,7 +72,8 @@ const DoctorApprovals = () => {
       const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+        // Generate an email if it doesn't exist using the doctor's name or id
+        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),

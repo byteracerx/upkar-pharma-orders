@@ -292,7 +292,8 @@ export const getAllDoctorCredits = async () => {
         doctor_id: doctor.id,
         doctor_name: doctor.name,
         doctor_phone: doctor.phone,
-        doctor_email: doctor.email || '',
+        // Generate an email if it doesn't exist using the doctor's name or id
+        doctor_email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         total_credit: totalCredit
       });
     }

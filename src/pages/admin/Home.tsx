@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -135,6 +134,7 @@ const AdminHome = () => {
           id, 
           total_amount,
           status,
+          invoice_number,
           doctor:doctor_id (name)
         `)
         .order('created_at', { ascending: false })

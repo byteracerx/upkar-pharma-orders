@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          doctor_id: string
+          id: string
+          status: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          doctor_id: string
+          id?: string
+          status?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          doctor_id?: string
+          id?: string
+          status?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           address: string
@@ -84,6 +117,47 @@ export type Database = {
           },
         ]
       }
+      order_communications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          order_id: string | null
+          read: boolean | null
+          read_at: string | null
+          recipient_id: string | null
+          sender_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          order_id?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          sender_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          order_id?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_communications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string | null
@@ -129,29 +203,147 @@ export type Database = {
           },
         ]
       }
-      orders: {
+      order_notifications: {
+        Row: {
+          content: string | null
+          id: string
+          notification_type: string
+          order_id: string | null
+          recipient: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          content?: string | null
+          id?: string
+          notification_type: string
+          order_id?: string | null
+          recipient: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          content?: string | null
+          id?: string
+          notification_type?: string
+          order_id?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_status_history: {
         Row: {
           created_at: string | null
-          doctor_id: string
+          created_by: string | null
           id: string
+          notes: string | null
+          order_id: string | null
           status: string
-          total_amount: number
-          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          doctor_id: string
+          created_by?: string | null
           id?: string
-          status?: string
-          total_amount: number
-          updated_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          status: string
         }
         Update: {
           created_at?: string | null
-          doctor_id?: string
+          created_by?: string | null
           id?: string
+          notes?: string | null
+          order_id?: string | null
           status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          actual_delivery_date: string | null
+          billing_address: string | null
+          created_at: string | null
+          discount_amount: number | null
+          doctor_id: string
+          estimated_delivery_date: string | null
+          id: string
+          invoice_generated: boolean | null
+          invoice_number: string | null
+          invoice_url: string | null
+          notes: string | null
+          payment_method: string | null
+          payment_status: string | null
+          shipping_address: string | null
+          shipping_carrier: string | null
+          shipping_cost: number | null
+          status: string
+          tax_amount: number | null
+          total_amount: number
+          tracking_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          billing_address?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          doctor_id: string
+          estimated_delivery_date?: string | null
+          id?: string
+          invoice_generated?: boolean | null
+          invoice_number?: string | null
+          invoice_url?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipping_address?: string | null
+          shipping_carrier?: string | null
+          shipping_cost?: number | null
+          status?: string
+          tax_amount?: number | null
+          total_amount: number
+          tracking_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          billing_address?: string | null
+          created_at?: string | null
+          discount_amount?: number | null
+          doctor_id?: string
+          estimated_delivery_date?: string | null
+          id?: string
+          invoice_generated?: boolean | null
+          invoice_number?: string | null
+          invoice_url?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipping_address?: string | null
+          shipping_carrier?: string | null
+          shipping_cost?: number | null
+          status?: string
+          tax_amount?: number | null
           total_amount?: number
+          tracking_number?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -232,12 +424,259 @@ export type Database = {
         }
         Relationships: []
       }
+      return_items: {
+        Row: {
+          condition: string | null
+          id: string
+          price_per_unit: number
+          product_id: string | null
+          quantity: number
+          reason: string | null
+          return_id: string | null
+          total_price: number
+        }
+        Insert: {
+          condition?: string | null
+          id?: string
+          price_per_unit: number
+          product_id?: string | null
+          quantity: number
+          reason?: string | null
+          return_id?: string | null
+          total_price: number
+        }
+        Update: {
+          condition?: string | null
+          id?: string
+          price_per_unit?: number
+          product_id?: string | null
+          quantity?: number
+          reason?: string | null
+          return_id?: string | null
+          total_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      returns: {
+        Row: {
+          amount: number
+          created_at: string | null
+          doctor_id: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          processed_by: string | null
+          reason: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          doctor_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          processed_by?: string | null
+          reason: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          doctor_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          processed_by?: string | null
+          reason?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_order_communication: {
+        Args: {
+          p_order_id: string
+          p_sender_id: string
+          p_recipient_id: string
+          p_message: string
+        }
+        Returns: string
+      }
+      generate_invoice: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
+      get_all_doctor_credits: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          doctor_id: string
+          doctor_name: string
+          doctor_phone: string
+          doctor_email: string
+          total_credit: number
+        }[]
+      }
+      get_all_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          doctor_id: string
+          total_amount: number
+          status: string
+          created_at: string
+          updated_at: string
+          doctor_name: string
+          doctor_phone: string
+          doctor_email: string
+        }[]
+      }
+      get_all_orders_enhanced: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          doctor_id: string
+          doctor_name: string
+          doctor_phone: string
+          doctor_email: string
+          total_amount: number
+          status: string
+          created_at: string
+          updated_at: string
+          estimated_delivery_date: string
+          actual_delivery_date: string
+          tracking_number: string
+          shipping_carrier: string
+          payment_status: string
+          invoice_number: string
+          invoice_generated: boolean
+          has_returns: boolean
+        }[]
+      }
+      get_doctor_credit_summary: {
+        Args: { p_doctor_id: string }
+        Returns: Json
+      }
+      get_doctor_orders_enhanced: {
+        Args: { p_doctor_id: string }
+        Returns: {
+          id: string
+          total_amount: number
+          status: string
+          created_at: string
+          updated_at: string
+          estimated_delivery_date: string
+          actual_delivery_date: string
+          tracking_number: string
+          shipping_carrier: string
+          payment_status: string
+          invoice_number: string
+          invoice_url: string
+          item_count: number
+          has_returns: boolean
+        }[]
+      }
+      get_order_details: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      mark_communication_as_read: {
+        Args: { p_communication_id: string }
+        Returns: boolean
+      }
+      process_return: {
+        Args: {
+          p_order_id: string
+          p_doctor_id: string
+          p_reason: string
+          p_items: Json
+          p_processed_by?: string
+          p_notes?: string
+        }
+        Returns: string
+      }
+      record_order_notification: {
+        Args: {
+          p_order_id: string
+          p_notification_type: string
+          p_recipient: string
+          p_content: string
+          p_status?: string
+        }
+        Returns: string
+      }
+      reorder_previous_order: {
+        Args: { p_order_id: string; p_doctor_id: string }
+        Returns: string
+      }
+      setup_admin_rls: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      update_order_status: {
+        Args: {
+          p_order_id: string
+          p_status: string
+          p_notes?: string
+          p_user_id?: string
+        }
+        Returns: boolean
+      }
+      update_return_status: {
+        Args: {
+          p_return_id: string
+          p_status: string
+          p_processed_by?: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
+      update_shipping_info: {
+        Args: {
+          p_order_id: string
+          p_tracking_number: string
+          p_shipping_carrier: string
+          p_estimated_delivery_date?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

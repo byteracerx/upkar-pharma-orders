@@ -1,3 +1,4 @@
+
 -- Drop the function if it exists to ensure a clean creation
 DROP FUNCTION IF EXISTS public.get_doctor_credit_summary(uuid);
 

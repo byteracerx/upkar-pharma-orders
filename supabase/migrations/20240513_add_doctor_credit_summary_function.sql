@@ -1,3 +1,4 @@
+
 -- Create the get_doctor_credit_summary function
 CREATE OR REPLACE FUNCTION public.get_doctor_credit_summary(p_doctor_id uuid)
 RETURNS TABLE (

@@ -9,7 +9,7 @@ export interface CreditTransaction {
   amount: number;
   type: 'credit' | 'debit';
   description: string;
-  reference_id?: string; // Added missing field
+  reference_id?: string;
 }
 
 export interface CreditSummary {
@@ -20,16 +20,16 @@ export interface CreditSummary {
   total_credit: number;
 }
 
-// Define the RPC parameter types
+// Define the parameter types for RPC functions
 interface DoctorIdParam {
-  doctor_id: string;
+  p_doctor_id: string;
 }
 
 // Get credit history for a doctor
 export const fetchCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_doctor_credit_history', { doctor_id: doctorId });
+      .rpc('get_doctor_credit_history', { p_doctor_id: doctorId } as DoctorIdParam);
     
     if (error) throw error;
     return data || [];
@@ -43,7 +43,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
 export const fetchDoctorCreditSummary = async (doctorId: string): Promise<CreditSummary> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_doctor_credit_summary', { doctor_id: doctorId });
+      .rpc('get_doctor_credit_summary', { p_doctor_id: doctorId } as DoctorIdParam);
     
     if (error) throw error;
     return data;

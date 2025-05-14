@@ -1,3 +1,4 @@
+
 // Script to apply database fixes
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
@@ -66,8 +67,8 @@ async function main() {
     const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
     
     // Execute the SQL files
-    await executeSqlFile(path.join(migrationsDir, '20240513_add_doctor_credits_function.sql'));
-    await executeSqlFile(path.join(migrationsDir, '20240513_fix_orders_view.sql'));
+    await executeSqlFile(path.join(migrationsDir, '20240513_add_doctor_credit_summary_function.sql'));
+    await executeSqlFile(path.join(migrationsDir, '20240513_fix_doctor_credit_summary.sql'));
     
     console.log('Database fixes applied successfully!');
   } catch (error) {

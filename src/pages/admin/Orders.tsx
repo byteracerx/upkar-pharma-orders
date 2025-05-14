@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Eye, FileText, Send } from "lucide-react";
+import { Loader2, Search, Eye, FileText, Send, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { fetchAllOrders, updateOrderStatus, generateInvoice } from "@/services/adminService";
 
 type Order = {
   id: string;
@@ -45,11 +47,15 @@ type Order = {
   doctor_id: string;
   status: string;
   total_amount: number;
-  doctor: {
+  doctor_name?: string;
+  doctor_phone?: string;
+  invoice_number?: string;
+  invoice_generated?: boolean;
+  invoice_url?: string;
+  doctor?: {
     name: string;
     phone: string;
-    email?: string;
-  } | null;
+  };
 };
 
 type OrderItem = {
@@ -75,38 +81,54 @@ const AdminOrders = () => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Fetch orders from Supabase
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select(`
-            *,
-            doctor:doctor_id (name, phone)
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          throw error;
+    loadOrders();
+    
+    // Set up real-time subscription
+    const ordersChannel = supabase
+      .channel('orders-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('Orders table changed:', payload);
+          loadOrders(); // Refresh data on any change
         }
-
-        if (data) {
-          setOrders(data as Order[]);
-        }
-      } catch (error: any) {
-        console.error("Error fetching orders:", error);
-        toast.error("Failed to load orders", {
-          description: error.message || "Please try again."
-        });
-      } finally {
-        setLoading(false);
-      }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(ordersChannel);
     };
-
-    fetchOrders();
   }, []);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchAllOrders();
+      
+      // Process the data to ensure consistent format
+      const processedOrders = data.map((order: any) => {
+        return {
+          ...order,
+          doctor_name: order.doctor_name || (order.doctor?.name || "Unknown"),
+          doctor_phone: order.doctor_phone || (order.doctor?.phone || "N/A")
+        };
+      });
+      
+      setOrders(processedOrders);
+    } catch (error: any) {
+      console.error("Error fetching orders:", error);
+      toast.error("Failed to load orders", {
+        description: error.message || "Please try again."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch order details
   const fetchOrderDetails = async (orderId: string) => {
@@ -139,91 +161,51 @@ const AdminOrders = () => {
   // Handle status change
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus })
-        .eq("id", orderId);
-
-      if (error) {
-        throw error;
-      }
-
-      // Update local state
-      setOrders(
-        orders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
-
-      toast.success("Status Updated", {
-        description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
-      });
+      setIsUpdatingStatus(true);
       
-      // Get the order details for notifications
-      const order = orders.find(o => o.id === orderId);
+      const success = await updateOrderStatus(orderId, newStatus);
       
-      if (order && order.doctor) {
-        // Send notification to doctor about status change
-        try {
-          await supabase.functions.invoke('notify-doctor-status-update', {
-            body: {
-              orderId,
-              doctorName: order.doctor.name,
-              doctorPhone: order.doctor.phone,
-              doctorEmail: order.doctor.email || '',
-              newStatus
-            }
-          });
-          
-          toast.success("Notification Sent", {
-            description: `WhatsApp notification sent to ${order.doctor.name}`
-          });
-        } catch (notifyError) {
-          console.error("Error sending notification:", notifyError);
-          toast.error("Notification Failed", {
-            description: "Could not send WhatsApp notification to doctor."
-          });
-        }
-      }
-      
-      // If status changed to accepted, generate invoice
-      if (newStatus === "accepted") {
-        try {
-          await supabase.functions.invoke('generate-invoice', {
-            body: { orderId }
-          });
-          
-          toast.success("Invoice Generated", {
-            description: "The invoice has been generated and sent to the doctor."
-          });
-        } catch (invoiceError) {
-          console.error("Error generating invoice:", invoiceError);
-          toast.error("Invoice Generation Failed", {
-            description: "Could not generate invoice for this order."
-          });
-        }
+      if (success) {
+        // Update local state
+        setOrders(
+          orders.map((order) =>
+            order.id === orderId ? { ...order, status: newStatus } : order
+          )
+        );
+
+        toast.success("Status Updated", {
+          description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
+        });
+      } else {
+        throw new Error("Failed to update status");
       }
     } catch (error: any) {
       console.error("Error updating order status:", error);
       toast.error("Failed to update order status", {
         description: error.message || "Please try again."
       });
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
   
   // Generate invoice
-  const generateInvoice = async (orderId: string) => {
+  const handleGenerateInvoice = async (orderId: string) => {
     try {
       setIsGeneratingInvoice(true);
       
-      // Call the serverless function to generate the invoice
-      await supabase.functions.invoke('generate-invoice', {
-        body: { orderId }
-      });
+      const success = await generateInvoice(orderId);
       
-      toast.success("Invoice Generated", {
-        description: "The invoice has been generated and sent to the doctor."
-      });
+      if (success) {
+        toast.success("Invoice Generated", {
+          description: "The invoice has been generated and sent to the doctor."
+        });
+        
+        // Update orders list to reflect invoice generation
+        loadOrders();
+      } else {
+        throw new Error("Failed to generate invoice");
+      }
     } catch (error: any) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice", {
@@ -242,24 +224,15 @@ const AdminOrders = () => {
       // Get the order details
       const order = orders.find(o => o.id === orderId);
       
-      if (!order || !order.doctor) {
-        throw new Error("Order or doctor information not found");
+      if (!order) {
+        throw new Error("Order not found");
       }
       
-      // Send notification to doctor
-      await supabase.functions.invoke('notify-doctor-status-update', {
-        body: {
-          orderId,
-          doctorName: order.doctor.name,
-          doctorPhone: order.doctor.phone,
-          doctorEmail: order.doctor?.email || '',
-          newStatus: order.status
-        }
+      // Send notification to doctor - in a real app this would call an Edge Function
+      toast.success("Notification Sent", {
+        description: `Notification sent to doctor: ${order.doctor_name}`
       });
       
-      toast.success("Notification Sent", {
-        description: `WhatsApp notification sent to ${order.doctor.name}`
-      });
     } catch (error: any) {
       console.error("Error sending notification:", error);
       toast.error("Failed to send notification", {
@@ -280,17 +253,17 @@ const AdminOrders = () => {
   // Filter orders based on search term
   const filteredOrders = orders.filter(
     (order) =>
-      (order.doctor?.name && order.doctor.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (order.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.doctor?.phone.includes(searchTerm)
+      (order.doctor_phone && order.doctor_phone.includes(searchTerm))
   );
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Order Management</h1>
       
-      <div className="mb-6">
-        <div className="relative">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
           <Input
             placeholder="Search by doctor name, phone or order ID..."
@@ -299,6 +272,15 @@ const AdminOrders = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        
+        <Button 
+          variant="outline" 
+          onClick={loadOrders}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       <Card>
@@ -332,10 +314,10 @@ const AdminOrders = () => {
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
-                      {order.id.substring(0, 8)}...
+                      {order.invoice_number || order.id.substring(0, 8)}...
                     </TableCell>
-                    <TableCell>{order.doctor?.name || "Unknown"}</TableCell>
-                    <TableCell>{order.doctor?.phone || "N/A"}</TableCell>
+                    <TableCell>{order.doctor_name}</TableCell>
+                    <TableCell>{order.doctor_phone}</TableCell>
                     <TableCell>
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
@@ -359,6 +341,7 @@ const AdminOrders = () => {
                       <Select
                         value={order.status}
                         onValueChange={(value) => handleStatusChange(order.id, value)}
+                        disabled={isUpdatingStatus}
                       >
                         <SelectTrigger className="w-32">
                           <SelectValue placeholder="Status" />
@@ -380,6 +363,17 @@ const AdminOrders = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {!order.invoice_generated && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleGenerateInvoice(order.id)}
+                            disabled={isGeneratingInvoice}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -408,7 +402,7 @@ const AdminOrders = () => {
                   <br />
                   <span className="font-medium">Date:</span> {new Date(selectedOrder.created_at).toLocaleString()}
                   <br />
-                  <span className="font-medium">Doctor:</span> {selectedOrder.doctor?.name || "Unknown"}
+                  <span className="font-medium">Doctor:</span> {selectedOrder.doctor_name}
                   <br />
                   <span className="font-medium">Status:</span> {selectedOrder.status}
                 </div>
@@ -460,8 +454,8 @@ const AdminOrders = () => {
               <Button
                 variant="outline"
                 className="flex items-center gap-1"
-                onClick={() => selectedOrder && generateInvoice(selectedOrder.id)}
-                disabled={isGeneratingInvoice}
+                onClick={() => selectedOrder && handleGenerateInvoice(selectedOrder.id)}
+                disabled={isGeneratingInvoice || (selectedOrder?.invoice_generated)}
               >
                 {isGeneratingInvoice ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

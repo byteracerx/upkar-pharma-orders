@@ -1,12 +1,11 @@
-
 import { useState, useEffect } from "react";
 import DoctorList from "@/components/admin/DoctorList";
 import DoctorSearch from "@/components/admin/DoctorSearch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Search, Users, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { fetchPendingDoctors, fetchApprovedDoctors, approveDoctor, rejectDoctor } from "@/services/adminService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Doctor {
   id: string;
@@ -29,45 +28,52 @@ const DoctorApprovals = () => {
   // Fetch doctors from Supabase
   useEffect(() => {
     fetchDoctors();
+    
+    // Set up real-time subscription
+    const doctorsChannel = supabase
+      .channel('doctors-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'doctors' },
+        (payload) => {
+          console.log('Doctors table changed:', payload);
+          fetchDoctors(); // Refresh data on any change
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(doctorsChannel);
+    };
   }, []);
 
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
       
-      // Fetch pending doctors (not approved)
-      const { data: pendingData, error: pendingError } = await supabase
-        .from('doctors')
-        .select('*')
-        .eq('is_approved', false);
-        
-      if (pendingError) throw pendingError;
+      // Fetch pending doctors
+      const pendingData = await fetchPendingDoctors();
       
       // Fetch approved doctors
-      const { data: approvedData, error: approvedError } = await supabase
-        .from('doctors')
-        .select('*')
-        .eq('is_approved', true);
-        
-      if (approvedError) throw approvedError;
+      const approvedData = await fetchApprovedDoctors();
       
-      // Format the data - using placeholder emails since we can't query auth.users directly
+      // Format the data
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
         id: doctor.id,
-        name: doctor.name,
-        email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
-        phone: doctor.phone,
-        gstNumber: doctor.gst_number,
+        name: doctor.name || "Unnamed Doctor",
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+        phone: doctor.phone || "N/A",
+        gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
         status: 'pending'
       }));
       
       const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
         id: doctor.id,
-        name: doctor.name,
-        email: `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder email
-        phone: doctor.phone,
-        gstNumber: doctor.gst_number,
+        name: doctor.name || "Unnamed Doctor",
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+        phone: doctor.phone || "N/A",
+        gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
         status: 'approved'
       }));
@@ -85,19 +91,49 @@ const DoctorApprovals = () => {
     }
   };
   
-  const handleApproveDoctor = (id: string) => {
-    const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);
-    if (doctorToApprove) {
-      setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
-      setApprovedDoctors([...approvedDoctors, { ...doctorToApprove, status: "approved" }]);
+  const handleApproveDoctor = async (id: string) => {
+    try {
+      const success = await approveDoctor(id);
+      
+      if (success) {
+        const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);
+        if (doctorToApprove) {
+          setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
+          setApprovedDoctors([...approvedDoctors, { ...doctorToApprove, status: "approved" }]);
+          
+          toast.success("Doctor Approved", {
+            description: `${doctorToApprove.name} has been approved successfully`
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error approving doctor:", error);
+      toast.error("Failed to approve doctor", {
+        description: error.message
+      });
     }
   };
   
-  const handleRejectDoctor = (id: string) => {
-    const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
-    if (doctorToReject) {
-      setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
-      setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
+  const handleRejectDoctor = async (id: string) => {
+    try {
+      const success = await rejectDoctor(id);
+      
+      if (success) {
+        const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
+        if (doctorToReject) {
+          setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
+          setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
+          
+          toast.success("Doctor Rejected", {
+            description: `${doctorToReject.name}'s application has been rejected`
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error rejecting doctor:", error);
+      toast.error("Failed to reject doctor", {
+        description: error.message
+      });
     }
   };
   

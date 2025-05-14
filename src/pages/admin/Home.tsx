@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -10,37 +11,185 @@ import {
   Users,
   ShoppingCart,
   CreditCard,
-  FileText,
   Pill
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface AdminStats {
+  pendingDoctors: number;
+  pendingOrders: number;
+  totalProducts: number;
+  totalCredit: number;
+  recentOrders: Array<{
+    id: string;
+    doctor: string;
+    amount: string;
+    status: string;
+  }>;
+}
 
 const AdminHome = () => {
-  const stats = [
+  const [stats, setStats] = useState<AdminStats>({
+    pendingDoctors: 0,
+    pendingOrders: 0,
+    totalProducts: 0,
+    totalCredit: 0,
+    recentOrders: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAdminStats();
+    
+    // Set up real-time subscriptions
+    const ordersChannel = supabase
+      .channel('admin-orders-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => fetchAdminStats()
+      )
+      .subscribe();
+      
+    const doctorsChannel = supabase
+      .channel('admin-doctors-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'doctors' },
+        () => fetchAdminStats()
+      )
+      .subscribe();
+      
+    const productsChannel = supabase
+      .channel('admin-products-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => fetchAdminStats()
+      )
+      .subscribe();
+      
+    const creditsChannel = supabase
+      .channel('admin-credits-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'credit_transactions' },
+        () => fetchAdminStats()
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(doctorsChannel);
+      supabase.removeChannel(productsChannel);
+      supabase.removeChannel(creditsChannel);
+    };
+  }, []);
+
+  const fetchAdminStats = async () => {
+    try {
+      setLoading(true);
+      
+      // Get pending doctors count
+      const { count: pendingDoctors, error: doctorsError } = await supabase
+        .from('doctors')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_approved', false);
+        
+      if (doctorsError) throw doctorsError;
+      
+      // Get pending orders count
+      const { count: pendingOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+        
+      if (ordersError) throw ordersError;
+      
+      // Get total products count
+      const { count: totalProducts, error: productsError } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+        
+      if (productsError) throw productsError;
+      
+      // Get total outstanding credit
+      let totalCredit = 0;
+      try {
+        const { data: creditData } = await supabase.rpc('get_all_doctor_credits');
+        
+        if (creditData && Array.isArray(creditData)) {
+          totalCredit = creditData.reduce((sum, item) => sum + Number(item.total_credit), 0);
+        }
+      } catch (creditError) {
+        console.error("Error fetching credits:", creditError);
+        // Continue with totalCredit as 0
+      }
+      
+      // Get recent orders
+      const { data: recentOrdersData, error: recentOrdersError } = await supabase
+        .from('orders')
+        .select(`
+          id, 
+          total_amount,
+          status,
+          doctor:doctor_id (name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(4);
+        
+      if (recentOrdersError) throw recentOrdersError;
+      
+      const formattedRecentOrders = recentOrdersData.map(order => ({
+        id: order.invoice_number || `ORD-${order.id.substring(0, 4)}`,
+        doctor: order.doctor?.name || "Unknown",
+        amount: `₹${order.total_amount.toFixed(2)}`,
+        status: order.status.charAt(0).toUpperCase() + order.status.slice(1)
+      }));
+      
+      setStats({
+        pendingDoctors: pendingDoctors || 0,
+        pendingOrders: pendingOrders || 0,
+        totalProducts: totalProducts || 0,
+        totalCredit: totalCredit,
+        recentOrders: formattedRecentOrders
+      });
+      
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      toast.error("Failed to load dashboard statistics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsItems = [
     {
       title: "Pending Approvals",
-      value: "8",
+      value: loading ? "..." : stats.pendingDoctors.toString(),
       description: "New doctor registrations",
       icon: <Users className="h-5 w-5 text-upkar-blue" />,
       link: "/admin/doctors"
     },
     {
       title: "New Orders",
-      value: "12",
+      value: loading ? "..." : stats.pendingOrders.toString(),
       description: "Orders awaiting processing",
       icon: <ShoppingCart className="h-5 w-5 text-upkar-blue" />,
       link: "/admin/orders"
     },
     {
       title: "Total Products",
-      value: "245",
+      value: loading ? "..." : stats.totalProducts.toString(),
       description: "In your catalog",
       icon: <Pill className="h-5 w-5 text-upkar-blue" />,
       link: "/admin/products"
     },
     {
       title: "Credit Balance",
-      value: "₹45,250",
+      value: loading ? "..." : `₹${stats.totalCredit.toFixed(2)}`,
       description: "Outstanding credits",
       icon: <CreditCard className="h-5 w-5 text-upkar-blue" />,
       link: "/admin/credits"
@@ -57,7 +206,7 @@ const AdminHome = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
+        {statsItems.map((stat, index) => (
           <Link to={stat.link} key={index} className="block hover:no-underline">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -69,7 +218,9 @@ const AdminHome = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className={`text-2xl font-bold ${loading ? "animate-pulse" : ""}`}>
+                  {stat.value}
+                </div>
                 <CardDescription>{stat.description}</CardDescription>
               </CardContent>
             </Card>
@@ -77,15 +228,19 @@ const AdminHome = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>
-              Latest orders from the past 7 days
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Orders</CardTitle>
+          <CardDescription>
+            Latest orders from the system
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="w-full h-32 flex items-center justify-center">
+              <div className="animate-pulse text-upkar-blue">Loading...</div>
+            </div>
+          ) : (
             <table className="w-full">
               <thead>
                 <tr className="text-left text-sm text-gray-500">
@@ -96,122 +251,41 @@ const AdminHome = () => {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  {
-                    id: "ORD-5672",
-                    doctor: "Dr. Sharma",
-                    amount: "₹1,250",
-                    status: "Pending",
-                  },
-                  {
-                    id: "ORD-5671",
-                    doctor: "Dr. Patel",
-                    amount: "₹3,480",
-                    status: "Processing",
-                  },
-                  {
-                    id: "ORD-5670",
-                    doctor: "Dr. Kumar",
-                    amount: "₹2,150",
-                    status: "Completed",
-                  },
-                  {
-                    id: "ORD-5669",
-                    doctor: "Dr. Singh",
-                    amount: "₹980",
-                    status: "Completed",
-                  },
-                ].map((order, index) => (
-                  <tr key={index} className="border-b last:border-0">
-                    <td className="py-3 text-sm">{order.id}</td>
-                    <td className="py-3 text-sm">{order.doctor}</td>
-                    <td className="py-3 text-sm">{order.amount}</td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-block text-xs px-2 py-1 rounded-full ${
-                          order.status === "Completed"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "Processing"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
+                {stats.recentOrders.length > 0 ? (
+                  stats.recentOrders.map((order, index) => (
+                    <tr key={index} className="border-b last:border-0">
+                      <td className="py-3 text-sm">{order.id}</td>
+                      <td className="py-3 text-sm">{order.doctor}</td>
+                      <td className="py-3 text-sm">{order.amount}</td>
+                      <td className="py-3">
+                        <span
+                          className={`inline-block text-xs px-2 py-1 rounded-full ${
+                            order.status === "Delivered"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "Processing"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : order.status === "Pending"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
+                      No recent orders available
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Invoices</CardTitle>
-            <CardDescription>
-              Latest invoices generated
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="pb-2">Invoice</th>
-                  <th className="pb-2">Doctor</th>
-                  <th className="pb-2">Amount</th>
-                  <th className="pb-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  {
-                    id: "INV-2022",
-                    doctor: "Dr. Sharma",
-                    amount: "₹1,250",
-                    status: "Paid",
-                  },
-                  {
-                    id: "INV-2021",
-                    doctor: "Dr. Patel",
-                    amount: "₹3,480",
-                    status: "Unpaid",
-                  },
-                  {
-                    id: "INV-2020",
-                    doctor: "Dr. Kumar",
-                    amount: "₹2,150",
-                    status: "Paid",
-                  },
-                  {
-                    id: "INV-2019",
-                    doctor: "Dr. Singh",
-                    amount: "₹980",
-                    status: "Paid",
-                  },
-                ].map((invoice, index) => (
-                  <tr key={index} className="border-b last:border-0">
-                    <td className="py-3 text-sm">{invoice.id}</td>
-                    <td className="py-3 text-sm">{invoice.doctor}</td>
-                    <td className="py-3 text-sm">{invoice.amount}</td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-block text-xs px-2 py-1 rounded-full ${
-                          invoice.status === "Paid"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {invoice.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

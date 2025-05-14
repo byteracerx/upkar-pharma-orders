@@ -1,157 +1,282 @@
-// Script to add a sample doctor account and products
+
+// This script adds sample data to the Upkar Pharma application database via the Supabase API
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
+
+// Load environment variables
 dotenv.config();
 
-// Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://hohfvjzagukucseffpmc.supabase.co";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Sample doctor data
-const sampleDoctor = {
-  email: 'doctor.sample@example.com',
-  password: 'Password123!',
-  userData: {
-    name: 'Dr. Sample Doctor',
-    phone: '9876543210',
-    address: '123 Medical Street, Healthcare City, India',
-    gstNumber: 'GSTIN1234567890Z',
+// Validate required environment variables
+if (!SUPABASE_SERVICE_KEY) {
+  console.error('Error: SUPABASE_SERVICE_ROLE_KEY is required');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+async function addSampleData() {
+  console.log('Adding sample data to Upkar Pharma database...');
+
+  // Add sample products
+  console.log('Adding products...');
+  const products = [
+    {
+      name: 'Paracetamol 500mg',
+      description: 'Pain reliever and fever reducer. Used for mild to moderate pain and fever.',
+      price: 25.50,
+      category: 'Pain Relief',
+      stock: 100,
+      image_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      name: 'Amoxicillin 250mg',
+      description: 'Antibiotic used to treat a number of bacterial infections.',
+      price: 75.00,
+      category: 'Antibiotics',
+      stock: 50,
+      image_url: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      name: 'Cetirizine 10mg',
+      description: 'Antihistamine used to relieve allergy symptoms such as watery eyes, runny nose, itching, and sneezing.',
+      price: 35.75,
+      category: 'Allergy Relief',
+      stock: 75,
+      image_url: 'https://images.unsplash.com/photo-1550572017-edd951b55104?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      name: 'Omeprazole 20mg',
+      description: 'Proton pump inhibitor used to treat certain stomach and esophagus problems.',
+      price: 85.25,
+      category: 'Digestive Health',
+      stock: 60,
+      image_url: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      name: 'Metformin 500mg',
+      description: 'Oral diabetes medicine that helps control blood sugar levels.',
+      price: 45.50,
+      category: 'Diabetes Care',
+      stock: 40,
+      image_url: 'https://images.unsplash.com/photo-1576602976047-174e57a47881?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    }
+  ];
+
+  // Insert products
+  const { error: productsError } = await supabase
+    .from('products')
+    .upsert(
+      products.map(product => ({
+        ...product,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })),
+      { onConflict: 'name' }
+    );
+
+  if (productsError) {
+    console.error('Error adding products:', productsError);
+  } else {
+    console.log('Products added successfully');
   }
-};
 
-// Sample products data
-const sampleProducts = [
-  {
-    name: 'Paracetamol 500mg',
-    description: 'Pain reliever and fever reducer. Used for mild to moderate pain and fever.',
-    price: 25.50,
-    category: 'Pain Relief',
-    stock: 100,
-    image_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    name: 'Amoxicillin 250mg',
-    description: 'Antibiotic used to treat a number of bacterial infections.',
-    price: 75.00,
-    category: 'Antibiotics',
-    stock: 50,
-    image_url: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    name: 'Cetirizine 10mg',
-    description: 'Antihistamine used to relieve allergy symptoms such as watery eyes, runny nose, itching, and sneezing.',
-    price: 35.75,
-    category: 'Allergy Relief',
-    stock: 75,
-    image_url: 'https://images.unsplash.com/photo-1550572017-edd951b55104?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    name: 'Omeprazole 20mg',
-    description: 'Proton pump inhibitor used to treat certain stomach and esophagus problems.',
-    price: 85.25,
-    category: 'Digestive Health',
-    stock: 60,
-    image_url: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    name: 'Metformin 500mg',
-    description: 'Oral diabetes medicine that helps control blood sugar levels.',
-    price: 45.50,
-    category: 'Diabetes Care',
-    stock: 40,
-    image_url: 'https://images.unsplash.com/photo-1576602976047-174e57a47881?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+  // Add sample doctors
+  console.log('Adding doctors...');
+  const doctors = [
+    {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Dr. Sharma',
+      phone: '+919876543210',
+      gst_number: 'GST123456789',
+      address: '123 Medical Lane, Delhi',
+      is_approved: true
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Dr. Patel',
+      phone: '+919876543211',
+      gst_number: 'GST987654321',
+      address: '456 Health Road, Mumbai',
+      is_approved: true
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000003',
+      name: 'Dr. Kumar',
+      phone: '+919876543212',
+      gst_number: 'GST456789123',
+      address: '789 Wellness Blvd, Bangalore',
+      is_approved: false
+    }
+  ];
+
+  // Insert doctors
+  const { error: doctorsError } = await supabase
+    .from('doctors')
+    .upsert(
+      doctors.map(doctor => ({
+        ...doctor,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })),
+      { onConflict: 'id' }
+    );
+
+  if (doctorsError) {
+    console.error('Error adding doctors:', doctorsError);
+  } else {
+    console.log('Doctors added successfully');
   }
-];
 
-// Create doctor account
-async function createDoctorAccount() {
-  try {
-    console.log('Creating doctor account...');
+  // Fetch products for order creation
+  const { data: productData } = await supabase
+    .from('products')
+    .select('id, price');
+
+  if (!productData || productData.length === 0) {
+    console.error('Error: No products found for creating orders');
+    return;
+  }
+
+  // Add sample orders
+  console.log('Adding orders...');
+  const orders = [
+    {
+      doctor_id: '00000000-0000-0000-0000-000000000001',
+      status: 'pending',
+      total_amount: 0, // Will calculate based on order items
+      shipping_address: '123 Medical Lane, Delhi',
+      billing_address: '123 Medical Lane, Delhi',
+      payment_method: 'credit'
+    },
+    {
+      doctor_id: '00000000-0000-0000-0000-000000000002',
+      status: 'processing',
+      total_amount: 0, // Will calculate based on order items
+      shipping_address: '456 Health Road, Mumbai',
+      billing_address: '456 Health Road, Mumbai',
+      payment_method: 'credit'
+    }
+  ];
+
+  // Create orders and order items
+  for (const order of orders) {
+    // Select random products for this order
+    const orderProducts = [];
+    const numProducts = Math.floor(Math.random() * 3) + 1; // 1-3 products
     
-    // Sign up the doctor
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: sampleDoctor.email,
-      password: sampleDoctor.password,
-      options: {
-        data: sampleDoctor.userData
-      }
-    });
-    
-    if (authError) {
-      throw authError;
+    for (let i = 0; i < numProducts; i++) {
+      const randomProduct = productData[Math.floor(Math.random() * productData.length)];
+      const quantity = Math.floor(Math.random() * 5) + 1; // 1-5 quantity
+      
+      orderProducts.push({
+        product_id: randomProduct.id,
+        quantity,
+        price_per_unit: randomProduct.price,
+        total_price: randomProduct.price * quantity
+      });
+      
+      order.total_amount += randomProduct.price * quantity;
     }
     
-    console.log('Doctor account created in auth system:', authData.user.id);
-    
-    // Add doctor to doctors table
-    const { data: doctorData, error: doctorError } = await supabase
-      .from('doctors')
+    // Insert order
+    const { data: newOrder, error: orderError } = await supabase
+      .from('orders')
       .insert({
-        id: authData.user.id,
-        name: sampleDoctor.userData.name,
-        phone: sampleDoctor.userData.phone,
-        address: sampleDoctor.userData.address,
-        gst_number: sampleDoctor.userData.gstNumber,
-        is_approved: true, // Auto-approve for this sample
-        created_at: new Date().toISOString()
+        ...order,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
-      .select();
+      .select('id')
+      .single();
     
-    if (doctorError) {
-      throw doctorError;
+    if (orderError) {
+      console.error('Error creating order:', orderError);
+      continue;
     }
     
-    console.log('Doctor added to doctors table:', doctorData);
+    // Insert order items
+    const orderItems = orderProducts.map(product => ({
+      ...product,
+      order_id: newOrder.id,
+      created_at: new Date().toISOString()
+    }));
     
-    return authData.user.id;
-  } catch (error) {
-    console.error('Error creating doctor account:', error);
-    throw error;
-  }
-}
-
-// Add sample products
-async function addSampleProducts() {
-  try {
-    console.log('Adding sample products...');
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
     
-    const { data, error } = await supabase
-      .from('products')
-      .insert(sampleProducts)
-      .select();
-    
-    if (error) {
-      throw error;
+    if (itemsError) {
+      console.error('Error creating order items:', itemsError);
     }
     
-    console.log('Sample products added:', data);
-    return data;
-  } catch (error) {
-    console.error('Error adding sample products:', error);
-    throw error;
+    // Add order status history
+    await supabase
+      .from('order_status_history')
+      .insert({
+        order_id: newOrder.id,
+        status: order.status,
+        notes: 'Initial order status',
+        created_at: new Date().toISOString()
+      });
   }
-}
+  
+  console.log('Orders added successfully');
 
-// Main function to run the script
-async function main() {
-  try {
-    // Create doctor account
-    const doctorId = await createDoctorAccount();
-    console.log('Doctor account created with ID:', doctorId);
-    
-    // Add sample products
-    const products = await addSampleProducts();
-    console.log('Added', products.length, 'sample products');
-    
-    console.log('Sample data added successfully!');
-    console.log('Doctor login credentials:');
-    console.log('Email:', sampleDoctor.email);
-    console.log('Password:', sampleDoctor.password);
-  } catch (error) {
-    console.error('Error adding sample data:', error);
+  // Add sample credits
+  console.log('Adding credit transactions...');
+  const creditTransactions = [
+    {
+      doctor_id: '00000000-0000-0000-0000-000000000001',
+      amount: 5000,
+      type: 'credit',
+      description: 'Initial credit line',
+      status: 'completed'
+    },
+    {
+      doctor_id: '00000000-0000-0000-0000-000000000001',
+      amount: 1500,
+      type: 'debit',
+      description: 'Order purchase',
+      status: 'completed'
+    },
+    {
+      doctor_id: '00000000-0000-0000-0000-000000000002',
+      amount: 10000,
+      type: 'credit',
+      description: 'Initial credit line',
+      status: 'completed'
+    }
+  ];
+
+  // Insert credit transactions
+  const { error: creditsError } = await supabase
+    .from('credit_transactions')
+    .insert(
+      creditTransactions.map(tx => ({
+        ...tx,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }))
+    );
+
+  if (creditsError) {
+    console.error('Error adding credit transactions:', creditsError);
+  } else {
+    console.log('Credit transactions added successfully');
   }
+
+  console.log('Sample data has been added to the database successfully!');
 }
 
 // Run the script
-main();
+addSampleData()
+  .catch(error => {
+    console.error('Error adding sample data:', error);
+    process.exit(1);
+  })
+  .finally(() => {
+    console.log('Script completed.');
+  });

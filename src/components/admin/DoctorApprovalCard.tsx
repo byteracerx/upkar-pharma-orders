@@ -11,7 +11,6 @@ import {
 import { Check, X, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface DoctorApprovalCardProps {
   doctor: {
@@ -36,23 +35,7 @@ const DoctorApprovalCard = ({
   const handleApprove = async () => {
     setIsLoading(true);
     try {
-      // Update doctor status in Supabase
-      const { error } = await supabase
-        .from('doctors')
-        .update({ is_approved: true })
-        .eq('id', doctor.id);
-        
-      if (error) throw error;
-      
-      // Call the parent component's onApprove function
-      onApprove(doctor.id);
-      
-      // Send notification (in a real app, this would be a serverless function)
-      console.log(`Notification sent to ${doctor.email}: Your account has been approved`);
-      
-      toast.success("Doctor Approved", {
-        description: `${doctor.name} has been approved successfully.`
-      });
+      await onApprove(doctor.id);
     } catch (error: any) {
       console.error("Error approving doctor:", error);
       toast.error("Error", {
@@ -66,21 +49,7 @@ const DoctorApprovalCard = ({
   const handleReject = async () => {
     setIsLoading(true);
     try {
-      // Delete the doctor record from Supabase
-      // Alternatively, you could set a 'rejected' status instead of deleting
-      const { error } = await supabase
-        .from('doctors')
-        .delete()
-        .eq('id', doctor.id);
-        
-      if (error) throw error;
-      
-      // Call the parent component's onReject function
-      onReject(doctor.id);
-      
-      toast.success("Doctor Rejected", {
-        description: `${doctor.name}'s application has been rejected.`
-      });
+      await onReject(doctor.id);
     } catch (error: any) {
       console.error("Error rejecting doctor:", error);
       toast.error("Error", {

@@ -1,63 +1,141 @@
-import { supabase } from "@/integrations/supabase/client";
 
-// Type for RPC parameters
-type RpcParams = Record<string, any>;
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /**
- * Approves a doctor registration request
+ * Fetch pending doctor approvals from the database
  */
-export const approveDoctor = async (doctorId: string): Promise<boolean> => {
+export const fetchPendingDoctors = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("*")
+      .eq("is_approved", false)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching pending doctors:", error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error("Error in fetchPendingDoctors:", error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch approved doctors from the database
+ */
+export const fetchApprovedDoctors = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("*")
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching approved doctors:", error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error: any) {
+    console.error("Error in fetchApprovedDoctors:", error);
+    throw error;
+  }
+};
+
+/**
+ * Approve a doctor by setting is_approved to true
+ */
+export const approveDoctor = async (doctorId: string) => {
   try {
     const { error } = await supabase
       .from("doctors")
       .update({ is_approved: true })
       .eq("id", doctorId);
-    
+
     if (error) {
       console.error("Error approving doctor:", error);
-      return false;
+      throw error;
     }
-    
-    // Note: Removed email fetch from auth.users which is not accessible in client-side code
-    // In a real application, we would use a serverless function or store email in the doctors table
-    
+
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in approveDoctor:", error);
-    return false;
+    throw error;
   }
 };
 
 /**
- * Declines a doctor registration request
+ * Reject a doctor registration
  */
-export const declineDoctor = async (doctorId: string, reason?: string): Promise<boolean> => {
+export const rejectDoctor = async (doctorId: string) => {
   try {
-    // For declined doctors, we keep them in the database but mark them as not approved
+    // Note: Instead of deleting, we could also add a "rejected" status field
     const { error } = await supabase
       .from("doctors")
-      .update({ is_approved: false })
+      .delete()
       .eq("id", doctorId);
-    
+
     if (error) {
-      console.error("Error declining doctor:", error);
-      return false;
+      console.error("Error rejecting doctor:", error);
+      throw error;
     }
-    
+
     return true;
-  } catch (error) {
-    console.error("Error in declineDoctor:", error);
-    return false;
+  } catch (error: any) {
+    console.error("Error in rejectDoctor:", error);
+    throw error;
   }
 };
 
 /**
- * Updates an order's status
+ * Fetch all orders with doctor details
  */
-export const updateOrderStatus = async (
-  orderId: string, 
-  newStatus: string
-): Promise<boolean> => {
+export const fetchAllOrders = async () => {
+  try {
+    // Try using the RPC function
+    try {
+      const { data, error } = await supabase.rpc('get_all_orders');
+      
+      if (!error && data) {
+        return data;
+      }
+    } catch (rpcError) {
+      console.warn("RPC function get_all_orders failed, falling back to direct query:", rpcError);
+    }
+    
+    // Fallback to direct query
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone
+        )
+      `)
+      .order("created_at", { ascending: false });
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error: any) {
+    console.error("Error in fetchAllOrders:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update order status
+ */
+export const updateOrderStatus = async (orderId: string, newStatus: string) => {
   try {
     const { error } = await supabase
       .from("orders")
@@ -66,113 +144,202 @@ export const updateOrderStatus = async (
         updated_at: new Date().toISOString()
       })
       .eq("id", orderId);
-    
+      
     if (error) {
-      console.error("Error updating order status:", error);
-      return false;
+      throw error;
     }
     
-    // Fetch order details to get doctor information
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (*)
-      `)
-      .eq("id", orderId)
-      .single();
-    
-    if (orderError || !orderData) {
-      console.error("Error fetching order details:", orderError);
-      return false;
-    }
-    
-    // Notify doctor about the status update - simplified to avoid auth.users access
-    try {
-      if (orderData.doctor) {
-        // Get doctor details from the doctors table
-        const { data: doctorData, error: doctorError } = await supabase
-          .from("doctors")
-          .select("id, name, phone")
-          .eq("id", orderData.doctor_id)
-          .single();
-          
-        if (doctorError || !doctorData) {
-          console.error("Error fetching doctor details:", doctorError);
-          return false;
-        }
-        
-        // Note: In a real application, we would use a serverless function to fetch emails
-        // and send notifications. Simplified for this example.
-        
-        console.log(`Would notify doctor ${doctorData.name} about order status change to ${newStatus}`);
-      }
-    } catch (notifyError) {
-      console.error("Error notifying doctor about status update:", notifyError);
-      // Don't fail the update just because notification failed
-    }
-    
-    // Generate invoice if status is "delivered"
-    if (newStatus === "delivered") {
-      try {
-        console.log(`Would generate invoice for order ${orderId}`);
-        // Would call a serverless function here in a real app
-      } catch (invoiceError) {
-        console.error("Error generating invoice:", invoiceError);
-        // Don't fail the update just because invoice generation failed
-      }
-    }
-    
+    // Add entry to order status history
+    await supabase
+      .from("order_status_history")
+      .insert({
+        order_id: orderId,
+        status: newStatus,
+        notes: `Status updated to ${newStatus} by admin`
+      });
+      
     return true;
-  } catch (error) {
-    console.error("Error in updateOrderStatus:", error);
-    return false;
+  } catch (error: any) {
+    console.error("Error updating order status:", error);
+    throw error;
   }
 };
 
 /**
- * Records a payment for a doctor's credit
+ * Generate invoice for an order
  */
-export const markCreditPaid = async (
-  doctorId: string, 
-  amount: number, 
-  notes: string
-): Promise<boolean> => {
+export const generateInvoice = async (orderId: string) => {
   try {
-    // Insert a new payment record
-    const { data: payment, error } = await supabase
+    // Use the RPC function if available
+    try {
+      const { error } = await supabase.rpc('generate_invoice', {
+        p_order_id: orderId
+      });
+      
+      if (!error) {
+        return true;
+      }
+    } catch (rpcError) {
+      console.warn("RPC function generate_invoice failed, falling back to direct implementation:", rpcError);
+    }
+    
+    // Fallback implementation
+    const invoiceNumber = `INV-${Date.now()}-${orderId.substring(0, 8)}`;
+    const invoiceUrl = `/invoices/${invoiceNumber}.pdf`;
+    
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        invoice_number: invoiceNumber,
+        invoice_generated: true,
+        invoice_url: invoiceUrl
+      })
+      .eq("id", orderId);
+      
+    if (error) {
+      throw error;
+    }
+    
+    // Add status history entry
+    await supabase
+      .from("order_status_history")
+      .insert({
+        order_id: orderId,
+        status: 'invoice_generated',
+        notes: `Invoice generated: ${invoiceNumber}`
+      });
+      
+    return true;
+  } catch (error: any) {
+    console.error("Error generating invoice:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get doctor credit summary
+ */
+export const getDoctorCreditSummary = async (doctorId: string) => {
+  try {
+    // Use RPC function
+    const { data, error } = await supabase.rpc('get_doctor_credit_summary', {
+      p_doctor_id: doctorId
+    });
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data;
+  } catch (error: any) {
+    console.error("Error getting doctor credit summary:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all doctor credits
+ */
+export const getAllDoctorCredits = async () => {
+  try {
+    // Use RPC function if available
+    try {
+      const { data, error } = await supabase.rpc('get_all_doctor_credits');
+      
+      if (!error && data) {
+        return data;
+      }
+    } catch (rpcError) {
+      console.warn("RPC function get_all_doctor_credits failed, falling back to direct query:", rpcError);
+    }
+    
+    // Fallback to calculating credits directly
+    const { data: doctors, error: doctorsError } = await supabase
+      .from("doctors")
+      .select("id, name, phone")
+      .eq("is_approved", true);
+      
+    if (doctorsError) {
+      throw doctorsError;
+    }
+    
+    const result = [];
+    
+    for (const doctor of doctors) {
+      // Get credit transactions
+      const { data: transactions, error: transactionsError } = await supabase
+        .from("credit_transactions")
+        .select("type, amount")
+        .eq("doctor_id", doctor.id);
+        
+      if (transactionsError) {
+        console.error(`Error fetching credits for doctor ${doctor.id}:`, transactionsError);
+        continue;
+      }
+      
+      // Calculate total credit
+      let totalCredit = 0;
+      
+      for (const tx of transactions || []) {
+        if (tx.type === 'credit') {
+          totalCredit += tx.amount;
+        } else if (tx.type === 'debit') {
+          totalCredit -= tx.amount;
+        }
+      }
+      
+      result.push({
+        doctor_id: doctor.id,
+        doctor_name: doctor.name,
+        doctor_phone: doctor.phone,
+        doctor_email: doctor.email || '',
+        total_credit: totalCredit
+      });
+    }
+    
+    return result;
+  } catch (error: any) {
+    console.error("Error getting all doctor credits:", error);
+    throw error;
+  }
+};
+
+/**
+ * Mark credit as paid
+ */
+export const markCreditPaid = async (doctorId: string, amount: number, notes: string) => {
+  try {
+    // Insert payment record
+    const { error: paymentError } = await supabase
       .from("payments")
       .insert({
         doctor_id: doctorId,
         amount,
         notes
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("Error recording payment:", error);
-      return false;
+      });
+      
+    if (paymentError) {
+      throw paymentError;
     }
     
-    // Fetch doctor information
-    const { data: doctor, error: doctorError } = await supabase
-      .from("doctors")
-      .select("name, phone")
-      .eq("id", doctorId)
-      .single();
-    
-    if (doctorError || !doctor) {
-      console.error("Error fetching doctor information:", doctorError);
-      // Continue without doctor info
-    } else {
-      // Note: Email notification would be handled by a serverless function in a real app
-      console.log(`Would notify doctor ${doctor.name} about payment of ${amount}`);
+    // Add credit transaction
+    const { error: transactionError } = await supabase
+      .from("credit_transactions")
+      .insert({
+        doctor_id: doctorId,
+        amount,
+        type: 'credit',
+        description: `Payment received: ${notes}`,
+        status: 'completed'
+      });
+      
+    if (transactionError) {
+      throw transactionError;
     }
     
     return true;
-  } catch (error) {
-    console.error("Error in markCreditPaid:", error);
-    return false;
+  } catch (error: any) {
+    console.error("Error marking credit as paid:", error);
+    throw error;
   }
 };

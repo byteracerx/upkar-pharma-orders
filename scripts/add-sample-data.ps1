@@ -1,3 +1,4 @@
+
 # PowerShell script to add sample data to the Upkar Pharma application
 
 Write-Host "Adding sample data to Upkar Pharma..." -ForegroundColor Green

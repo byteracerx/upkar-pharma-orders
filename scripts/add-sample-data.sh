@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # Script to add sample data to the Upkar Pharma application
 

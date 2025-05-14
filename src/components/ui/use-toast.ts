@@ -1,6 +1,6 @@
+// Re-export from sonner directly for simplicity and consistency
+import { toast } from "sonner";
+import { useToast as useShadcnToast } from "@/hooks/use-toast";
 
-// Re-export from the hooks folder
-import { useToast as useShadcnToast, toast as shadcnToast } from "@/hooks/use-toast";
-
-export const useToast = useShadcnToast;
-export const toast = shadcnToast;
+// Keep the useToast hook for backward compatibility
+export { useShadcnToast as useToast, toast };

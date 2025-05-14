@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fetchPendingDoctors, fetchApprovedDoctors, approveDoctor, rejectDoctor } from "@/services/adminService";
-import { supabase } from "@/integrations/supabase/client";
 import { subscribeToDoctors } from "@/services/realtimeService";
 
 interface Doctor {
@@ -27,6 +26,7 @@ const DoctorApprovals = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
+  const [processedDoctorIds, setProcessedDoctorIds] = useState<Set<string>>(new Set());
   
   // Fetch doctors from Supabase
   useEffect(() => {
@@ -35,13 +35,18 @@ const DoctorApprovals = () => {
     // Set up real-time subscription for doctors table
     const unsubscribe = subscribeToDoctors((payload) => {
       console.log("Doctors table changed:", payload);
-      fetchDoctors(); // Refresh data on any change
+      
+      // Only update if it's not a doctor we just processed
+      const doctorId = payload.new?.id;
+      if (!doctorId || !processedDoctorIds.has(doctorId)) {
+        fetchDoctors(); // Refresh data on any change
+      }
     });
     
     return () => {
       unsubscribe(); // Clean up subscription on unmount
     };
-  }, []);
+  }, [processedDoctorIds]);
 
   const fetchDoctors = async () => {
     try {
@@ -60,7 +65,6 @@ const DoctorApprovals = () => {
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        // Generate email from name or id
         email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
@@ -71,16 +75,12 @@ const DoctorApprovals = () => {
       const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        // Generate email from name or id
         email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
         status: 'approved'
       }));
-      
-      console.log("Formatted pending doctors:", formattedPendingDoctors);
-      console.log("Formatted approved doctors:", formattedApprovedDoctors);
       
       setPendingDoctors(formattedPendingDoctors);
       setApprovedDoctors(formattedApprovedDoctors);
@@ -110,7 +110,8 @@ const DoctorApprovals = () => {
         return;
       }
       
-      console.log("Doctor to approve:", doctorToApprove);
+      // Add to processed ids to prevent double processing
+      setProcessedDoctorIds(prev => new Set(prev).add(id));
       
       // Call the API to approve the doctor
       const success = await approveDoctor(id);
@@ -137,6 +138,9 @@ const DoctorApprovals = () => {
   
   const handleRejectDoctor = async (id: string) => {
     try {
+      // Add to processed ids to prevent double processing
+      setProcessedDoctorIds(prev => new Set(prev).add(id));
+      
       const success = await rejectDoctor(id);
       
       if (success) {

@@ -23,7 +23,7 @@ const RealtimeOrderTracker = () => {
       .channel('order-status-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        { event: '*', schema: 'public', table: 'orders' } as any,
         () => {
           fetchOrderCounts(); // Refresh counts on any change
         }

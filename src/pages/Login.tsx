@@ -57,21 +57,7 @@ const Login = () => {
         // If admin login failed, suggest creating the admin account
         if (isAdminLogin) {
           toast.error("Admin Login Failed", {
-            description: (
-              <div>
-                <p>{error.message || "Admin account may not exist yet."}</p>
-                <a 
-                  href="/create-admin" 
-                  className="text-blue-500 underline mt-2 block"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate('/create-admin');
-                  }}
-                >
-                  Click here to create the admin account
-                </a>
-              </div>
-            )
+            description: "Admin account may not exist yet."
           });
         } else {
           toast.error("Login Failed", {

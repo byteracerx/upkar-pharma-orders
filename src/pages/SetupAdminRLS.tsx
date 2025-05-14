@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,90 +18,47 @@ const SetupAdminRLS = () => {
     try {
       console.log("Setting up RLS policies for admin user");
       
-      // Method 1: Using SQL directly (if you have RPC access)
-      const setupPoliciesDirectly = async () => {
-        const queries = [
-          // Enable RLS on products table
-          `ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;`,
-          
-          // Drop existing policies if they exist
-          `DROP POLICY IF EXISTS "Allow select for all users" ON public.products;`,
-          `DROP POLICY IF EXISTS "Allow insert for admin users" ON public.products;`,
-          `DROP POLICY IF EXISTS "Allow update for admin users" ON public.products;`,
-          `DROP POLICY IF EXISTS "Allow delete for admin users" ON public.products;`,
-          
-          // Create new policies
-          `CREATE POLICY "Allow select for all users" 
-           ON public.products FOR SELECT 
-           USING (true);`,
-          
-          `CREATE POLICY "Allow insert for admin users" 
-           ON public.products FOR INSERT 
-           TO authenticated
-           WITH CHECK (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
-          
-          `CREATE POLICY "Allow update for admin users" 
-           ON public.products FOR UPDATE 
-           TO authenticated
-           USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
-          
-          `CREATE POLICY "Allow delete for admin users" 
-           ON public.products FOR DELETE 
-           TO authenticated
-           USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`
-        ];
+      // Method 1: Using the setup_admin_rls function
+      try {
+        const { error } = await supabase.rpc('setup_admin_rls');
         
-        for (const query of queries) {
-          try {
-            // This will only work if you have RPC access with appropriate permissions
-            const { error } = await supabase.rpc('run_sql_query', { query });
-            if (error) throw error;
-          } catch (err) {
-            console.error(`Error executing query: ${query}`, err);
-            // Continue with other queries even if one fails
-          }
+        if (error) {
+          console.error("Error calling setup_admin_rls function:", error);
+        } else {
+          console.log("RLS setup successful");
         }
-      };
-      
-      // Method 2: Using Supabase function
-      const callSetupFunction = async () => {
-        try {
-          const { data, error } = await supabase.functions.invoke('setup-admin-rls');
-          if (error) throw error;
-          return data;
-        } catch (err) {
-          console.error("Error calling setup-admin-rls function:", err);
-          throw err;
-        }
-      };
-      
-      // Try both methods
-      try {
-        await setupPoliciesDirectly();
-        console.log("Direct SQL setup completed");
       } catch (err) {
-        console.warn("Direct SQL setup failed, trying function call");
+        console.warn("setup_admin_rls function failed:", err);
       }
       
+      // Method 2: Using direct access to products table as a test
       try {
-        const result = await callSetupFunction();
-        console.log("Function call result:", result);
+        // Try to insert a test product to verify permissions
+        const { data, error } = await supabase
+          .from("products")
+          .insert({
+            name: 'Test Product (Will be removed)',
+            description: 'This is a test product to verify permissions',
+            price: 1.00,
+            stock: 1
+          })
+          .select();
+        
+        if (error) {
+          console.warn("Error inserting test product:", error);
+        } else {
+          // If the insert succeeded, delete the test product
+          console.log("Test product inserted successfully:", data);
+          
+          await supabase
+            .from("products")
+            .delete()
+            .eq("name", "Test Product (Will be removed)");
+            
+          console.log("Test product deleted");
+        }
       } catch (err) {
-        console.warn("Function call failed:", err);
-      }
-      
-      // As a fallback, create a temporary policy that allows all operations
-      try {
-        const { error } = await supabase.rpc('run_sql_query', { 
-          query: `
-            ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-            DROP POLICY IF EXISTS "Temporary allow all" ON public.products;
-            CREATE POLICY "Temporary allow all" ON public.products USING (true) WITH CHECK (true);
-          `
-        });
-        if (error) throw error;
-      } catch (err) {
-        console.warn("Fallback policy creation failed:", err);
+        console.warn("Test product insertion failed:", err);
       }
       
       setIsSuccess(true);

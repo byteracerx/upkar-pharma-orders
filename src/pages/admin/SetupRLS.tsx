@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,37 +22,22 @@ const AdminSetupRLS = () => {
       
       // Method 1: Try to create a simple bypass policy
       try {
-        // Create a temporary policy that allows all operations
-        await supabase.rpc('run_sql_query', { 
-          query: `
-            ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-            DROP POLICY IF EXISTS "Temporary allow all" ON public.products;
-            CREATE POLICY "Temporary allow all" ON public.products USING (true) WITH CHECK (true);
-          `
-        });
-        
-        console.log("Created temporary bypass policy");
-        toast.success("Created temporary bypass policy", {
-          description: "You should now be able to add products"
-        });
-      } catch (err) {
-        console.warn("Could not create bypass policy directly:", err);
-      }
-      
-      // Method 2: Try to call the setup_admin_rls function
-      try {
-        const { data, error } = await supabase.rpc('setup_admin_rls');
+        // Call setup_admin_rls function instead of using raw SQL
+        const { error } = await supabase.rpc('setup_admin_rls');
         
         if (error) {
           console.warn("Error calling setup_admin_rls function:", error);
         } else {
-          console.log("RLS setup result:", data);
+          console.log("RLS setup successful");
+          toast.success("RLS Policies Setup", {
+            description: "Admin permissions have been configured"
+          });
         }
       } catch (err) {
-        console.warn("Could not call setup_admin_rls function:", err);
+        console.warn("Could not create bypass policy directly:", err);
       }
       
-      // Method 3: Try to insert a test product to verify permissions
+      // Method 2: Try to insert a test product to verify permissions
       try {
         const { data, error } = await supabase
           .from('products')

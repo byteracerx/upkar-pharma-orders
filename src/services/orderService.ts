@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Order {
@@ -127,7 +126,11 @@ export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
       });
       
       if (!error && data) {
-        return data as Order[];
+        const enhancedOrders = (data as any[]).map(item => ({
+          ...item,
+          doctor_id: doctorId // Add the missing doctor_id field
+        }));
+        return enhancedOrders as Order[];
       }
     } catch (rpcError) {
       console.warn("RPC function get_doctor_orders_enhanced failed, falling back to direct query:", rpcError);
@@ -162,7 +165,8 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
       });
       
       if (!error && data) {
-        return data as OrderDetails;
+        // Cast data to the expected type
+        return data as unknown as OrderDetails;
       }
     } catch (rpcError) {
       console.warn("RPC function get_order_details failed, falling back to direct queries:", rpcError);
@@ -187,6 +191,19 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
       console.error("Error fetching order:", orderError);
       throw orderError;
     }
+    
+    // Build doctor object safely
+    const doctorData = orderData.doctor || {};
+    const doctor = {
+      name: typeof doctorData.name === 'string' ? doctorData.name : 'Unknown',
+      phone: typeof doctorData.phone === 'string' ? doctorData.phone : 'N/A',
+      email: typeof doctorData.email === 'string' ? doctorData.email : ''
+    };
+    
+    const order = {
+      ...orderData,
+      doctor
+    };
     
     // Fetch the order items with their products
     const { data: itemsData, error: itemsError } = await supabase
@@ -281,7 +298,7 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
     }
     
     return {
-      order: orderData as Order,
+      order: order as Order,
       items: itemsData as OrderItem[],
       statusHistory: statusHistoryData as OrderStatusHistory[],
       notifications: notificationsData as OrderNotification[],
@@ -476,21 +493,8 @@ export const generateInvoice = async (orderId: string): Promise<boolean> => {
     // Generate invoice number
     let invoiceNumber = orderData.invoice_number;
     if (!invoiceNumber) {
-      try {
-        const { data: generatedNumber, error: numberError } = await supabase.rpc('generate_invoice_number');
-        
-        if (numberError) {
-          console.error("Error generating invoice number:", numberError);
-          // Generate a fallback invoice number
-          invoiceNumber = `INV-${Date.now()}-${orderId.substring(0, 8)}`;
-        } else {
-          invoiceNumber = generatedNumber;
-        }
-      } catch (error) {
-        console.error("Error calling generate_invoice_number:", error);
-        // Generate a fallback invoice number
-        invoiceNumber = `INV-${Date.now()}-${orderId.substring(0, 8)}`;
-      }
+      // Generate a fallback invoice number
+      invoiceNumber = `INV-${Date.now()}-${orderId.substring(0, 8)}`;
     }
     
     // Update order with invoice number
@@ -553,6 +557,13 @@ export const notifyOrderStatusChange = async (orderId: string, newStatus: string
       return false;
     }
     
+    // Ensure doctor object is properly typed
+    const doctor = {
+      name: orderData.doctor?.name || 'Unknown',
+      phone: orderData.doctor?.phone || '',
+      email: orderData.doctor?.email || ''
+    };
+    
     // Prepare notification content
     const notificationContent = `Your order #${orderData.invoice_number || orderId.substring(0, 8)} status has been updated to ${newStatus}.`;
     
@@ -568,9 +579,9 @@ export const notifyOrderStatusChange = async (orderId: string, newStatus: string
       await supabase.functions.invoke('notify-doctor-status-update', {
         body: {
           orderId,
-          doctorName: orderData.doctor?.name,
-          doctorPhone: orderData.doctor?.phone,
-          doctorEmail: orderData.doctor?.email,
+          doctorName: doctor.name,
+          doctorPhone: doctor.phone,
+          doctorEmail: doctor.email,
           newStatus,
           notificationContent
         }

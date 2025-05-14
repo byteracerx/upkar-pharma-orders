@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +48,7 @@ type Order = {
   doctor: {
     name: string;
     phone: string;
+    email?: string;
   } | null;
 };
 
@@ -252,7 +252,7 @@ const AdminOrders = () => {
           orderId,
           doctorName: order.doctor.name,
           doctorPhone: order.doctor.phone,
-          doctorEmail: order.doctor.email || '',
+          doctorEmail: order.doctor?.email || '',
           newStatus: order.status
         }
       });

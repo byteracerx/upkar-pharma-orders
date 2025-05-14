@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
 // Define the types for credit-related data
 export interface CreditTransaction {
@@ -32,7 +32,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
       .rpc('get_doctor_credit_history', { p_doctor_id: doctorId } as DoctorIdParam);
     
     if (error) throw error;
-    return data || [];
+    return data as CreditTransaction[] || [];
   } catch (error) {
     console.error("Error getting credit history:", error);
     throw error;
@@ -46,7 +46,7 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
       .rpc('get_doctor_credit_summary', { p_doctor_id: doctorId } as DoctorIdParam);
     
     if (error) throw error;
-    return data;
+    return data as CreditSummary;
   } catch (error) {
     console.error("Error getting credit summary:", error);
     throw error;
@@ -62,7 +62,7 @@ export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
         .rpc('get_all_doctor_credits');
       
       if (!error && data) {
-        return data || [];
+        return data as CreditSummary[] || [];
       }
     } catch (rpcError) {
       console.warn("RPC function get_all_doctor_credits failed, falling back to direct query:", rpcError);

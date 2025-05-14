@@ -1,3 +1,4 @@
+
 // This script sets up the RLS policies for the admin user
 // Run with: node scripts/setup-rls.js
 
@@ -18,54 +19,66 @@ async function setupRLS() {
   try {
     console.log('Setting up RLS policies...');
     
-    // Enable RLS on products table
-    await supabase.rpc('run_sql_query', { 
-      query: 'ALTER TABLE IF EXISTS public.products ENABLE ROW LEVEL SECURITY;' 
-    });
+    // Call the Supabase setup_admin_rls function
+    const { data, error } = await supabase.rpc('setup_admin_rls');
     
-    // Drop existing policies
-    const dropPolicies = [
-      'DROP POLICY IF EXISTS "Allow select for all users" ON public.products;',
-      'DROP POLICY IF EXISTS "Allow insert for admin users" ON public.products;',
-      'DROP POLICY IF EXISTS "Allow update for admin users" ON public.products;',
-      'DROP POLICY IF EXISTS "Allow delete for admin users" ON public.products;',
-      'DROP POLICY IF EXISTS "Temporary allow all" ON public.products;'
-    ];
-    
-    for (const query of dropPolicies) {
-      await supabase.rpc('run_sql_query', { query });
-    }
-    
-    // Create new policies
-    const createPolicies = [
-      `CREATE POLICY "Allow select for all users" 
-       ON public.products FOR SELECT 
-       USING (true);`,
+    if (error) {
+      console.error('Error calling setup_admin_rls:', error);
       
-      `CREATE POLICY "Allow insert for admin users" 
-       ON public.products FOR INSERT 
-       TO authenticated
-       WITH CHECK (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+      // Fallback to direct SQL commands if the RPC call fails
+      console.log('Falling back to direct SQL commands...');
       
-      `CREATE POLICY "Allow update for admin users" 
-       ON public.products FOR UPDATE 
-       TO authenticated
-       USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+      // Enable RLS on products table
+      await supabase.rpc('run_sql_query', { 
+        query: 'ALTER TABLE IF EXISTS public.products ENABLE ROW LEVEL SECURITY;' 
+      });
       
-      `CREATE POLICY "Allow delete for admin users" 
-       ON public.products FOR DELETE 
-       TO authenticated
-       USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+      // Drop existing policies
+      const dropPolicies = [
+        'DROP POLICY IF EXISTS "Allow select for all users" ON public.products;',
+        'DROP POLICY IF EXISTS "Allow insert for admin users" ON public.products;',
+        'DROP POLICY IF EXISTS "Allow update for admin users" ON public.products;',
+        'DROP POLICY IF EXISTS "Allow delete for admin users" ON public.products;',
+        'DROP POLICY IF EXISTS "Temporary allow all" ON public.products;'
+      ];
       
-      // Temporary policy for testing
-      `CREATE POLICY "Temporary allow all" 
-       ON public.products 
-       USING (true) 
-       WITH CHECK (true);`
-    ];
-    
-    for (const query of createPolicies) {
-      await supabase.rpc('run_sql_query', { query });
+      for (const query of dropPolicies) {
+        await supabase.rpc('run_sql_query', { query });
+      }
+      
+      // Create new policies
+      const createPolicies = [
+        `CREATE POLICY "Allow select for all users" 
+         ON public.products FOR SELECT 
+         USING (true);`,
+        
+        `CREATE POLICY "Allow insert for admin users" 
+         ON public.products FOR INSERT 
+         TO authenticated
+         WITH CHECK (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+        
+        `CREATE POLICY "Allow update for admin users" 
+         ON public.products FOR UPDATE 
+         TO authenticated
+         USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+        
+        `CREATE POLICY "Allow delete for admin users" 
+         ON public.products FOR DELETE 
+         TO authenticated
+         USING (auth.jwt() ->> 'email' = 'admin@upkar.com');`,
+        
+        // Temporary policy for testing
+        `CREATE POLICY "Temporary allow all" 
+         ON public.products 
+         USING (true) 
+         WITH CHECK (true);`
+      ];
+      
+      for (const query of createPolicies) {
+        await supabase.rpc('run_sql_query', { query });
+      }
+    } else {
+      console.log('RLS setup completed successfully via RPC call');
     }
     
     console.log('RLS policies set up successfully');

@@ -141,10 +141,10 @@ const AdminCredits = () => {
       const { error: notificationError } = await supabase
         .from("order_notifications")
         .insert({
-          doctor_id: doctorId,
-          type: "credit_summary",
+          notification_type: "credit_summary",
           content: `Credit summary with ${transactions.length} transactions has been sent to you.`,
-          status: "sent"
+          status: "sent",
+          recipient: doctorEmail
         });
         
       if (notificationError) {

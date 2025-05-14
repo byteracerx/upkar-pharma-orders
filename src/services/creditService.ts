@@ -165,7 +165,6 @@ export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
 interface PaymentParams {
   doctor_id: string;
   payment_amount: number;
-  payment_method: string;
   payment_notes: string;
 }
 
@@ -176,22 +175,7 @@ export const recordDoctorPayment = async (
   notes: string
 ): Promise<boolean> => {
   try {
-    // First try using the RPC function if available
-    try {
-      const { error } = await supabase.rpc('record_doctor_payment', {
-        p_doctor_id: doctorId,
-        p_amount: amount,
-        p_notes: notes
-      });
-      
-      if (!error) {
-        return true;
-      }
-    } catch (rpcError) {
-      console.warn("RPC function record_doctor_payment failed, falling back to direct implementation:", rpcError);
-    }
-    
-    // Insert directly into payments table as fallback
+    // Insert directly into payments table
     const { error } = await supabase
       .from('payments')
       .insert({

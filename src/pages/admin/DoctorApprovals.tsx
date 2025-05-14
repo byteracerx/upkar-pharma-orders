@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import DoctorList from "@/components/admin/DoctorList";
 import DoctorSearch from "@/components/admin/DoctorSearch";
@@ -60,7 +61,7 @@ const DoctorApprovals = () => {
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
         // Generate email from name or id
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
@@ -71,7 +72,7 @@ const DoctorApprovals = () => {
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
         // Generate email from name or id
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),

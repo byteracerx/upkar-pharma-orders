@@ -1,3 +1,4 @@
+
 import { OrderItem } from "@/services/orderService";
 import {
   Table,
@@ -35,7 +36,7 @@ const OrderItemsList = ({ items }: OrderItemsListProps) => {
               <TableRow key={item.id}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
-                    {item.product?.image_url && (
+                    {item.product && item.product.image_url && (
                       <div className="h-12 w-12 rounded-md overflow-hidden">
                         <img 
                           src={item.product.image_url} 

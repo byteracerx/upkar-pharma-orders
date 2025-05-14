@@ -119,6 +119,8 @@ export interface OrderDetails {
 // Fetch orders for a doctor with enhanced information
 export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   try {
+    console.log(`Fetching orders for doctor ID: ${doctorId}`);
+    
     // First try using the enhanced RPC function
     try {
       const { data, error } = await supabase.rpc('get_doctor_orders_enhanced', { 
@@ -126,6 +128,12 @@ export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
       });
       
       if (!error && data) {
+        console.log(`Found ${data.length} orders via enhanced RPC`);
+        
+        // Check for pending orders
+        const pendingOrders = data.filter((order: any) => order.status === 'pending');
+        console.log(`Found ${pendingOrders.length} pending orders via enhanced RPC`);
+        
         const enhancedOrders = (data as any[]).map(item => ({
           ...item,
           doctor_id: doctorId // Add the missing doctor_id field
@@ -147,6 +155,12 @@ export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
       console.error("Error fetching doctor orders:", error);
       throw error;
     }
+    
+    console.log(`Found ${data.length} orders via direct query`);
+    
+    // Check for pending orders
+    const pendingOrders = data.filter(order => order.status === 'pending');
+    console.log(`Found ${pendingOrders.length} pending orders via direct query`);
     
     return data as Order[];
   } catch (error) {
@@ -1052,5 +1066,53 @@ export const updateShippingInfo = async (
   } catch (error) {
     console.error("Error in updateShippingInfo:", error);
     return false;
+  }
+};
+
+/**
+ * Fetch order items for a specific order
+ */
+export const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
+  try {
+    // First try using the RPC function if available
+    try {
+      const { data, error } = await supabase.rpc('get_order_items', {
+        p_order_id: orderId
+      });
+      
+      if (!error && data) {
+        return data as OrderItem[];
+      }
+    } catch (rpcError) {
+      console.warn("RPC function get_order_items failed, falling back to direct query:", rpcError);
+    }
+    
+    // Fallback to direct query
+    const { data, error } = await supabase
+      .from("order_items")
+      .select(`
+        id,
+        order_id,
+        product_id,
+        quantity,
+        price_per_unit,
+        total_price,
+        product:product_id (
+          name,
+          image_url,
+          category,
+          description
+        )
+      `)
+      .eq("order_id", orderId);
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data as OrderItem[];
+  } catch (error) {
+    console.error("Error in fetchOrderItems:", error);
+    throw error;
   }
 };

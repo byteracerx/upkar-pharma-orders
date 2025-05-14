@@ -39,7 +39,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { fetchAllOrders, updateOrderStatus, generateInvoice } from "@/services/adminService";
+import { fetchAllOrders, updateOrderStatus, generateInvoice, synchronizeOrders } from "@/services/adminService";
+import { fetchOrderItems } from "@/services/orderService";
 
 type Order = {
   id: string;
@@ -108,7 +109,29 @@ const AdminOrders = () => {
   const loadOrders = async () => {
     try {
       setLoading(true);
+      console.log("Loading orders...");
+      
+      // Try to fetch directly from the database first to check for pending orders
+      try {
+        const { data: pendingOrdersData, error: pendingError } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("status", "pending");
+          
+        if (!pendingError) {
+          console.log(`Direct query found ${pendingOrdersData.length} pending orders`);
+        }
+      } catch (directError) {
+        console.warn("Error checking pending orders directly:", directError);
+      }
+      
+      // Fetch all orders using the service
       const data = await fetchAllOrders();
+      console.log(`Fetched ${data.length} orders from service`);
+      
+      // Check for pending orders in the fetched data
+      const pendingOrders = data.filter((order: any) => order.status === 'pending');
+      console.log(`Found ${pendingOrders.length} pending orders in fetched data`);
       
       // Process the data to ensure consistent format
       const processedOrders = data.map((order: any) => {
@@ -118,6 +141,10 @@ const AdminOrders = () => {
           doctor_phone: order.doctor_phone || (order.doctor?.phone || "N/A")
         };
       });
+      
+      // Double-check the processed data for pending orders
+      const processedPendingOrders = processedOrders.filter(order => order.status === 'pending');
+      console.log(`After processing, found ${processedPendingOrders.length} pending orders`);
       
       setOrders(processedOrders);
     } catch (error: any) {
@@ -135,19 +162,9 @@ const AdminOrders = () => {
     try {
       setIsLoadingDetails(true);
       
-      const { data, error } = await supabase
-        .from("order_items")
-        .select(`
-          *,
-          product:product_id (name, category)
-        `)
-        .eq("order_id", orderId);
-
-      if (error) {
-        throw error;
-      }
-
-      setOrderItems(data as OrderItem[]);
+      // Use the orderService function
+      const items = await fetchOrderItems(orderId);
+      setOrderItems(items);
     } catch (error: any) {
       console.error("Error fetching order details:", error);
       toast.error("Failed to load order details", {
@@ -228,7 +245,37 @@ const AdminOrders = () => {
         throw new Error("Order not found");
       }
       
-      // Send notification to doctor - in a real app this would call an Edge Function
+      // Create notification record in database
+      const { error: notificationError } = await supabase
+        .from("order_notifications")
+        .insert({
+          order_id: orderId,
+          notification_type: "status_update",
+          recipient: order.doctor_id,
+          content: `Your order status has been updated to: ${order.status}`,
+          status: "sent"
+        });
+        
+      if (notificationError) {
+        throw notificationError;
+      }
+      
+      // Try to call Edge Function if available
+      try {
+        await supabase.functions.invoke('notify-order-status', {
+          body: {
+            orderId,
+            doctorId: order.doctor_id,
+            doctorName: order.doctor_name,
+            doctorPhone: order.doctor_phone,
+            status: order.status
+          }
+        });
+      } catch (edgeFunctionError) {
+        console.warn("Edge function call failed:", edgeFunctionError);
+        // Continue even if edge function fails
+      }
+      
       toast.success("Notification Sent", {
         description: `Notification sent to doctor: ${order.doctor_name}`
       });
@@ -273,14 +320,99 @@ const AdminOrders = () => {
           />
         </div>
         
-        <Button 
-          variant="outline" 
-          onClick={loadOrders}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={loadOrders}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                setLoading(true);
+                
+                // Direct query for pending orders
+                const { data, error } = await supabase
+                  .from("orders")
+                  .select(`
+                    *,
+                    doctor:doctor_id (
+                      id,
+                      name,
+                      phone
+                    )
+                  `)
+                  .eq("status", "pending")
+                  .order("created_at", { ascending: false });
+                  
+                if (error) throw error;
+                
+                console.log(`Found ${data.length} pending orders via direct query`);
+                
+                if (data.length === 0) {
+                  toast.info("No pending orders found");
+                  return;
+                }
+                
+                // Process the data
+                const processedOrders = data.map(order => ({
+                  ...order,
+                  doctor_name: order.doctor?.name || "Unknown",
+                  doctor_phone: order.doctor?.phone || "N/A"
+                }));
+                
+                // Update the orders state with only pending orders
+                setOrders(processedOrders);
+                
+                toast.success(`Found ${processedOrders.length} pending orders`);
+              } catch (error: any) {
+                console.error("Error fetching pending orders:", error);
+                toast.error("Failed to load pending orders", {
+                  description: error.message || "Please try again."
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            Show Pending Only
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                setLoading(true);
+                toast.info("Synchronizing orders...");
+                
+                const success = await synchronizeOrders();
+                
+                if (success) {
+                  toast.success("Orders synchronized successfully");
+                  loadOrders(); // Reload orders after synchronization
+                } else {
+                  toast.error("Failed to synchronize orders");
+                }
+              } catch (error: any) {
+                console.error("Error synchronizing orders:", error);
+                toast.error("Failed to synchronize orders", {
+                  description: error.message || "Please try again."
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            Sync Orders
+          </Button>
+        </div>
       </div>
 
       <Card>

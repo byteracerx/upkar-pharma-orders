@@ -145,7 +145,7 @@ export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
           doctor_id: doctor.id,
           doctor_name: doctor.name,
           doctor_phone: doctor.phone,
-          doctor_email: '', // Email not available in this fallback
+          doctor_email: 'N/A', // Email not available in database schema
           total_credit: totalCredit
         });
       } catch (error) {
@@ -176,7 +176,22 @@ export const recordDoctorPayment = async (
   notes: string
 ): Promise<boolean> => {
   try {
-    // Insert directly into payments table instead of using RPC
+    // First try using the RPC function if available
+    try {
+      const { error } = await supabase.rpc('record_doctor_payment', {
+        p_doctor_id: doctorId,
+        p_amount: amount,
+        p_notes: notes
+      });
+      
+      if (!error) {
+        return true;
+      }
+    } catch (rpcError) {
+      console.warn("RPC function record_doctor_payment failed, falling back to direct implementation:", rpcError);
+    }
+    
+    // Insert directly into payments table as fallback
     const { error } = await supabase
       .from('payments')
       .insert({
@@ -193,8 +208,9 @@ export const recordDoctorPayment = async (
       .insert({
         doctor_id: doctorId,
         amount: amount,
-        type: 'debit', // Payment reduces credit
-        description: `Payment received: ${notes}`
+        type: 'credit', // Payment increases credit
+        description: `Payment received: ${notes}`,
+        reference_id: `payment-${Date.now()}`
       });
       
     if (txError) {

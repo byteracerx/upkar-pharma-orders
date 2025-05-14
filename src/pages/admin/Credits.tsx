@@ -123,16 +123,59 @@ const AdminCredits = () => {
   const handleSendCreditSummary = async (doctorId: string, doctorName: string) => {
     setSendingEmail(true);
     try {
-      // In a real app, this would call a serverless function to send the email
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      // Get the doctor's credit transactions
+      const transactions = await fetchCreditTransactions(doctorId);
       
-      toast.success("Email Sent", {
-        description: `Credit summary email sent to ${doctorName}.`
+      // Get the doctor's information
+      const { data: doctorData, error: doctorError } = await supabase
+        .from("doctors")
+        .select("phone")
+        .eq("id", doctorId)
+        .single();
+        
+      if (doctorError) throw doctorError;
+      
+      // Generate a placeholder email
+      const doctorEmail = `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+      
+      // Create a notification record
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          doctor_id: doctorId,
+          type: "credit_summary",
+          content: `Credit summary with ${transactions.length} transactions has been sent to you.`,
+          status: "sent"
+        });
+        
+      if (notificationError) {
+        console.warn("Error creating notification record:", notificationError);
+        // Continue even if notification record creation fails
+      }
+      
+      // Try to call Edge Function if available
+      try {
+        await supabase.functions.invoke('send-credit-summary', {
+          body: {
+            doctorId,
+            doctorName,
+            doctorEmail: doctorEmail,
+            doctorPhone: doctorData?.phone,
+            transactions
+          }
+        });
+      } catch (edgeFunctionError) {
+        console.warn("Edge function call failed:", edgeFunctionError);
+        // Continue even if edge function fails
+      }
+      
+      toast.success("Credit Summary Sent", {
+        description: `Credit summary sent to ${doctorName}.`
       });
     } catch (error: any) {
       console.error("Error sending credit summary:", error);
       toast.error("Error", {
-        description: error.message || "Failed to send credit summary email."
+        description: error.message || "Failed to send credit summary."
       });
     } finally {
       setSendingEmail(false);

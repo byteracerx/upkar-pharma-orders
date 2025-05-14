@@ -15,6 +15,7 @@ import {
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import RealtimeOrderTracker from "@/components/admin/RealtimeOrderTracker";
 
 interface AdminStats {
   pendingDoctors: number;
@@ -228,64 +229,72 @@ const AdminHome = () => {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Orders</CardTitle>
-          <CardDescription>
-            Latest orders from the system
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="w-full h-32 flex items-center justify-center">
-              <div className="animate-pulse text-upkar-blue">Loading...</div>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="pb-2">Order ID</th>
-                  <th className="pb-2">Doctor</th>
-                  <th className="pb-2">Amount</th>
-                  <th className="pb-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentOrders.length > 0 ? (
-                  stats.recentOrders.map((order, index) => (
-                    <tr key={index} className="border-b last:border-0">
-                      <td className="py-3 text-sm">{order.id}</td>
-                      <td className="py-3 text-sm">{order.doctor}</td>
-                      <td className="py-3 text-sm">{order.amount}</td>
-                      <td className="py-3">
-                        <span
-                          className={`inline-block text-xs px-2 py-1 rounded-full ${
-                            order.status === "Delivered"
-                              ? "bg-green-100 text-green-800"
-                              : order.status === "Processing"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : order.status === "Pending"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Orders</CardTitle>
+              <CardDescription>
+                Latest orders from the system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="w-full h-32 flex items-center justify-center">
+                  <div className="animate-pulse text-upkar-blue">Loading...</div>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-500">
+                      <th className="pb-2">Order ID</th>
+                      <th className="pb-2">Doctor</th>
+                      <th className="pb-2">Amount</th>
+                      <th className="pb-2">Status</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-gray-500">
-                      No recent orders available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
+                  </thead>
+                  <tbody>
+                    {stats.recentOrders.length > 0 ? (
+                      stats.recentOrders.map((order, index) => (
+                        <tr key={index} className="border-b last:border-0">
+                          <td className="py-3 text-sm">{order.id}</td>
+                          <td className="py-3 text-sm">{order.doctor}</td>
+                          <td className="py-3 text-sm">{order.amount}</td>
+                          <td className="py-3">
+                            <span
+                              className={`inline-block text-xs px-2 py-1 rounded-full ${
+                                order.status === "Delivered"
+                                  ? "bg-green-100 text-green-800"
+                                  : order.status === "Processing"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : order.status === "Pending"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-gray-500">
+                          No recent orders available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="lg:col-span-1">
+          <RealtimeOrderTracker />
+        </div>
+      </div>
     </div>
   );
 };

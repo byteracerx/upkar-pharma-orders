@@ -165,8 +165,16 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
       });
       
       if (!error && data && typeof data === 'object') {
-        // Cast data to the expected type with type checking
-        return data as OrderDetails;
+        // Cast data to the expected type with proper type checking
+        const orderDetails = data as any;
+        
+        // Validate that the response has the required structure
+        if (
+          orderDetails.order && 
+          Array.isArray(orderDetails.items)
+        ) {
+          return orderDetails as OrderDetails;
+        }
       }
     } catch (rpcError) {
       console.warn("RPC function get_order_details failed, falling back to direct queries:", rpcError);

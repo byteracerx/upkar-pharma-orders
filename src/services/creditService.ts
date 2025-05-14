@@ -44,7 +44,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
       amount: item.amount,
       type: item.type as 'credit' | 'debit',
       description: item.description || '',
-      reference_id: item.reference_id || undefined
+      reference_id: 'reference_id' in item ? item.reference_id : undefined
     })) as CreditTransaction[];
     
     return transactions;

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/services/productService";
 import { v4 as uuidv4 } from 'uuid';
@@ -171,7 +172,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
     // Get doctor information for notification
     const { data: doctorData, error: doctorError } = await supabase
       .from('doctors')
-      .select('name, phone, email')
+      .select('name, phone')
       .eq('id', doctorId)
       .single();
 
@@ -184,8 +185,8 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
         ).join(', ');
 
         // Add safe type checking for doctor data
-        const doctorName = doctorData.name || 'Unknown Doctor';
-        const doctorPhone = doctorData.phone || 'No Phone';
+        const doctorName = doctorData && typeof doctorData === 'object' && 'name' in doctorData ? doctorData.name : 'Unknown Doctor';
+        const doctorPhone = doctorData && typeof doctorData === 'object' && 'phone' in doctorData ? doctorData.phone : 'No Phone';
 
         // Call the serverless function to notify admin
         await supabase.functions.invoke('notify-admin-new-order', {

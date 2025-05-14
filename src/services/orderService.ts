@@ -164,9 +164,9 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
         p_order_id: orderId 
       });
       
-      if (!error && data) {
-        // Cast data to the expected type
-        return data as unknown as OrderDetails;
+      if (!error && data && typeof data === 'object') {
+        // Cast data to the expected type with type checking
+        return data as OrderDetails;
       }
     } catch (rpcError) {
       console.warn("RPC function get_order_details failed, falling back to direct queries:", rpcError);
@@ -180,8 +180,7 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
         *,
         doctor:doctor_id (
           name,
-          phone,
-          email
+          phone
         )
       `)
       .eq("id", orderId)
@@ -193,12 +192,21 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
     }
     
     // Build doctor object safely with default values if properties don't exist
-    const doctorData = orderData.doctor || {};
-    const doctor = {
-      name: doctorData.name || 'Unknown',
-      phone: doctorData.phone || 'N/A',
-      email: typeof doctorData.email === 'string' ? doctorData.email : ''
+    let doctor = {
+      name: 'Unknown',
+      phone: 'N/A',
+      email: ''
     };
+    
+    // Safely access doctor data if it exists
+    if (orderData && orderData.doctor && typeof orderData.doctor === 'object') {
+      const doctorData = orderData.doctor;
+      doctor = {
+        name: typeof doctorData === 'object' && 'name' in doctorData && doctorData.name ? doctorData.name : 'Unknown',
+        phone: typeof doctorData === 'object' && 'phone' in doctorData && doctorData.phone ? doctorData.phone : 'N/A',
+        email: ''
+      };
+    }
     
     const order = {
       ...orderData,
@@ -545,8 +553,7 @@ export const notifyOrderStatusChange = async (orderId: string, newStatus: string
         *,
         doctor:doctor_id (
           name,
-          phone,
-          email
+          phone
         )
       `)
       .eq("id", orderId)
@@ -558,13 +565,21 @@ export const notifyOrderStatusChange = async (orderId: string, newStatus: string
     }
     
     // Safely extract doctor properties with default values
-    const doctorData = orderData.doctor || {};
-    // Ensure doctor object is properly typed with default values
-    const doctor = {
-      name: doctorData.name || 'Unknown',
-      phone: doctorData.phone || '',
-      email: typeof doctorData.email === 'string' ? doctorData.email : ''
+    let doctor = {
+      name: 'Unknown',
+      phone: '',
+      email: ''
     };
+    
+    // Safely handle doctor data if it exists and is an object
+    if (orderData.doctor && typeof orderData.doctor === 'object') {
+      const doctorData = orderData.doctor;
+      doctor = {
+        name: typeof doctorData === 'object' && 'name' in doctorData ? doctorData.name : 'Unknown',
+        phone: typeof doctorData === 'object' && 'phone' in doctorData ? doctorData.phone : '',
+        email: ''
+      };
+    }
     
     // Prepare notification content
     const notificationContent = `Your order #${orderData.invoice_number || orderId.substring(0, 8)} status has been updated to ${newStatus}.`;

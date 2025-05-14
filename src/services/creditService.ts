@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Define the types for credit-related data
@@ -28,19 +27,8 @@ interface DoctorIdParam {
 // Get credit history for a doctor
 export const fetchCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
   try {
-    // First try using the RPC function
-    try {
-      const { data, error } = await supabase
-        .rpc('get_doctor_credit_history', { p_doctor_id: doctorId } as DoctorIdParam);
-      
-      if (!error) {
-        return data as CreditTransaction[] || [];
-      }
-    } catch (rpcError) {
-      console.warn("RPC function get_doctor_credit_history failed, falling back to direct query:", rpcError);
-    }
-    
-    // Fallback to direct query
+    // We're not using RPC since get_doctor_credit_history is not available
+    // Instead we'll directly query the credit_transactions table
     const { data, error } = await supabase
       .from("credit_transactions")
       .select("*")
@@ -52,11 +40,11 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
     const transactions = data.map(item => ({
       id: item.id,
       doctor_id: item.doctor_id,
-      date: item.created_at,
+      date: item.created_at || '',
       amount: item.amount,
-      type: item.type,
+      type: item.type as 'credit' | 'debit',
       description: item.description || '',
-      reference_id: item.reference_id
+      reference_id: item.reference_id || undefined
     })) as CreditTransaction[];
     
     return transactions;
@@ -75,7 +63,7 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
     if (error) throw error;
     
     // Convert the JSON response to match the CreditSummary interface
-    const summary = {
+    let summary: CreditSummary = {
       doctor_id: doctorId,
       doctor_name: '',
       doctor_phone: '',
@@ -188,14 +176,7 @@ export const recordDoctorPayment = async (
   notes: string
 ): Promise<boolean> => {
   try {
-    const params: PaymentParams = {
-      doctor_id: doctorId,
-      payment_amount: amount,
-      payment_method: 'cash', // Default payment method
-      payment_notes: notes
-    };
-    
-    // Insert directly into payments table
+    // Insert directly into payments table instead of using RPC
     const { error } = await supabase
       .from('payments')
       .insert({

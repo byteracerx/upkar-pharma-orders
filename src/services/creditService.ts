@@ -28,11 +28,38 @@ interface DoctorIdParam {
 // Get credit history for a doctor
 export const fetchCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
   try {
+    // First try using the RPC function
+    try {
+      const { data, error } = await supabase
+        .rpc('get_doctor_credit_history', { p_doctor_id: doctorId } as DoctorIdParam);
+      
+      if (!error) {
+        return data as CreditTransaction[] || [];
+      }
+    } catch (rpcError) {
+      console.warn("RPC function get_doctor_credit_history failed, falling back to direct query:", rpcError);
+    }
+    
+    // Fallback to direct query
     const { data, error } = await supabase
-      .rpc('get_doctor_credit_history', { p_doctor_id: doctorId } as DoctorIdParam);
+      .from("credit_transactions")
+      .select("*")
+      .eq("doctor_id", doctorId);
     
     if (error) throw error;
-    return data as CreditTransaction[] || [];
+    
+    // Transform the data to match the CreditTransaction interface
+    const transactions = data.map(item => ({
+      id: item.id,
+      doctor_id: item.doctor_id,
+      date: item.created_at,
+      amount: item.amount,
+      type: item.type,
+      description: item.description || '',
+      reference_id: item.reference_id
+    })) as CreditTransaction[];
+    
+    return transactions;
   } catch (error) {
     console.error("Error getting credit history:", error);
     throw error;
@@ -46,7 +73,35 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
       .rpc('get_doctor_credit_summary', { p_doctor_id: doctorId } as DoctorIdParam);
     
     if (error) throw error;
-    return data as CreditSummary;
+    
+    // Convert the JSON response to match the CreditSummary interface
+    const summary = {
+      doctor_id: doctorId,
+      doctor_name: '',
+      doctor_phone: '',
+      doctor_email: '',
+      total_credit: 0
+    };
+    
+    // Get doctor information
+    const { data: doctorData } = await supabase
+      .from('doctors')
+      .select('name, phone')
+      .eq('id', doctorId)
+      .single();
+    
+    if (doctorData) {
+      summary.doctor_name = doctorData.name;
+      summary.doctor_phone = doctorData.phone;
+    }
+    
+    // Extract credit information from the response
+    if (typeof data === 'object' && data !== null) {
+      const jsonData = data as Record<string, any>;
+      summary.total_credit = jsonData.available_credit || jsonData.total_credit || 0;
+    }
+    
+    return summary;
   } catch (error) {
     console.error("Error getting credit summary:", error);
     throw error;
@@ -140,10 +195,32 @@ export const recordDoctorPayment = async (
       payment_notes: notes
     };
     
-    const { data, error } = await supabase
-      .rpc('record_doctor_payment', params);
+    // Insert directly into payments table
+    const { error } = await supabase
+      .from('payments')
+      .insert({
+        doctor_id: doctorId,
+        amount: amount,
+        notes: notes
+      });
     
     if (error) throw error;
+    
+    // Also create a credit transaction for this payment
+    const { error: txError } = await supabase
+      .from('credit_transactions')
+      .insert({
+        doctor_id: doctorId,
+        amount: amount,
+        type: 'debit', // Payment reduces credit
+        description: `Payment received: ${notes}`
+      });
+      
+    if (txError) {
+      console.error("Error recording credit transaction:", txError);
+      // Continue even if credit transaction recording fails
+    }
+    
     return true;
   } catch (error) {
     console.error("Error recording payment:", error);

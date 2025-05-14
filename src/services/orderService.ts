@@ -192,11 +192,11 @@ export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> 
       throw orderError;
     }
     
-    // Build doctor object safely
+    // Build doctor object safely with default values if properties don't exist
     const doctorData = orderData.doctor || {};
     const doctor = {
-      name: typeof doctorData.name === 'string' ? doctorData.name : 'Unknown',
-      phone: typeof doctorData.phone === 'string' ? doctorData.phone : 'N/A',
+      name: doctorData.name || 'Unknown',
+      phone: doctorData.phone || 'N/A',
       email: typeof doctorData.email === 'string' ? doctorData.email : ''
     };
     
@@ -557,11 +557,13 @@ export const notifyOrderStatusChange = async (orderId: string, newStatus: string
       return false;
     }
     
-    // Ensure doctor object is properly typed
+    // Safely extract doctor properties with default values
+    const doctorData = orderData.doctor || {};
+    // Ensure doctor object is properly typed with default values
     const doctor = {
-      name: orderData.doctor?.name || 'Unknown',
-      phone: orderData.doctor?.phone || '',
-      email: orderData.doctor?.email || ''
+      name: doctorData.name || 'Unknown',
+      phone: doctorData.phone || '',
+      email: typeof doctorData.email === 'string' ? doctorData.email : ''
     };
     
     // Prepare notification content

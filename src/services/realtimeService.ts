@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -35,7 +34,7 @@ export const subscribeToTable = (
         event: event, 
         schema: 'public', 
         table: tableName 
-      } as any,
+      },
       (payload) => {
         console.log(`${tableName} ${event} event:`, payload);
         callback(payload);
@@ -118,7 +117,7 @@ export const subscribeToDoctorOrders = (
         schema: 'public', 
         table: 'orders',
         filter: `doctor_id=eq.${doctorId}`
-      } as any,
+      },
       (payload) => {
         console.log(`Doctor ${doctorId} order event:`, payload);
         callback(payload);

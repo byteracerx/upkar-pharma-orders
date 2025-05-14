@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Check, X, User } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 interface DoctorApprovalCardProps {
   doctor: {
@@ -39,7 +39,7 @@ const DoctorApprovalCard = ({
     } catch (error: any) {
       console.error("Error approving doctor:", error);
       toast.error("Error", {
-        description: error.message || "Failed to approve the doctor. Please try again."
+        description: "Failed to approve the doctor. Please try again."
       });
     } finally {
       setIsLoading(false);
@@ -53,7 +53,7 @@ const DoctorApprovalCard = ({
     } catch (error: any) {
       console.error("Error rejecting doctor:", error);
       toast.error("Error", {
-        description: error.message || "Failed to reject the doctor. Please try again."
+        description: "Failed to reject the doctor. Please try again."
       });
     } finally {
       setIsLoading(false);

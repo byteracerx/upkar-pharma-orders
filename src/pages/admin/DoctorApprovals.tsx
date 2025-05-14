@@ -5,7 +5,7 @@ import DoctorSearch from "@/components/admin/DoctorSearch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { fetchPendingDoctors, fetchApprovedDoctors, approveDoctor, rejectDoctor } from "@/services/adminService";
 import { subscribeToDoctors } from "@/services/realtimeService";
 
@@ -26,7 +26,7 @@ const DoctorApprovals = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
-  const [processedDoctorIds, setProcessedDoctorIds] = useState<Set<string>>(new Set());
+  const [processingDoctors, setProcessingDoctors] = useState<Set<string>>(new Set());
   
   // Fetch doctors from Supabase
   useEffect(() => {
@@ -34,32 +34,28 @@ const DoctorApprovals = () => {
     
     // Set up real-time subscription for doctors table
     const unsubscribe = subscribeToDoctors((payload) => {
-      console.log("Doctors table changed:", payload);
-      
-      // Only update if it's not a doctor we just processed
+      // Only update if we're not currently processing this doctor
       const doctorId = payload.new?.id;
-      if (!doctorId || !processedDoctorIds.has(doctorId)) {
-        fetchDoctors(); // Refresh data on any change
+      if (!doctorId || !processingDoctors.has(doctorId)) {
+        console.log("Doctors table changed, refreshing data");
+        fetchDoctors();
       }
     });
     
     return () => {
       unsubscribe(); // Clean up subscription on unmount
     };
-  }, [processedDoctorIds]);
+  }, [processingDoctors]);
 
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
-      console.log("Fetching doctors data...");
       
       // Fetch pending doctors
       const pendingData = await fetchPendingDoctors();
-      console.log("Pending doctors data:", pendingData);
       
       // Fetch approved doctors
       const approvedData = await fetchApprovedDoctors();
-      console.log("Approved doctors data:", approvedData);
       
       // Format the data
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
@@ -110,8 +106,8 @@ const DoctorApprovals = () => {
         return;
       }
       
-      // Add to processed ids to prevent double processing
-      setProcessedDoctorIds(prev => new Set(prev).add(id));
+      // Add to processed set to prevent double processing from realtime events
+      setProcessingDoctors(prev => new Set(prev).add(id));
       
       // Call the API to approve the doctor
       const success = await approveDoctor(id);
@@ -133,13 +129,20 @@ const DoctorApprovals = () => {
       toast.error("Failed to approve doctor", {
         description: error.message || "An unknown error occurred"
       });
+    } finally {
+      // Remove from processing set
+      setProcessingDoctors(prev => {
+        const updated = new Set(prev);
+        updated.delete(id);
+        return updated;
+      });
     }
   };
   
   const handleRejectDoctor = async (id: string) => {
     try {
-      // Add to processed ids to prevent double processing
-      setProcessedDoctorIds(prev => new Set(prev).add(id));
+      // Add to processed set to prevent double processing
+      setProcessingDoctors(prev => new Set(prev).add(id));
       
       const success = await rejectDoctor(id);
       
@@ -158,6 +161,13 @@ const DoctorApprovals = () => {
       console.error("Error rejecting doctor:", error);
       toast.error("Failed to reject doctor", {
         description: error.message
+      });
+    } finally {
+      // Remove from processing set
+      setProcessingDoctors(prev => {
+        const updated = new Set(prev);
+        updated.delete(id);
+        return updated;
       });
     }
   };

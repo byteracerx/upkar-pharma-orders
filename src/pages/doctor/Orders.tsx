@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
-  fetchDoctorOrders, 
   fetchOrderDetails, 
   reorderPreviousOrder, 
   addOrderCommunication,
@@ -9,6 +8,7 @@ import {
   Order,
   OrderDetails
 } from "@/services/orderService";
+import { fetchDoctorOrdersReliable, subscribeToDoctorOrdersReliable } from "@/services/doctorOrderService";
 import {
   Card,
   CardContent,
@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import OrderDetailsView from "@/components/orders/OrderDetailsView";
 import InitiateReturnDialog from "@/components/orders/InitiateReturnDialog";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const DoctorOrders = () => {
   const { user } = useAuth();
@@ -69,6 +69,16 @@ const DoctorOrders = () => {
   useEffect(() => {
     if (user?.id) {
       fetchOrders();
+      
+      // Set up real-time subscription for the doctor's orders
+      const unsubscribe = subscribeToDoctorOrdersReliable(
+        user.id,
+        fetchOrders // Refresh orders when changes are detected
+      );
+      
+      return () => {
+        unsubscribe(); // Clean up subscription when component unmounts
+      };
     }
   }, [user]);
   
@@ -77,13 +87,13 @@ const DoctorOrders = () => {
     
     setLoading(true);
     try {
-      const data = await fetchDoctorOrders(user.id);
+      console.log("Fetching orders for doctor:", user.id);
+      const data = await fetchDoctorOrdersReliable(user.id);
+      console.log(`Received ${data.length} orders`);
       setOrders(data);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -100,9 +110,7 @@ const DoctorOrders = () => {
       setOrderDetails(details);
     } catch (error: any) {
       console.error("Error fetching order details:", error);
-      toast.error("Failed to load order details", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to load order details");
     } finally {
       setIsDetailsLoading(false);
     }
@@ -117,9 +125,7 @@ const DoctorOrders = () => {
       const newOrderId = await reorderPreviousOrder(orderId, user.id);
       
       if (newOrderId) {
-        toast.success("Order Resubmitted", {
-          description: "Your order has been resubmitted successfully."
-        });
+        toast.success("Order Resubmitted");
         
         // Refresh orders
         fetchOrders();
@@ -128,9 +134,7 @@ const DoctorOrders = () => {
       }
     } catch (error: any) {
       console.error("Error reordering:", error);
-      toast.error("Failed to reorder", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to reorder");
     } finally {
       setIsReordering(false);
     }
@@ -156,17 +160,13 @@ const DoctorOrders = () => {
         const details = await fetchOrderDetails(orderId);
         setOrderDetails(details);
         
-        toast.success("Message Sent", {
-          description: "Your message has been sent to the admin."
-        });
+        toast.success("Message Sent");
       } else {
         throw new Error("Failed to send message");
       }
     } catch (error: any) {
       console.error("Error sending message:", error);
-      toast.error("Failed to send message", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to send message");
     }
   };
   
@@ -193,9 +193,7 @@ const DoctorOrders = () => {
       );
       
       if (returnId) {
-        toast.success("Return Initiated", {
-          description: "Your return request has been submitted successfully."
-        });
+        toast.success("Return Initiated");
         
         // Close the dialog
         setIsReturnDialogOpen(false);
@@ -208,9 +206,7 @@ const DoctorOrders = () => {
       }
     } catch (error: any) {
       console.error("Error processing return:", error);
-      toast.error("Failed to process return", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to process return");
     }
   };
   
@@ -222,9 +218,7 @@ const DoctorOrders = () => {
     if (order?.invoice_url) {
       window.open(order.invoice_url, '_blank');
     } else {
-      toast.error("Invoice Not Available", {
-        description: "The invoice for this order is not available yet."
-      });
+      toast.error("Invoice Not Available");
     }
   };
   
@@ -259,8 +253,9 @@ const DoctorOrders = () => {
     };
     
     orders.forEach(order => {
-      if (counts[order.status as keyof typeof counts] !== undefined) {
-        counts[order.status as keyof typeof counts]++;
+      const status = order.status as keyof typeof counts;
+      if (counts[status] !== undefined) {
+        counts[status]++;
       }
     });
     

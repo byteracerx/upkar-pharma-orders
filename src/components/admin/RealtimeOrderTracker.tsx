@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 
 interface OrderCount {
   status: string;
@@ -23,8 +24,9 @@ const RealtimeOrderTracker = () => {
       .channel('order-status-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' } as any,
+        { event: '*', schema: 'public', table: 'orders' },
         () => {
+          console.log("Orders table changed, refreshing counts");
           fetchOrderCounts(); // Refresh counts on any change
         }
       )
@@ -38,8 +40,9 @@ const RealtimeOrderTracker = () => {
   const fetchOrderCounts = async () => {
     try {
       setLoading(true);
+      console.log("Fetching order counts...");
 
-      // Instead of RPC, we'll use direct queries since the RPC function doesn't exist
+      // Use direct queries for accurate counts
       const statuses = ['pending', 'processing', 'delivered', 'cancelled'];
       const counts: OrderCount[] = [];
 
@@ -60,9 +63,11 @@ const RealtimeOrderTracker = () => {
         });
       }
 
+      console.log("Order counts:", counts);
       setOrderCounts(counts);
     } catch (error) {
       console.error("Error fetching order counts:", error);
+      toast.error("Failed to load order counts");
     } finally {
       setLoading(false);
     }

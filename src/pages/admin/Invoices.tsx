@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -80,19 +79,7 @@ const AdminInvoices = () => {
     try {
       setLoading(true);
       
-      // Try using the RPC function first
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_all_invoices');
-        
-        if (!rpcError && rpcData) {
-          setInvoices(rpcData as Invoice[]);
-          return;
-        }
-      } catch (rpcError) {
-        console.warn("RPC function get_all_invoices failed, falling back to direct query:", rpcError);
-      }
-      
-      // Fallback to direct query
+      // Direct query instead of RPC since get_all_invoices doesn't exist
       const { data, error } = await supabase
         .from("orders")
         .select(`

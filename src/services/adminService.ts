@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -185,7 +184,7 @@ export const fetchAllOrders = async () => {
         ...order,
         doctor_name: order.doctor?.name || "Unknown",
         doctor_phone: order.doctor?.phone || "N/A",
-        doctor_email: order.doctor?.email || `${order.doctor?.name?.toLowerCase().replace(/\s+/g, '.') || order.doctor_id?.substring(0, 8)}@example.com` 
+        doctor_email: `${order.doctor?.name?.toLowerCase().replace(/\s+/g, '.') || order.doctor_id?.substring(0, 8)}@example.com` 
       };
     });
     

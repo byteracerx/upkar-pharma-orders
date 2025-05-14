@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,19 +39,7 @@ const RealtimeOrderTracker = () => {
     try {
       setLoading(true);
 
-      // Try using RPC function if available
-      try {
-        const { data, error } = await supabase.rpc('get_order_counts_by_status');
-        
-        if (!error && data) {
-          setOrderCounts(data);
-          return;
-        }
-      } catch (rpcError) {
-        console.warn("RPC function get_order_counts_by_status failed, falling back to direct query:", rpcError);
-      }
-
-      // Fallback to direct queries
+      // Instead of RPC, we'll use direct queries since the RPC function doesn't exist
       const statuses = ['pending', 'processing', 'delivered', 'cancelled'];
       const counts: OrderCount[] = [];
 

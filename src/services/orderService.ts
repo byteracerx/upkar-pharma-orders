@@ -37,12 +37,10 @@ export interface OrderItem {
   quantity: number;
   price_per_unit: number;
   total_price: number;
-  product?: {
+  product: {
     name: string;
-    image_url: string;
-    category?: string;
-    description?: string;
-  };
+    category: string | null;
+  } | null;
 }
 
 export interface OrderStatusHistory {
@@ -1074,43 +1072,24 @@ export const updateShippingInfo = async (
  */
 export const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
   try {
-    // First try using the RPC function if available
-    try {
-      const { data, error } = await supabase.rpc('get_order_items', {
-        p_order_id: orderId
-      });
-      
-      if (!error && data) {
-        return data as OrderItem[];
-      }
-    } catch (rpcError) {
-      console.warn("RPC function get_order_items failed, falling back to direct query:", rpcError);
-    }
-    
-    // Fallback to direct query
     const { data, error } = await supabase
       .from("order_items")
       .select(`
-        id,
-        order_id,
-        product_id,
-        quantity,
-        price_per_unit,
-        total_price,
+        *,
         product:product_id (
           name,
-          image_url,
-          category,
-          description
+          category
         )
       `)
       .eq("order_id", orderId);
-    
+
     if (error) {
-      throw error;
+      console.error("Error fetching order items:", error);
+      throw new Error("Failed to fetch order items");
     }
-    
-    return data as OrderItem[];
+
+    // Convert to OrderItem interface
+    return data as unknown as OrderItem[];
   } catch (error) {
     console.error("Error in fetchOrderItems:", error);
     throw error;

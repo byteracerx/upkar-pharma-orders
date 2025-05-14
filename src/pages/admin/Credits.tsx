@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -140,7 +139,7 @@ const AdminCredits = () => {
       
       // Create a notification record
       const { error: notificationError } = await supabase
-        .from("notifications")
+        .from("order_notifications")
         .insert({
           doctor_id: doctorId,
           type: "credit_summary",

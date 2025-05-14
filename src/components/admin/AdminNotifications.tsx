@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -34,11 +35,20 @@ const AdminNotifications = () => {
         { 
           event: 'INSERT', 
           schema: 'public', 
-          table: 'admin_notifications' 
+          table: 'order_notifications' 
         },
         (payload) => {
           console.log('New admin notification:', payload);
-          const newNotification = payload.new as Notification;
+          
+          // Convert payload to our notification format
+          const newNotification: Notification = {
+            id: payload.new.id,
+            type: payload.new.notification_type || 'System',
+            message: payload.new.content || 'New notification received',
+            created_at: payload.new.sent_at || new Date().toISOString(),
+            read: false
+          };
+          
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(count => count + 1);
           
@@ -57,15 +67,14 @@ const AdminNotifications = () => {
 
   const fetchNotifications = async () => {
     try {
-      // Try to fetch from admin_notifications table
+      // Use the order_notifications table instead since admin_notifications doesn't exist
       let { data, error } = await supabase
-        .from('admin_notifications')
+        .from('order_notifications')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('sent_at', { ascending: false })
         .limit(10);
 
       if (error) {
-        // If table doesn't exist, use fallback data
         console.warn("Error fetching admin notifications:", error);
         
         // Fetch recent orders, doctor registrations, etc. as notifications
@@ -75,8 +84,17 @@ const AdminNotifications = () => {
         return;
       }
 
-      setNotifications(data as Notification[]);
-      setUnreadCount(data.filter(n => !n.read).length);
+      // Transform the data to match our Notification interface
+      const formattedNotifications: Notification[] = data.map(item => ({
+        id: item.id,
+        type: item.notification_type || 'System',
+        message: item.content || 'Notification',
+        created_at: item.sent_at || new Date().toISOString(),
+        read: false // We don't track this in the database yet
+      }));
+
+      setNotifications(formattedNotifications);
+      setUnreadCount(formattedNotifications.filter(n => !n.read).length);
     } catch (error) {
       console.error("Error in fetchNotifications:", error);
     }
@@ -136,17 +154,10 @@ const AdminNotifications = () => {
 
   const markAsRead = async (id: string) => {
     try {
-      // Try to update in database
-      const { error } = await supabase
-        .from('admin_notifications')
-        .update({ read: true })
-        .eq('id', id);
-        
-      if (error) {
-        console.warn("Error marking notification as read:", error);
-      }
+      // For order_notifications, we'll handle the read status only in the UI for now
+      // In a future update, we could add a 'read' column to the order_notifications table
       
-      // Update local state regardless of database success
+      // Update local state
       setNotifications(notifications.map(notification => 
         notification.id === id ? { ...notification, read: true } : notification
       ));
@@ -159,17 +170,7 @@ const AdminNotifications = () => {
 
   const markAllAsRead = async () => {
     try {
-      // Try to update in database
-      const { error } = await supabase
-        .from('admin_notifications')
-        .update({ read: true })
-        .eq('read', false);
-        
-      if (error) {
-        console.warn("Error marking all notifications as read:", error);
-      }
-      
-      // Update local state regardless of database success
+      // Update local state only for now
       setNotifications(notifications.map(notification => ({ ...notification, read: true })));
       setUnreadCount(0);
     } catch (error) {

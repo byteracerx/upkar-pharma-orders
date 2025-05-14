@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import DoctorList from "@/components/admin/DoctorList";
 import DoctorSearch from "@/components/admin/DoctorSearch";
@@ -60,7 +59,7 @@ const DoctorApprovals = () => {
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        // Generate a placeholder email using the doctor's name or id
+        // Generate email from name or id
         email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
@@ -71,7 +70,7 @@ const DoctorApprovals = () => {
       const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        // Generate a placeholder email using the doctor's name or id
+        // Generate email from name or id
         email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",

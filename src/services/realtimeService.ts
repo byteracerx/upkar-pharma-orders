@@ -26,12 +26,16 @@ export const subscribeToTable = (
   
   console.log(`Setting up real-time subscription to ${tableName} (${event} events)`);
   
-  // Create new channel
+  // Create new channel with the correct event structure
   const channel = supabase
     .channel(channelName)
     .on(
       'postgres_changes',
-      { event, schema: 'public', table: tableName },
+      {
+        event: event,
+        schema: 'public',
+        table: tableName
+      },
       (payload) => {
         console.log(`${tableName} ${event} event:`, payload);
         callback(payload);

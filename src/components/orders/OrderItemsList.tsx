@@ -36,10 +36,13 @@ const OrderItemsList = ({ items }: OrderItemsListProps) => {
               <TableRow key={item.id}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
-                    {item.product && item.product.image_url && (
+                    {item.product && 
+                     typeof item.product === 'object' && 
+                     'image_url' in item.product && 
+                     item.product.image_url && (
                       <div className="h-12 w-12 rounded-md overflow-hidden">
                         <img 
-                          src={item.product.image_url} 
+                          src={String(item.product.image_url)}
                           alt={item.product?.name || 'Product'} 
                           className="h-full w-full object-cover"
                         />

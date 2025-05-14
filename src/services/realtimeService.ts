@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -16,12 +17,14 @@ export const subscribeToTable = (
   event: 'INSERT' | 'UPDATE' | 'DELETE' | '*',
   callback: (payload: any) => void
 ): () => void => {
-  const channelName = `${tableName}-${event}`;
+  const channelName = `${tableName}-${event}-${Date.now()}`;
   
   // If channel already exists, remove it first
   if (activeChannels[channelName]) {
     supabase.removeChannel(activeChannels[channelName]);
   }
+  
+  console.log(`Setting up real-time subscription to ${tableName} (${event} events)`);
   
   // Create new channel
   const channel = supabase
@@ -34,7 +37,9 @@ export const subscribeToTable = (
         callback(payload);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log(`Subscription to ${tableName} (${event}): ${status}`);
+    });
   
   // Store the channel
   activeChannels[channelName] = channel;
@@ -42,6 +47,7 @@ export const subscribeToTable = (
   // Return unsubscribe function
   return () => {
     if (activeChannels[channelName]) {
+      console.log(`Removing subscription to ${tableName} (${event})`);
       supabase.removeChannel(activeChannels[channelName]);
       delete activeChannels[channelName];
     }
@@ -71,25 +77,14 @@ export const subscribeToDoctors = (
 };
 
 /**
- * Subscribe to real-time updates for credit transactions
- * @param callback Function to call when a credit transaction event occurs
+ * Subscribe to real-time updates for order items
+ * @param callback Function to call when an order item event occurs
  * @returns A function to unsubscribe
  */
-export const subscribeToCreditTransactions = (
+export const subscribeToOrderItems = (
   callback: (payload: any) => void
 ): () => void => {
-  return subscribeToTable('credit_transactions', '*', callback);
-};
-
-/**
- * Subscribe to real-time updates for products
- * @param callback Function to call when a product event occurs
- * @returns A function to unsubscribe
- */
-export const subscribeToProducts = (
-  callback: (payload: any) => void
-): () => void => {
-  return subscribeToTable('products', '*', callback);
+  return subscribeToTable('order_items', '*', callback);
 };
 
 /**
@@ -102,7 +97,7 @@ export const subscribeToDoctorOrders = (
   doctorId: string,
   callback: (payload: any) => void
 ): () => void => {
-  const channelName = `doctor-${doctorId}-orders`;
+  const channelName = `doctor-${doctorId}-orders-${Date.now()}`;
   
   // If channel already exists, remove it first
   if (activeChannels[channelName]) {
@@ -125,7 +120,9 @@ export const subscribeToDoctorOrders = (
         callback(payload);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log(`Subscription to orders for doctor ${doctorId}: ${status}`);
+    });
   
   // Store the channel
   activeChannels[channelName] = channel;
@@ -151,4 +148,6 @@ export const cleanupAllChannels = (): void => {
   Object.keys(activeChannels).forEach(key => {
     delete activeChannels[key];
   });
+  
+  console.log("All real-time channels cleaned up");
 };

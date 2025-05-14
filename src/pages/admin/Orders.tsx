@@ -24,7 +24,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Eye, FileText, Send, RefreshCw } from "lucide-react";
@@ -36,11 +35,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { fetchAllOrders, updateOrderStatus, generateInvoice, synchronizeOrders } from "@/services/adminService";
 import { fetchOrderItems } from "@/services/orderService";
+import { subscribeToOrders } from "@/services/realtimeService";
 
 type Order = {
   id: string;
@@ -88,21 +87,14 @@ const AdminOrders = () => {
   useEffect(() => {
     loadOrders();
     
-    // Set up real-time subscription
-    const ordersChannel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
-          console.log('Orders table changed:', payload);
-          loadOrders(); // Refresh data on any change
-        }
-      )
-      .subscribe();
-      
+    // Set up real-time subscription for orders table
+    const unsubscribe = subscribeToOrders((payload) => {
+      console.log('Orders table changed:', payload);
+      loadOrders(); // Refresh data on any change
+    });
+    
     return () => {
-      supabase.removeChannel(ordersChannel);
+      unsubscribe(); // Clean up subscription on unmount
     };
   }, []);
 
@@ -111,19 +103,8 @@ const AdminOrders = () => {
       setLoading(true);
       console.log("Loading orders...");
       
-      // Try to fetch directly from the database first to check for pending orders
-      try {
-        const { data: pendingOrdersData, error: pendingError } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("status", "pending");
-          
-        if (!pendingError) {
-          console.log(`Direct query found ${pendingOrdersData.length} pending orders`);
-        }
-      } catch (directError) {
-        console.warn("Error checking pending orders directly:", directError);
-      }
+      // Try to synchronize orders first to ensure all pending orders are visible
+      await synchronizeOrders();
       
       // Fetch all orders using the service
       const data = await fetchAllOrders();
@@ -133,20 +114,7 @@ const AdminOrders = () => {
       const pendingOrders = data.filter((order: any) => order.status === 'pending');
       console.log(`Found ${pendingOrders.length} pending orders in fetched data`);
       
-      // Process the data to ensure consistent format
-      const processedOrders = data.map((order: any) => {
-        return {
-          ...order,
-          doctor_name: order.doctor_name || (order.doctor?.name || "Unknown"),
-          doctor_phone: order.doctor_phone || (order.doctor?.phone || "N/A")
-        };
-      });
-      
-      // Double-check the processed data for pending orders
-      const processedPendingOrders = processedOrders.filter(order => order.status === 'pending');
-      console.log(`After processing, found ${processedPendingOrders.length} pending orders`);
-      
-      setOrders(processedOrders);
+      setOrders(data);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders", {
@@ -258,22 +226,6 @@ const AdminOrders = () => {
         
       if (notificationError) {
         throw notificationError;
-      }
-      
-      // Try to call Edge Function if available
-      try {
-        await supabase.functions.invoke('notify-order-status', {
-          body: {
-            orderId,
-            doctorId: order.doctor_id,
-            doctorName: order.doctor_name,
-            doctorPhone: order.doctor_phone,
-            status: order.status
-          }
-        });
-      } catch (edgeFunctionError) {
-        console.warn("Edge function call failed:", edgeFunctionError);
-        // Continue even if edge function fails
       }
       
       toast.success("Notification Sent", {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import DoctorList from "@/components/admin/DoctorList";
 import DoctorSearch from "@/components/admin/DoctorSearch";
@@ -7,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fetchPendingDoctors, fetchApprovedDoctors, approveDoctor, rejectDoctor } from "@/services/adminService";
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeToDoctors } from "@/services/realtimeService";
 
 interface Doctor {
   id: string;
@@ -30,66 +32,14 @@ const DoctorApprovals = () => {
   useEffect(() => {
     fetchDoctors();
     
-    // Check if there are any mock doctors in the database
-    const checkForMockDoctors = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("doctors")
-          .select("id, name, is_approved, created_at")
-          .eq("name", "Mock Doctor")
-          .maybeSingle();
-          
-        if (error) {
-          console.error("Error checking for mock doctors:", error);
-          return;
-        }
-        
-        if (data) {
-          console.warn("Found a mock doctor in the database:", data);
-          
-          // If the mock doctor has been in the database for more than 24 hours, remove it
-          const createdAt = new Date(data.created_at);
-          const now = new Date();
-          const hoursSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-          
-          if (hoursSinceCreation > 24) {
-            console.log("Mock doctor is older than 24 hours, removing it...");
-            
-            const { error: deleteError } = await supabase
-              .from("doctors")
-              .delete()
-              .eq("id", data.id);
-              
-            if (deleteError) {
-              console.error("Error removing mock doctor:", deleteError);
-            } else {
-              console.log("Mock doctor removed successfully");
-              fetchDoctors(); // Refresh the data
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error in checkForMockDoctors:", error);
-      }
-    };
+    // Set up real-time subscription for doctors table
+    const unsubscribe = subscribeToDoctors((payload) => {
+      console.log("Doctors table changed:", payload);
+      fetchDoctors(); // Refresh data on any change
+    });
     
-    checkForMockDoctors();
-    
-    // Set up real-time subscription
-    const doctorsChannel = supabase
-      .channel('doctors-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'doctors' },
-        (payload) => {
-          console.log('Doctors table changed:', payload);
-          fetchDoctors(); // Refresh data on any change
-        }
-      )
-      .subscribe();
-      
     return () => {
-      supabase.removeChannel(doctorsChannel);
+      unsubscribe(); // Clean up subscription on unmount
     };
   }, []);
 
@@ -98,11 +48,11 @@ const DoctorApprovals = () => {
       setIsLoading(true);
       console.log("Fetching doctors data...");
       
-      // Fetch pending doctors with cache control
+      // Fetch pending doctors
       const pendingData = await fetchPendingDoctors();
       console.log("Pending doctors data:", pendingData);
       
-      // Fetch approved doctors with cache control
+      // Fetch approved doctors
       const approvedData = await fetchApprovedDoctors();
       console.log("Approved doctors data:", approvedData);
       
@@ -111,7 +61,7 @@ const DoctorApprovals = () => {
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
         // Generate a placeholder email using the doctor's name or id
-        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
@@ -122,7 +72,7 @@ const DoctorApprovals = () => {
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
         // Generate a placeholder email using the doctor's name or id
-        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
@@ -176,11 +126,6 @@ const DoctorApprovals = () => {
         toast.success("Doctor Approved", {
           description: `${doctorToApprove.name} has been approved successfully`
         });
-        
-        // Force a refresh of the data from the server
-        setTimeout(() => {
-          fetchDoctors();
-        }, 1000);
       }
     } catch (error: any) {
       console.error("Error approving doctor:", error);
@@ -213,6 +158,7 @@ const DoctorApprovals = () => {
     }
   };
   
+  // Filter doctors based on search query
   const filteredPendingDoctors = pendingDoctors.filter(
     doctor => 
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -241,49 +187,9 @@ const DoctorApprovals = () => {
         
         <Button 
           variant="outline" 
-          onClick={async () => {
-            try {
-              // Find and remove any mock doctors
-              const { data, error } = await supabase
-                .from("doctors")
-                .select("id, name")
-                .or("name.ilike.%mock%,name.ilike.%test%");
-                
-              if (error) {
-                throw error;
-              }
-              
-              if (data && data.length > 0) {
-                console.log("Found mock doctors:", data);
-                
-                // Delete each mock doctor
-                for (const doctor of data) {
-                  const { error: deleteError } = await supabase
-                    .from("doctors")
-                    .delete()
-                    .eq("id", doctor.id);
-                    
-                  if (deleteError) {
-                    console.error(`Error deleting mock doctor ${doctor.id}:`, deleteError);
-                  } else {
-                    console.log(`Deleted mock doctor: ${doctor.name}`);
-                  }
-                }
-                
-                toast.success(`Removed ${data.length} mock doctor(s)`);
-                fetchDoctors(); // Refresh the data
-              } else {
-                toast.info("No mock doctors found");
-              }
-            } catch (error: any) {
-              console.error("Error removing mock doctors:", error);
-              toast.error("Failed to remove mock doctors", {
-                description: error.message
-              });
-            }
-          }}
+          onClick={fetchDoctors}
         >
-          Remove Mock Doctors
+          Refresh Data
         </Button>
       </div>
       

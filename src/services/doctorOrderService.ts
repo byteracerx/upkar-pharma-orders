@@ -33,20 +33,21 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
     
     // Fix the type issue by ensuring doctor property matches expected structure
     const processedOrders = data.map(order => {
-      // Handle potential errors in doctor join
-      if (order.doctor && typeof order.doctor === 'object' && !('error' in order.doctor)) {
-        return order as Order;
-      } else {
-        // Return order with properly structured doctor object
-        return {
-          ...order,
-          doctor: {
-            name: "Unknown", // Default values
-            phone: "N/A",
-            email: ""
-          }
-        } as Order;
-      }
+      // Handle potential null doctor or error in doctor join
+      const doctorData = order.doctor;
+      const isValidDoctor = doctorData && 
+                           typeof doctorData === 'object' && 
+                           !('error' in doctorData);
+      
+      // Create a properly typed order object with correct doctor structure
+      return {
+        ...order,
+        doctor: isValidDoctor ? doctorData as { name: string; phone: string; email?: string } : {
+          name: "Unknown", // Default values
+          phone: "N/A",
+          email: ""
+        }
+      } as Order;
     });
     
     return processedOrders;

@@ -2,158 +2,124 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
-// Store active channels to avoid duplicate subscriptions
-const activeChannels: Record<string, RealtimeChannel> = {};
-
 /**
- * Subscribe to real-time updates for a specific table
- * @param tableName The table to subscribe to
- * @param event The event type ('INSERT', 'UPDATE', 'DELETE', or '*' for all)
- * @param callback Function to call when an event occurs
- * @returns A function to unsubscribe
+ * Subscribe to a specific table for all changes
  */
 export const subscribeToTable = (
   tableName: string,
+  onUpdate: (payload: any) => void,
+  channelName?: string
+): (() => void) => {
+  return subscribeToTableWithEvent('*', tableName, onUpdate, channelName);
+};
+
+/**
+ * Subscribe to a specific table and event
+ */
+export const subscribeToTableWithEvent = (
   event: 'INSERT' | 'UPDATE' | 'DELETE' | '*',
-  callback: (payload: any) => void
-): () => void => {
-  const channelName = `${tableName}-${event}-${Date.now()}`;
-  
-  // If channel already exists, remove it first
-  if (activeChannels[channelName]) {
-    supabase.removeChannel(activeChannels[channelName]);
-  }
+  tableName: string,
+  onUpdate: (payload: any) => void,
+  channelName?: string
+): (() => void) => {
+  // Use provided channelName or generate one
+  const channel_name = channelName || `${tableName}_channel_${Math.random().toString(36).slice(2, 11)}`;
   
   console.log(`Setting up real-time subscription to ${tableName} (${event} events)`);
   
-  // Create new channel with the correct event structure for Supabase JS v2
-  // Fix type mismatch by using type assertion to fix the compiler error
+  // Use the correct type for postgres_changes
+  // According to Supabase docs, 'postgres_changes' is a valid event name
   const channel = supabase
-    .channel(channelName)
+    .channel(channel_name)
     .on(
-      'postgres_changes' as any, 
+      'postgres_changes', 
       { 
         event: event, 
         schema: 'public', 
         table: tableName 
-      },
+      }, 
       (payload) => {
-        console.log(`${tableName} ${event} event:`, payload);
-        callback(payload);
+        console.log(`${tableName} change detected:`, payload);
+        onUpdate(payload);
       }
     )
     .subscribe((status) => {
-      console.log(`Subscription to ${tableName} (${event}): ${status}`);
+      console.log(`Subscription status for ${tableName}: ${status}`);
     });
-  
-  // Store the channel
-  activeChannels[channelName] = channel;
   
   // Return unsubscribe function
   return () => {
-    if (activeChannels[channelName]) {
-      console.log(`Removing subscription to ${tableName} (${event})`);
-      supabase.removeChannel(activeChannels[channelName]);
-      delete activeChannels[channelName];
-    }
+    console.log(`Removing subscription to ${tableName}`);
+    supabase.removeChannel(channel);
   };
 };
 
 /**
- * Subscribe to real-time updates for orders
- * @param callback Function to call when an order event occurs
- * @returns A function to unsubscribe
+ * Subscribe to all orders
  */
 export const subscribeToOrders = (
-  callback: (payload: any) => void
-): () => void => {
-  return subscribeToTable('orders', '*', callback);
+  onUpdate: (payload: any) => void
+): (() => void) => {
+  return subscribeToTable('orders', onUpdate, 'orders_realtime');
 };
 
 /**
- * Subscribe to real-time updates for doctors
- * @param callback Function to call when a doctor event occurs
- * @returns A function to unsubscribe
+ * Subscribe to order communications
  */
-export const subscribeToDoctors = (
-  callback: (payload: any) => void
-): () => void => {
-  return subscribeToTable('doctors', '*', callback);
+export const subscribeToOrderCommunications = (
+  onUpdate: (payload: any) => void
+): (() => void) => {
+  return subscribeToTable('order_communications', onUpdate, 'order_communications_realtime');
 };
 
 /**
- * Subscribe to real-time updates for order items
- * @param callback Function to call when an order item event occurs
- * @returns A function to unsubscribe
+ * Subscribe to order notifications
  */
-export const subscribeToOrderItems = (
-  callback: (payload: any) => void
-): () => void => {
-  return subscribeToTable('order_items', '*', callback);
+export const subscribeToOrderNotifications = (
+  onUpdate: (payload: any) => void
+): (() => void) => {
+  return subscribeToTable('order_notifications', onUpdate, 'order_notifications_realtime');
 };
 
 /**
- * Subscribe to real-time updates for a specific doctor's orders
- * @param doctorId The doctor's ID
- * @param callback Function to call when an order event occurs
- * @returns A function to unsubscribe
+ * Subscribe to a specific order's changes
  */
-export const subscribeToDoctorOrders = (
-  doctorId: string,
-  callback: (payload: any) => void
-): () => void => {
-  const channelName = `doctor-${doctorId}-orders-${Date.now()}`;
+export const subscribeToOrderById = (
+  orderId: string,
+  onUpdate: (payload: any) => void
+): (() => void) => {
+  const channelName = `order_${orderId}_channel`;
   
-  // If channel already exists, remove it first
-  if (activeChannels[channelName]) {
-    supabase.removeChannel(activeChannels[channelName]);
+  console.log(`Setting up real-time subscription for order ${orderId}`);
+  
+  if (!orderId) {
+    console.warn("Cannot subscribe to order without an order ID");
+    return () => {};
   }
   
-  // Create new channel with filter
-  // Fix type mismatch by using type assertion
+  // Use the correct type for postgres_changes
   const channel = supabase
     .channel(channelName)
     .on(
-      'postgres_changes' as any,
+      'postgres_changes',
       { 
         event: '*', 
         schema: 'public', 
         table: 'orders',
-        filter: `doctor_id=eq.${doctorId}`
+        filter: `id=eq.${orderId}` 
       },
       (payload) => {
-        console.log(`Doctor ${doctorId} order event:`, payload);
-        callback(payload);
+        console.log(`Order ${orderId} change detected:`, payload);
+        onUpdate(payload);
       }
     )
     .subscribe((status) => {
-      console.log(`Subscription to orders for doctor ${doctorId}: ${status}`);
+      console.log(`Subscription status for order ${orderId}: ${status}`);
     });
-  
-  // Store the channel
-  activeChannels[channelName] = channel;
   
   // Return unsubscribe function
   return () => {
-    if (activeChannels[channelName]) {
-      supabase.removeChannel(activeChannels[channelName]);
-      delete activeChannels[channelName];
-    }
-  };
-};
-
-/**
- * Clean up all active channels
- */
-export const cleanupAllChannels = (): void => {
-  Object.values(activeChannels).forEach(channel => {
+    console.log(`Removing subscription for order ${orderId}`);
     supabase.removeChannel(channel);
-  });
-  
-  // Clear the channels object
-  Object.keys(activeChannels).forEach(key => {
-    delete activeChannels[key];
-  });
-  
-  console.log("All real-time channels cleaned up");
+  };
 };

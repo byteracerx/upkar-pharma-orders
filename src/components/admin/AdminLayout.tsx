@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import AdminSidebar from "./AdminSidebar";
 import AdminNotifications from "./AdminNotifications";
@@ -16,13 +17,22 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   
   // Redirect if not logged in or not an admin
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/admin-login" />;
   }
   
   if (!isAdmin) {
-    // If user is logged in but not an admin, redirect to doctor dashboard
-    return <Navigate to="/dashboard" />;
+    // If user is logged in but not an admin, redirect to appropriate page
+    return <Navigate to="/login" />;
   }
+  
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
   
   return (
     <div className="flex h-screen">
@@ -35,11 +45,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-upkar-blue text-white">
-                  A
+                  {user.name ? getInitials(user.name) : 'A'}
                 </AvatarFallback>
               </Avatar>
               <div className="text-sm">
-                <div className="font-medium">Admin</div>
+                <div className="font-medium">{user.name || 'Admin'}</div>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={logout}>

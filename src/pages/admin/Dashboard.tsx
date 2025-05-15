@@ -9,7 +9,6 @@ import AdminProducts from "./Products";
 import AdminOrders from "./Orders";
 import AdminCredits from "./Credits";
 import AdminInvoices from "./Invoices";
-import AdminSetupRLS from "./SetupRLS";
 
 const AdminDashboard = () => {
   return (
@@ -21,7 +20,6 @@ const AdminDashboard = () => {
         <Route path="/orders" element={<AdminOrders />} />
         <Route path="/credits" element={<AdminCredits />} />
         <Route path="/invoices" element={<AdminInvoices />} />
-        <Route path="/setup-rls" element={<AdminSetupRLS />} />
       </Routes>
     </AdminLayout>
   );

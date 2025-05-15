@@ -1,9 +1,10 @@
+
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const DoctorRoute = () => {
-  const { user, isAuthenticated, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAdmin, isDoctor } = useAuth();
 
   // If auth is still initializing, show a loading spinner
   if (!user && isAuthenticated) {
@@ -22,6 +23,16 @@ const DoctorRoute = () => {
   // If user is an admin, redirect to admin dashboard
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
+  }
+  
+  // If user is not a doctor, show an appropriate message
+  if (!isDoctor) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center flex-col">
+        <h1 className="text-xl font-bold mb-2">Account Pending Approval</h1>
+        <p className="text-gray-600">Your account is waiting for admin approval.</p>
+      </div>
+    );
   }
 
   // If user is authenticated and is a doctor, render the children

@@ -9,8 +9,7 @@ import {
   CreditCard,
   FileText,
   LogOut,
-  User,
-  ShieldCheck
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -82,9 +81,6 @@ const AdminSidebar = () => {
           <SidebarLink to="/admin/invoices" icon={<FileText className="h-5 w-5" />}>
             Invoices
           </SidebarLink>
-          <SidebarLink to="/admin/setup-rls" icon={<ShieldCheck className="h-5 w-5" />}>
-            Setup Permissions
-          </SidebarLink>
         </nav>
       </div>
 
@@ -94,8 +90,8 @@ const AdminSidebar = () => {
             <User className="h-6 w-6 text-gray-600" />
           </div>
           <div>
-            <p className="font-medium">{user?.name}</p>
-            <p className="text-xs text-gray-500">{user?.email}</p>
+            <p className="font-medium">{user?.name || 'Admin'}</p>
+            <p className="text-xs text-gray-500">{user?.email || ''}</p>
           </div>
         </div>
         <Button

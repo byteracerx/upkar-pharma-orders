@@ -17,8 +17,7 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
         *,
         doctor:doctor_id (
           name,
-          phone,
-          email
+          phone
         )
       `)
       .eq("doctor_id", doctorId)
@@ -40,10 +39,10 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       const processedOrder: Order = {
         ...order,
         doctor: {
-          // Use optional chaining and nullish coalescing to safely handle null values
-          name: String(doctorData?.name ?? "Unknown"),
-          phone: String(doctorData?.phone ?? "N/A"),
-          email: String(doctorData?.email ?? "")
+          // Safely handle the doctor data with type checking
+          name: typeof doctorData === 'object' && doctorData ? String(doctorData.name || "Unknown") : "Unknown",
+          phone: typeof doctorData === 'object' && doctorData ? String(doctorData.phone || "N/A") : "N/A",
+          email: "" // Since email isn't in the select query, we'll set a default empty string
         }
       };
       

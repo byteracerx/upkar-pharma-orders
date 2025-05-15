@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -42,20 +43,25 @@ const AdminLogin = () => {
         
         if (error.message.includes("Invalid login credentials")) {
           setError("Admin account doesn't exist yet. Please create it first.");
-          toast.error("Admin Account Not Found", {
-            description: "Please create the admin account first"
+          toast({
+            title: "Admin Account Not Found",
+            description: "Please create the admin account first",
+            variant: "destructive"
           });
         } else {
           setError(error.message);
-          toast.error("Login Failed", {
-            description: error.message
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive"
           });
         }
       } else {
         console.log("Admin login successful:", data);
         setIsSuccess(true);
-        toast.success("Admin Login Successful", {
-          description: "Redirecting to admin dashboard..."
+        toast({
+          title: "Admin Login Successful",
+          description: "Redirecting to admin dashboard...",
         });
         
         // Redirect to admin dashboard
@@ -66,8 +72,10 @@ const AdminLogin = () => {
     } catch (err: any) {
       console.error("Unexpected error during admin login:", err);
       setError(err.message || "An unexpected error occurred");
-      toast.error("Login Error", {
-        description: err.message || "Please try again"
+      toast({
+        title: "Login Error",
+        description: err.message || "Please try again",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);

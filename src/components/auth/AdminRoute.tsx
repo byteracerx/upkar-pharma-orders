@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const AdminRoute = () => {
-  const { user, isAuthenticated, isAdmin, session } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
 
   // If auth is still initializing, show a loading spinner
   if (!user && isAuthenticated) {

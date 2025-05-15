@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -26,10 +27,11 @@ export const subscribeToTable = (
   console.log(`Setting up real-time subscription to ${tableName} (${event} events)`);
   
   // Create new channel with the correct event structure for Supabase JS v2
+  // Fix type mismatch by using type assertion to fix the compiler error
   const channel = supabase
     .channel(channelName)
     .on(
-      'postgres_changes', 
+      'postgres_changes' as any, 
       { 
         event: event, 
         schema: 'public', 
@@ -108,10 +110,11 @@ export const subscribeToDoctorOrders = (
   }
   
   // Create new channel with filter
+  // Fix type mismatch by using type assertion
   const channel = supabase
     .channel(channelName)
     .on(
-      'postgres_changes',
+      'postgres_changes' as any,
       { 
         event: '*', 
         schema: 'public', 

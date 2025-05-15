@@ -30,7 +30,26 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
     }
     
     console.log(`Found ${data.length} orders via direct query`);
-    return data as Order[];
+    
+    // Fix the type issue by ensuring doctor property matches expected structure
+    const processedOrders = data.map(order => {
+      // Handle potential errors in doctor join
+      if (order.doctor && typeof order.doctor === 'object' && !('error' in order.doctor)) {
+        return order as Order;
+      } else {
+        // Return order with properly structured doctor object
+        return {
+          ...order,
+          doctor: {
+            name: "Unknown", // Default values
+            phone: "N/A",
+            email: ""
+          }
+        } as Order;
+      }
+    });
+    
+    return processedOrders;
     
   } catch (error: any) {
     console.error("Error in fetchDoctorOrdersReliable:", error);

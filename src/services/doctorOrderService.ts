@@ -40,16 +40,16 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       const processedOrder: Order = {
         ...order,
         doctor: {
-          // Safely access properties with default values using non-null assertion with fallback
+          // Safely access properties with default values - fixed null reference issues
           name: doctorData && typeof doctorData === 'object' && 'name' in doctorData 
-                ? String(doctorData?.name || "Unknown") 
+                ? String((doctorData as any).name || "Unknown") 
                 : "Unknown",
           phone: doctorData && typeof doctorData === 'object' && 'phone' in doctorData 
-                 ? String(doctorData?.phone || "N/A") 
-                 : "N/A",
+                ? String((doctorData as any).phone || "N/A") 
+                : "N/A",
           email: doctorData && typeof doctorData === 'object' && 'email' in doctorData 
-                 ? String(doctorData?.email || "") 
-                 : ""
+                ? String((doctorData as any).email || "") 
+                : ""
         }
       };
       

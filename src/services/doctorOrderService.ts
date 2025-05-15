@@ -43,9 +43,10 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       return {
         ...order,
         doctor: isValidDoctor && doctorData !== null ? {
-          name: doctorData.name || "Unknown",
-          phone: doctorData.phone || "N/A",
-          email: doctorData.email || ""
+          // Add null checks for each property access
+          name: doctorData && typeof doctorData === 'object' ? (doctorData.name || "Unknown") : "Unknown",
+          phone: doctorData && typeof doctorData === 'object' ? (doctorData.phone || "N/A") : "N/A",
+          email: doctorData && typeof doctorData === 'object' ? (doctorData.email || "") : ""
         } : {
           name: "Unknown",
           phone: "N/A",

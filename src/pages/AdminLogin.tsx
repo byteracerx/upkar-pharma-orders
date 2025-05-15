@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -43,25 +43,20 @@ const AdminLogin = () => {
         
         if (error.message.includes("Invalid login credentials")) {
           setError("Admin account doesn't exist yet. Please create it first.");
-          toast({
-            title: "Admin Account Not Found",
-            description: "Please create the admin account first",
-            variant: "destructive"
+          toast.error("Admin Account Not Found", {
+            description: "Please create the admin account first"
           });
         } else {
           setError(error.message);
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive"
+          toast.error("Login Failed", {
+            description: error.message
           });
         }
       } else {
         console.log("Admin login successful:", data);
         setIsSuccess(true);
-        toast({
-          title: "Admin Login Successful",
-          description: "Redirecting to admin dashboard...",
+        toast.success("Admin Login Successful", {
+          description: "Redirecting to admin dashboard..."
         });
         
         // Redirect to admin dashboard
@@ -72,10 +67,8 @@ const AdminLogin = () => {
     } catch (err: any) {
       console.error("Unexpected error during admin login:", err);
       setError(err.message || "An unexpected error occurred");
-      toast({
-        title: "Login Error",
-        description: err.message || "Please try again",
-        variant: "destructive"
+      toast.error("Login Error", {
+        description: err.message || "Please try again"
       });
     } finally {
       setIsLoading(false);

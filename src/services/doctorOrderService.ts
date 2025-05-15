@@ -35,24 +35,31 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
     const processedOrders = data.map(order => {
       // Handle potential null doctor or error in doctor join
       const doctorData = order.doctor;
+      
+      // Check if doctorData exists and is a valid object
       const isValidDoctor = doctorData && 
                            typeof doctorData === 'object' && 
                            !('error' in doctorData);
       
       // Create a properly typed order object with correct doctor structure
-      return {
+      const processedOrder = {
         ...order,
-        doctor: isValidDoctor && doctorData !== null ? {
-          // Add null checks for each property access
-          name: doctorData && typeof doctorData === 'object' ? (doctorData.name || "Unknown") : "Unknown",
-          phone: doctorData && typeof doctorData === 'object' ? (doctorData.phone || "N/A") : "N/A",
-          email: doctorData && typeof doctorData === 'object' ? (doctorData.email || "") : ""
+        doctor: isValidDoctor ? {
+          // Safely access properties with default values
+          name: typeof doctorData === 'object' && doctorData !== null && 'name' in doctorData ? 
+                String(doctorData.name || "Unknown") : "Unknown",
+          phone: typeof doctorData === 'object' && doctorData !== null && 'phone' in doctorData ? 
+                 String(doctorData.phone || "N/A") : "N/A",
+          email: typeof doctorData === 'object' && doctorData !== null && 'email' in doctorData ? 
+                 String(doctorData.email || "") : ""
         } : {
           name: "Unknown",
           phone: "N/A",
           email: ""
         }
       } as Order;
+      
+      return processedOrder;
     });
     
     return processedOrders;

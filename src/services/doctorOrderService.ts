@@ -40,10 +40,10 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       const processedOrder: Order = {
         ...order,
         doctor: {
-          // Use nullish coalescing to safely handle null values
-          name: doctorData && typeof doctorData === 'object' ? String(doctorData.name || "Unknown") : "Unknown",
-          phone: doctorData && typeof doctorData === 'object' ? String(doctorData.phone || "N/A") : "N/A",
-          email: doctorData && typeof doctorData === 'object' ? String(doctorData.email || "") : ""
+          // Use optional chaining and nullish coalescing to safely handle null values
+          name: String(doctorData?.name ?? "Unknown"),
+          phone: String(doctorData?.phone ?? "N/A"),
+          email: String(doctorData?.email ?? "")
         }
       };
       

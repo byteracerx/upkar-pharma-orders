@@ -27,12 +27,11 @@ export const subscribeToTableWithEvent = (
   
   console.log(`Setting up real-time subscription to ${tableName} (${event} events)`);
   
-  // Use the correct type for postgres_changes
-  // According to Supabase docs, 'postgres_changes' is a valid event name
+  // Fix the type error by using a type assertion
   const channel = supabase
     .channel(channel_name)
     .on(
-      'postgres_changes', 
+      'postgres_changes' as any, 
       { 
         event: event, 
         schema: 'public', 
@@ -61,6 +60,15 @@ export const subscribeToOrders = (
   onUpdate: (payload: any) => void
 ): (() => void) => {
   return subscribeToTable('orders', onUpdate, 'orders_realtime');
+};
+
+/**
+ * Subscribe to doctors table
+ */
+export const subscribeToDoctors = (
+  onUpdate: (payload: any) => void
+): (() => void) => {
+  return subscribeToTable('doctors', onUpdate, 'doctors_realtime');
 };
 
 /**
@@ -97,11 +105,11 @@ export const subscribeToOrderById = (
     return () => {};
   }
   
-  // Use the correct type for postgres_changes
+  // Use the correct type for postgres_changes with type assertion
   const channel = supabase
     .channel(channelName)
     .on(
-      'postgres_changes',
+      'postgres_changes' as any,
       { 
         event: '*', 
         schema: 'public', 

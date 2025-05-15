@@ -42,8 +42,12 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       // Create a properly typed order object with correct doctor structure
       return {
         ...order,
-        doctor: isValidDoctor ? doctorData as { name: string; phone: string; email?: string } : {
-          name: "Unknown", // Default values
+        doctor: isValidDoctor && doctorData !== null ? {
+          name: doctorData.name || "Unknown",
+          phone: doctorData.phone || "N/A",
+          email: doctorData.email || ""
+        } : {
+          name: "Unknown",
           phone: "N/A",
           email: ""
         }
@@ -71,7 +75,7 @@ export const subscribeToDoctorOrdersReliable = (
   const channel = supabase
     .channel(`doctor-orders-${doctorId}`)
     .on(
-      'postgres_changes',
+      'postgres_changes' as any,
       { 
         event: '*', 
         schema: 'public', 

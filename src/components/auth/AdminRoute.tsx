@@ -7,7 +7,7 @@ const AdminRoute = () => {
   const { user, isAuthenticated, isAdmin } = useAuth();
 
   // If auth is still initializing, show a loading spinner
-  if (!user && isAuthenticated) {
+  if (isAuthenticated && !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
@@ -20,7 +20,7 @@ const AdminRoute = () => {
     return <Navigate to="/admin-login" replace />;
   }
 
-  // If user is authenticated and is an admin, render the children
+  // If user is authenticated and is an admin, render the outlet (child routes)
   return <Outlet />;
 };
 

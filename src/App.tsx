@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
+import AdminSetupRLS from "./pages/admin/SetupRLS";
 
 const queryClient = new QueryClient();
 
@@ -51,12 +52,18 @@ const App = () => (
             
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>
-              <Route path="/admin/*" element={<AdminDashboard />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/setup-rls" element={<AdminSetupRLS />} />
+              <Route path="/admin/doctors" element={<DoctorApprovals />} />
+              <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/credits" element={<AdminCredits />} />
+              <Route path="/admin/invoices" element={<AdminInvoices />} />
             </Route>
             
             {/* Doctor Routes - Protected */}
             <Route element={<DoctorRoute />}>
-              <Route path="/dashboard/*" element={<DoctorDashboard />} />
+              <Route path="/dashboard" element={<DoctorDashboard />} />
               <Route path="/credit-history" element={<DoctorCreditHistory />} />
             </Route>
             

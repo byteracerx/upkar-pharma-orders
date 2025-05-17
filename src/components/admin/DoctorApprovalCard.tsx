@@ -62,8 +62,8 @@ const DoctorApprovalCard = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden">
+      <CardHeader className="bg-gray-50">
         <div className="flex items-center gap-2">
           <div className="bg-upkar-light-blue/20 p-2 rounded-full">
             <User className="h-5 w-5 text-upkar-blue" />
@@ -74,29 +74,31 @@ const DoctorApprovalCard = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="font-medium">Email:</span>
+            <span className="font-medium text-gray-700">Email:</span>
             <span className="text-right">{doctor.email}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">Phone:</span>
+            <span className="font-medium text-gray-700">Phone:</span>
             <span className="text-right">{doctor.phone}</span>
           </div>
           <div className="flex justify-between">
-            <span className="font-medium">GST Number:</span>
+            <span className="font-medium text-gray-700">GST Number:</span>
             <span className="text-right">{doctor.gstNumber}</span>
           </div>
           {doctor.address && (
             <div className="flex justify-between">
-              <span className="font-medium">Address:</span>
-              <span className="text-right max-w-[200px]">{doctor.address}</span>
+              <span className="font-medium text-gray-700">Address:</span>
+              <span className="text-right max-w-[200px] truncate" title={doctor.address}>
+                {doctor.address}
+              </span>
             </div>
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between bg-gray-50 border-t">
         <Button
           variant="outline"
           onClick={handleReject}

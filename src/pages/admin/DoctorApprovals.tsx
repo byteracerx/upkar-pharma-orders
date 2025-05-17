@@ -84,6 +84,8 @@ const DoctorApprovals = () => {
       setPendingDoctors(formattedPendingDoctors);
       setApprovedDoctors(formattedApprovedDoctors);
 
+      console.log(`Loaded ${formattedPendingDoctors.length} pending doctors and ${formattedApprovedDoctors.length} approved doctors`);
+
     } catch (error: any) {
       console.error("Error fetching doctors:", error);
       toast.error("Failed to load doctors", {
@@ -112,6 +114,9 @@ const DoctorApprovals = () => {
       // Add to processed set to prevent double processing from realtime events
       setProcessingDoctors(prev => new Set(prev).add(id));
 
+      // Show loading state
+      toast.loading("Approving doctor...");
+
       // Call the API to approve the doctor
       const success = await approveDoctor(id);
 
@@ -124,7 +129,7 @@ const DoctorApprovals = () => {
 
         // Show success message
         toast.success("Doctor Approved", {
-          description: `${doctorToApprove.name} has been approved successfully`
+          description: `${doctorToApprove.name} has been approved successfully and notified via email and WhatsApp`
         });
       }
     } catch (error: any) {
@@ -144,21 +149,31 @@ const DoctorApprovals = () => {
 
   const handleRejectDoctor = async (id: string) => {
     try {
+      // Find the doctor to reject
+      const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
+      
+      if (!doctorToReject) {
+        toast.error("Failed to reject doctor", {
+          description: "Doctor not found in pending list"
+        });
+        return;
+      }
+      
       // Add to processed set to prevent double processing
       setProcessingDoctors(prev => new Set(prev).add(id));
+      
+      // Show loading state
+      toast.loading("Rejecting doctor application...");
 
       const success = await rejectDoctor(id);
 
       if (success) {
-        const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
-        if (doctorToReject) {
-          setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
-          setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
+        setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
+        setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
 
-          toast.success("Doctor Rejected", {
-            description: `${doctorToReject.name}'s application has been rejected`
-          });
-        }
+        toast.success("Doctor Rejected", {
+          description: `${doctorToReject.name}'s application has been rejected and they have been notified`
+        });
       }
     } catch (error: any) {
       console.error("Error rejecting doctor:", error);
@@ -205,7 +220,10 @@ const DoctorApprovals = () => {
         <Button
           variant="outline"
           onClick={fetchDoctors}
+          disabled={isLoading}
+          className="flex items-center gap-2"
         >
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Refresh Data
         </Button>
       </div>

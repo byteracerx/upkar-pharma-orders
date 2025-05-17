@@ -46,6 +46,7 @@ export type Database = {
         Row: {
           address: string
           created_at: string | null
+          email: string | null
           gst_number: string
           id: string
           is_approved: boolean
@@ -56,6 +57,7 @@ export type Database = {
         Insert: {
           address: string
           created_at?: string | null
+          email?: string | null
           gst_number: string
           id: string
           is_approved?: boolean
@@ -66,6 +68,7 @@ export type Database = {
         Update: {
           address?: string
           created_at?: string | null
+          email?: string | null
           gst_number?: string
           id?: string
           is_approved?: boolean
@@ -540,6 +543,18 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_doctor_exists: {
+        Args: {
+          p_user_id: string
+          p_name?: string
+          p_phone?: string
+          p_address?: string
+          p_gst_number?: string
+          p_email?: string
+          p_is_approved?: boolean
+        }
+        Returns: string
+      }
       generate_invoice: {
         Args: { p_order_id: string }
         Returns: boolean
@@ -593,6 +608,10 @@ export type Database = {
       get_doctor_credit_summary: {
         Args: { p_doctor_id: string }
         Returns: Json
+      }
+      get_doctor_id_from_user: {
+        Args: { p_user_id: string }
+        Returns: string
       }
       get_doctor_orders_enhanced: {
         Args: { p_doctor_id: string }

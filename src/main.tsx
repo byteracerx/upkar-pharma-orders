@@ -26,7 +26,6 @@ window.addEventListener('unhandledrejection', (event) => {
   handleError(event.reason);
 });
 
-<<<<<<< HEAD
 // Get the root element
 const rootElement = document.getElementById("root");
 
@@ -36,12 +35,4 @@ if (!rootElement) {
   // Create root and render app
   const root = createRoot(rootElement);
   root.render(<App />);
-=======
-// Create root and render app with error boundary
-const rootElement = document.getElementById("root");
-if (rootElement) {
-  createRoot(rootElement).render(<App />);
-} else {
-  console.error("Root element not found");
->>>>>>> df8fe6b2da43d6f64f1ade5aefe2f621d3e217fe
 }

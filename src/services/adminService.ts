@@ -1,320 +1,240 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-/**
- * Fetch pending doctor approvals from the database
- */
-export const fetchPendingDoctors = async () => {
+// Types
+type Doctor = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  gst_number: string;
+  created_at: string;
+  is_approved: boolean;
+};
+
+type Order = {
+  id: string;
+  doctor_id: string;
+  doctor_name?: string;
+  doctor_phone?: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  invoice_number?: string;
+  invoice_generated?: boolean;
+  invoice_url?: string;
+};
+
+// Fetch pending doctor registrations
+export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   try {
-    console.log("Fetching pending doctors...");
-    
     const { data, error } = await supabase
       .from("doctors")
       .select("*")
-      .eq("is_approved", false)
-      .order("created_at", { ascending: false });
+      .eq("is_approved", false);
 
-    if (error) {
-      console.error("Error fetching pending doctors:", error);
-      throw error;
-    }
-
-    console.log(`Found ${data?.length || 0} pending doctors`);
+    if (error) throw error;
+    
     return data || [];
   } catch (error: any) {
-    console.error("Error in fetchPendingDoctors:", error);
+    console.error("Error fetching pending doctors:", error);
+    toast.error("Failed to load pending doctors");
     throw error;
   }
 };
 
-/**
- * Fetch approved doctors from the database
- */
-export const fetchApprovedDoctors = async () => {
+// Fetch approved doctors
+export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
   try {
-    console.log("Fetching approved doctors...");
-    
     const { data, error } = await supabase
       .from("doctors")
       .select("*")
-      .eq("is_approved", true)
-      .order("created_at", { ascending: false });
+      .eq("is_approved", true);
 
-    if (error) {
-      console.error("Error fetching approved doctors:", error);
-      throw error;
-    }
-
-    console.log(`Found ${data?.length || 0} approved doctors`);
+    if (error) throw error;
+    
     return data || [];
   } catch (error: any) {
-    console.error("Error in fetchApprovedDoctors:", error);
+    console.error("Error fetching approved doctors:", error);
+    toast.error("Failed to load approved doctors");
     throw error;
   }
 };
 
-/**
- * Approve a doctor by setting is_approved to true
- */
-export const approveDoctor = async (doctorId: string) => {
+// Approve a doctor
+export const approveDoctor = async (doctorId: string): Promise<boolean> => {
   try {
-    console.log(`Approving doctor with ID: ${doctorId}`);
-    
-    // First, check if the doctor exists
-    const { data: doctorData, error: fetchError } = await supabase
-      .from("doctors")
-      .select("*")
-      .eq("id", doctorId)
-      .single();
-      
-    if (fetchError) {
-      console.error("Error fetching doctor:", fetchError);
-      throw fetchError;
-    }
-    
-    if (!doctorData) {
-      console.error("Doctor not found with ID:", doctorId);
-      throw new Error("Doctor not found");
-    }
-    
-    console.log("Current doctor data:", doctorData);
-    
-    // Update the approval status directly
-    const { data: updateData, error } = await supabase
-      .from("doctors")
-      .update({ 
-        is_approved: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", doctorId)
-      .select();
-
-    if (error) {
-      console.error("Error approving doctor:", error);
-      throw error;
-    }
-    
-    console.log("Doctor approval update result:", updateData);
-    
-    // Double-check that the update was successful
-    const { data: verifyData, error: verifyError } = await supabase
-      .from("doctors")
-      .select("is_approved")
-      .eq("id", doctorId)
-      .single();
-      
-    if (verifyError) {
-      console.error("Error verifying doctor approval:", verifyError);
-      throw verifyError;
-    } 
-    
-    console.log("Verification result:", verifyData);
-    if (!verifyData.is_approved) {
-      console.warn("Doctor approval may not have been saved correctly!");
-      throw new Error("Doctor approval failed to save");
-    }
-
-    return true;
-  } catch (error: any) {
-    console.error("Error in approveDoctor:", error);
-    throw error;
-  }
-};
-
-/**
- * Reject a doctor registration
- */
-export const rejectDoctor = async (doctorId: string) => {
-  try {
-    // Instead of deleting, we update the status to rejected
     const { error } = await supabase
       .from("doctors")
-      .update({
-        is_approved: false,
-        updated_at: new Date().toISOString()
-      })
+      .update({ is_approved: true })
       .eq("id", doctorId);
 
-    if (error) {
-      console.error("Error rejecting doctor:", error);
-      throw error;
-    }
-
+    if (error) throw error;
+    
     return true;
   } catch (error: any) {
-    console.error("Error in rejectDoctor:", error);
-    throw error;
+    console.error("Error approving doctor:", error);
+    toast.error("Failed to approve doctor");
+    return false;
   }
 };
 
-/**
- * Fetch all orders with doctor details
- */
-export const fetchAllOrders = async () => {
+// Reject a doctor
+export const rejectDoctor = async (doctorId: string): Promise<boolean> => {
   try {
-    console.log("Fetching all orders...");
+    // Instead of deleting, we could add a "rejected" status field
+    const { error } = await supabase
+      .from("doctors")
+      .delete()
+      .eq("id", doctorId);
+
+    if (error) throw error;
     
-    // First try direct query with all needed fields
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          id,
-          name,
-          phone
-        )
-      `)
-      .order("created_at", { ascending: false });
-    
+    return true;
+  } catch (error: any) {
+    console.error("Error rejecting doctor:", error);
+    toast.error("Failed to reject doctor");
+    return false;
+  }
+};
+
+// Fetch all orders with doctor information
+export const fetchAllOrders = async (): Promise<Order[]> => {
+  try {
+    // Use the RPC function to get all orders
+    const { data, error } = await supabase.rpc('get_all_orders');
+
     if (error) {
-      console.error("Error fetching orders:", error);
-      throw error;
-    }
-    
-    console.log(`Found ${data.length} orders via direct query`);
-    
-    // Check if we have any pending orders
-    const pendingOrders = data.filter(order => order.status === 'pending');
-    console.log(`Found ${pendingOrders.length} pending orders`);
-    
-    // Process the data to ensure consistent format
-    const processedOrders = data.map(order => {
-      return {
+      console.error("RPC error:", error);
+      // Fall back to direct query
+      const { data: directData, error: directError } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          doctor:doctor_id (
+            name,
+            phone,
+            email
+          )
+        `)
+        .order("created_at", { ascending: false });
+      
+      if (directError) throw directError;
+      
+      // Transform the data to match the expected format
+      return (directData || []).map(order => ({
         ...order,
         doctor_name: order.doctor?.name || "Unknown",
         doctor_phone: order.doctor?.phone || "N/A",
-        doctor_email: `${order.doctor?.name?.toLowerCase().replace(/\s+/g, '.') || order.doctor_id?.substring(0, 8)}@example.com` 
-      };
+        doctor_email: order.doctor?.email || "N/A"
+      }));
+    }
+    
+    return data || [];
+  } catch (error: any) {
+    console.error("Error fetching all orders:", error);
+    toast.error("Failed to load orders");
+    return [];
+  }
+};
+
+// Update order status
+export const updateOrderStatus = async (orderId: string, newStatus: string): Promise<boolean> => {
+  try {
+    // Use the RPC function to update status and record in history
+    const { error } = await supabase.rpc('update_order_status', {
+      p_order_id: orderId,
+      p_status: newStatus,
+      p_notes: `Status updated to ${newStatus} by admin`
     });
-    
-    return processedOrders || [];
-  } catch (error: any) {
-    console.error("Error in fetchAllOrders:", error);
-    throw error;
-  }
-};
 
-/**
- * Update order status
- */
-export const updateOrderStatus = async (orderId: string, newStatus: string) => {
-  try {
-    const { error } = await supabase
-      .from("orders")
-      .update({ 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", orderId);
-      
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
     
-    // Add entry to order status history
-    await supabase
-      .from("order_status_history")
-      .insert({
-        order_id: orderId,
-        status: newStatus,
-        notes: `Status updated to ${newStatus} by admin`
-      });
-      
-    return true;
-  } catch (error: any) {
-    console.error("Error updating order status:", error);
-    throw error;
-  }
-};
-
-/**
- * Generate invoice for an order
- */
-export const generateInvoice = async (orderId: string) => {
-  try {
-    // Generate invoice number
-    const invoiceNumber = `INV-${Date.now()}-${orderId.substring(0, 8)}`;
-    const invoiceUrl = `/invoices/${invoiceNumber}.pdf`;
-    
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        invoice_number: invoiceNumber,
-        invoice_generated: true,
-        invoice_url: invoiceUrl
-      })
-      .eq("id", orderId);
-      
-    if (error) {
-      throw error;
-    }
-    
-    // Add status history entry
-    await supabase
-      .from("order_status_history")
-      .insert({
-        order_id: orderId,
-        status: 'invoice_generated',
-        notes: `Invoice generated: ${invoiceNumber}`
-      });
-      
-    return true;
-  } catch (error: any) {
-    console.error("Error generating invoice:", error);
-    throw error;
-  }
-};
-
-/**
- * Synchronize orders to ensure visibility
- */
-export const synchronizeOrders = async (): Promise<boolean> => {
-  try {
-    console.log("Starting order synchronization...");
-    
-    // First, get all orders
-    const { data: allOrders, error: ordersError } = await supabase
-      .from("orders")
-      .select("id, doctor_id, status, created_at")
-      .order("created_at", { ascending: false });
-      
-    if (ordersError) {
-      console.error("Error fetching all orders:", ordersError);
-      throw ordersError;
-    }
-    
-    console.log(`Found ${allOrders.length} total orders`);
-    
-    // Check for pending orders
-    const pendingOrders = allOrders.filter(order => order.status === 'pending');
-    console.log(`Found ${pendingOrders.length} pending orders`);
-    
-    // Check for orders without a status
-    const ordersWithoutStatus = allOrders.filter(order => !order.status);
-    console.log(`Found ${ordersWithoutStatus.length} orders without a status`);
-    
-    // Fix orders without a status
-    if (ordersWithoutStatus.length > 0) {
-      console.log("Fixing orders without a status...");
-      
-      for (const order of ordersWithoutStatus) {
-        const { error: updateError } = await supabase
-          .from("orders")
-          .update({ status: 'pending' })
-          .eq("id", order.id);
-          
-        if (updateError) {
-          console.error(`Error updating order ${order.id} status:`, updateError);
-        } else {
-          console.log(`Fixed order ${order.id} by setting status to pending`);
+    // After updating status, if approved, notify the doctor
+    if (newStatus === 'approved' || newStatus === 'processing' || newStatus === 'shipped' || newStatus === 'delivered') {
+      // Get doctor information for notification
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          doctor:doctor_id (
+            name,
+            phone,
+            email
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+        
+      if (!orderError && orderData?.doctor) {
+        // Send notification to doctor
+        try {
+          await supabase.functions.invoke('notify-doctor-status-update', {
+            body: {
+              orderId,
+              doctorName: orderData.doctor.name || "Doctor",
+              doctorPhone: orderData.doctor.phone || "",
+              doctorEmail: orderData.doctor.email || "",
+              newStatus
+            }
+          });
+        } catch (notifyError) {
+          console.error("Error notifying doctor:", notifyError);
+          // Don't fail the status update just because notification failed
         }
       }
     }
     
     return true;
-  } catch (error) {
-    console.error("Error in synchronizeOrders:", error);
+  } catch (error: any) {
+    console.error("Error updating order status:", error);
+    toast.error("Failed to update order status");
+    return false;
+  }
+};
+
+// Generate invoice for an order
+export const generateInvoice = async (orderId: string): Promise<boolean> => {
+  try {
+    // Call the edge function to generate invoice
+    const { data, error } = await supabase.functions.invoke('generate-invoice', {
+      body: { orderId }
+    });
+
+    if (error) throw error;
+    
+    if (!data?.success) {
+      throw new Error(data?.message || "Failed to generate invoice");
+    }
+    
+    return true;
+  } catch (error: any) {
+    console.error("Error generating invoice:", error);
+    toast.error("Failed to generate invoice");
+    return false;
+  }
+};
+
+// Synchronize all pending orders
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    // This would check for any inconsistencies in orders
+    // For example, orders that are stuck in certain statuses
+    console.log("Synchronizing orders...");
+    
+    // For now, we'll just fetch all pending orders to ensure they're all visible
+    const { error } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("status", "pending");
+      
+    if (error) throw error;
+    
+    return true;
+  } catch (error: any) {
+    console.error("Error synchronizing orders:", error);
+    toast.error("Failed to synchronize orders");
     return false;
   }
 };

@@ -2,7 +2,7 @@
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Protected Routes
@@ -36,7 +36,6 @@ import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
 import AdminCredits from "./pages/admin/Credits";
 import AdminInvoices from "./pages/admin/Invoices";
-import AdminSetupRLS from "./pages/admin/SetupRLS";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,7 +77,6 @@ const App = () => (
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="credits" element={<AdminCredits />} />
                 <Route path="invoices" element={<AdminInvoices />} />
-                <Route path="setup-rls" element={<AdminSetupRLS />} />
               </Route>
             </Route>
             

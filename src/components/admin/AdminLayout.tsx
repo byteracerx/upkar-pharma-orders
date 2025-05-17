@@ -26,7 +26,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   
   // Redirect if not logged in
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/admin-login" />;
   }
   
   // Redirect if not an admin

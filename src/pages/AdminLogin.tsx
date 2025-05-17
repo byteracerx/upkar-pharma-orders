@@ -14,11 +14,17 @@ const AdminLogin = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if already logged in
+    // Check if already logged in as admin
     const checkSession = async () => {
+      console.log("AdminLogin: Checking for existing session");
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate('/admin');
+        // Need to check if the user is an admin
+        const user = data.session.user;
+        if (user.email === 'admin@upkar.com') {
+          console.log("AdminLogin: Already logged in as admin, redirecting");
+          navigate('/admin');
+        }
       }
     };
     
@@ -30,7 +36,7 @@ const AdminLogin = () => {
     setError(null);
     
     try {
-      console.log("Attempting direct admin login");
+      console.log("AdminLogin: Attempting direct admin login");
       
       // Try to sign in with admin credentials
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -39,7 +45,7 @@ const AdminLogin = () => {
       });
       
       if (error) {
-        console.error("Admin login error:", error);
+        console.error("AdminLogin: Error during login:", error);
         
         if (error.message.includes("Invalid login credentials")) {
           setError("Admin account doesn't exist yet. Please create it first.");
@@ -53,19 +59,19 @@ const AdminLogin = () => {
           });
         }
       } else {
-        console.log("Admin login successful:", data);
+        console.log("AdminLogin: Login successful, redirecting");
         setIsSuccess(true);
         toast.success("Admin Login Successful", {
           description: "Redirecting to admin dashboard..."
         });
         
-        // Redirect to admin dashboard
+        // Redirect to admin dashboard after a short delay
         setTimeout(() => {
           navigate('/admin');
         }, 1000);
       }
     } catch (err: any) {
-      console.error("Unexpected error during admin login:", err);
+      console.error("AdminLogin: Unexpected error:", err);
       setError(err.message || "An unexpected error occurred");
       toast.error("Login Error", {
         description: err.message || "Please try again"

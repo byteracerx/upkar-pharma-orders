@@ -1,10 +1,9 @@
-
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const AdminRoute = () => {
-  const { user, isAuthenticated, isAdmin, session } = useAuth();
+  const { user, isAuthenticated, isAdmin } = useAuth();
 
   // If auth is still initializing, show a loading spinner
   if (!user && isAuthenticated) {
@@ -17,7 +16,7 @@ const AdminRoute = () => {
 
   // If user is not authenticated or not an admin, redirect to login
   if (!isAuthenticated || !isAdmin) {
-    return <Navigate to="/admin-login" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // If user is authenticated and is an admin, render the children

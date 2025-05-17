@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
+import SetupAdminRLS from "./pages/SetupAdminRLS";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/invoice-example" element={<InvoiceExample />} />
             <Route path="/create-admin" element={<CreateAdmin />} />
             <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/setup-admin-rls" element={<SetupAdminRLS />} />
             
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>

@@ -22,31 +22,21 @@ interface StatusUpdateRequest {
   doctorPhone: string;
   doctorEmail: string;
   newStatus: string;
-  invoiceUrl?: string;
-  invoiceNumber?: string;
 }
 
 // Helper to get status message
-function getStatusMessage(status: string, invoiceNumber?: string): string {
+function getStatusMessage(status: string): string {
   switch (status.toLowerCase()) {
-    case 'pending':
-      return "Your order has been received and is pending review.";
     case 'accepted':
-    case 'approved':
-      return "Good news! Your order has been approved. We're preparing it for processing.";
+      return "Your order has been accepted! We're preparing it for delivery.";
     case 'processing':
-      return "Your order is being processed and will be shipped soon.";
+      return "Good news! Your order is being processed and will be shipped soon.";
     case 'shipped':
       return "Your order is on the way! Expect delivery within 24-48 hours.";
     case 'delivered':
       return "Your order has been delivered. Thank you for choosing Upkar Pharma!";
     case 'declined':
-    case 'cancelled':
-      return "Your order was cancelled. Please contact us for more information.";
-    case 'invoice_generated':
-      return invoiceNumber 
-        ? `Your invoice ${invoiceNumber} has been generated and sent to your email.`
-        : "Your invoice has been generated and sent to your email.";
+      return "Your order was declined. Please contact us for more information.";
     default:
       return `Your order status has been updated to: ${status}`;
   }
@@ -61,45 +51,14 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
     
-    const { 
-      orderId, 
-      doctorName, 
-      doctorPhone, 
-      doctorEmail, 
-      newStatus,
-      invoiceUrl,
-      invoiceNumber
-    } = await req.json() as StatusUpdateRequest
+    const { orderId, doctorName, doctorPhone, doctorEmail, newStatus } = await req.json() as StatusUpdateRequest
     
     console.log(`Status update notification: Order ${orderId} for ${doctorName} is now ${newStatus}`)
     
-    // Get order details if needed
-    const { data: orderData } = await supabase
-      .from('orders')
-      .select('total_amount, created_at, invoice_number')
-      .eq('id', orderId)
-      .single();
-    
-    const statusMessage = getStatusMessage(newStatus, invoiceNumber || orderData?.invoice_number);
+    const statusMessage = getStatusMessage(newStatus)
     
     // Format WhatsApp message
-    let messageText = `📋 Order Status Update\n\nHi Dr. ${doctorName},\n\n${statusMessage}\n\nOrder ID: ${orderId}\nStatus: ${newStatus.toUpperCase()}\n\n`;
-    
-    // Add order details if available
-    if (orderData) {
-      messageText += `Amount: ₹${orderData.total_amount?.toFixed(2) || 'N/A'}\nDate: ${new Date(orderData.created_at).toLocaleDateString() || 'N/A'}\n\n`;
-    }
-    
-    // Add invoice info if available
-    if (newStatus === 'invoice_generated' && invoiceNumber) {
-      messageText += `Invoice #: ${invoiceNumber}\n`;
-      
-      if (invoiceUrl) {
-        messageText += `View invoice: ${invoiceUrl}\n\n`;
-      }
-    }
-    
-    messageText += "Thank you for choosing Upkar Pharma!";
+    const messageText = `📋 Order Status Update\n\nHi Dr. ${doctorName},\n\n${statusMessage}\n\nOrder ID: ${orderId}\nStatus: ${newStatus.toUpperCase()}\n\nThank you for choosing Upkar Pharma!`
     
     console.log("WhatsApp message to be sent to doctor:")
     console.log(messageText)
@@ -110,52 +69,26 @@ serve(async (req) => {
       try {
         const twilioClient = twilio(twilioAccountSid, twilioAuthToken)
         
-        // Clean and format the phone number
-        let formattedPhone = doctorPhone;
-        if (!formattedPhone.startsWith('+')) {
-          // Add India country code if not present
-          formattedPhone = '+91' + formattedPhone.replace(/\D/g, '');
-        }
-        
         // Send WhatsApp message
         const message = await twilioClient.messages.create({
           body: messageText,
           from: `whatsapp:${twilioFromNumber}`,
-          to: `whatsapp:${formattedPhone}`
+          to: `whatsapp:${doctorPhone}`
         })
         
         console.log('WhatsApp notification sent successfully to doctor:', message.sid)
-        
-        // Record notification in database
-        const { error: notificationError } = await supabase
-          .from('order_notifications')
-          .insert({
-            order_id: orderId,
-            notification_type: 'whatsapp',
-            recipient: doctorPhone,
-            content: messageText,
-            status: 'sent'
-          });
-          
-        if (notificationError) {
-          console.error("Error recording notification:", notificationError);
-        }
       } catch (twilioError) {
         console.error('Error sending WhatsApp notification to doctor:', twilioError)
-        
-        // Record failed notification attempt
-        await supabase
-          .from('order_notifications')
-          .insert({
-            order_id: orderId,
-            notification_type: 'whatsapp',
-            recipient: doctorPhone,
-            content: messageText,
-            status: 'failed'
-          });
+        // We don't fail the function just because WhatsApp notification failed
       }
     } else {
       console.log('Twilio configuration missing or doctor phone not available. WhatsApp notification not sent.')
+    }
+    
+    // If we have the doctor's email, also send an email notification
+    if (doctorEmail) {
+      // Email notification logic would go here
+      console.log(`Email notification would be sent to: ${doctorEmail}`)
     }
     
     return new Response(JSON.stringify({ success: true }), {

@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.8.0'
-import * as puppeteer from 'https://deno.land/x/puppeteer@16.2.0/mod.ts'
 
 const supabaseUrl = 'https://hohfvjzagukucseffpmc.supabase.co'
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -64,7 +63,25 @@ serve(async (req) => {
     // 3. Create an invoice record
     const invoiceNumber = `INV-${Date.now().toString().substring(3)}`
     
-    // 4. Generate HTML invoice
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('invoices')
+      .insert({
+        order_id: orderId,
+        doctor_id: orderData.doctor_id,
+        invoice_number: invoiceNumber,
+        // In a real implementation, we would generate a PDF and store it in Supabase Storage
+        pdf_url: null
+      })
+      .select()
+      .single()
+    
+    if (invoiceError) {
+      throw new Error(`Error creating invoice record: ${invoiceError.message}`)
+    }
+    
+    console.log(`Invoice ${invoiceNumber} created for order ${orderId}`)
+    
+    // 4. Generate a simple HTML invoice
     const invoiceHtml = `
       <!DOCTYPE html>
       <html>
@@ -84,7 +101,7 @@ serve(async (req) => {
           .invoice-box table tr.details td { padding-bottom: 20px; }
           .invoice-box table tr.item td{ border-bottom: 1px solid #eee; }
           .invoice-box table tr.item.last td { border-bottom: none; }
-          .invoice-box table tr.total td:nth-child(4) { border-top: 2px solid #eee; font-weight: bold; }
+          .invoice-box table tr.total td:nth-child(2) { border-top: 2px solid #eee; font-weight: bold; }
         </style>
       </head>
       <body>
@@ -100,7 +117,7 @@ serve(async (req) => {
                     <td>
                       Invoice #: ${invoiceNumber}<br>
                       Created: ${new Date(orderData.created_at).toLocaleDateString()}<br>
-                      Due: ${new Date(new Date(orderData.created_at).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                      Due: ${new Date(orderData.created_at).toLocaleDateString()}
                     </td>
                   </tr>
                 </table>
@@ -114,14 +131,12 @@ serve(async (req) => {
                     <td>
                       Upkar Pharma<br>
                       123 Pharma Street<br>
-                      New Delhi, 110001<br>
-                      GSTIN: 07AABCU9603R1ZX
+                      New Delhi, 110001
                     </td>
                     <td>
-                      ${orderData.doctor?.name || ''}<br>
-                      ${orderData.doctor?.address || ''}<br>
-                      ${orderData.doctor?.phone || ''}<br>
-                      GSTIN: ${orderData.doctor?.gst_number || 'N/A'}
+                      ${orderData.doctor.name}<br>
+                      ${orderData.doctor.email || ''}<br>
+                      ${orderData.doctor.phone || ''}
                     </td>
                   </tr>
                 </table>
@@ -147,7 +162,7 @@ serve(async (req) => {
             
             ${orderItems.map(item => `
               <tr class="item">
-                <td>${item.product?.name || 'Unknown Product'}</td>
+                <td>${item.product.name}</td>
                 <td>${item.quantity}</td>
                 <td>₹${item.price_per_unit.toFixed(2)}</td>
                 <td>₹${item.total_price.toFixed(2)}</td>
@@ -163,124 +178,38 @@ serve(async (req) => {
       </body>
       </html>
     `;
-
-    let pdfUrl = null;
     
-    try {
-      // Try to generate PDF with Puppeteer
-      const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
-      const page = await browser.newPage();
-      await page.setContent(invoiceHtml, { waitUntil: 'networkidle0' });
-      const pdfBuffer = await page.pdf({ format: 'a4' });
-      await browser.close();
-
-      // Convert PDF buffer to blob for storage
-      const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
+    // In a real implementation, we would:
+    // 1. Convert this HTML to PDF using a library like puppeteer
+    // 2. Upload the PDF to Supabase Storage
+    // 3. Update the invoice record with the PDF URL
+    // 4. Send the PDF via email
+    
+    // For now, we'll just log what would be sent
+    console.log("Email that would be sent to doctor:");
+    console.log(`
+      Subject: Your Invoice ${invoiceNumber} from Upkar Pharma
       
-      // Upload PDF to storage
-      const pdfFileName = `invoices/${invoiceNumber}.pdf`;
-      const { error: storageError } = await supabase.storage
-        .from('documents')
-        .upload(pdfFileName, pdfBlob);
-        
-      if (storageError) {
-        console.error("Error uploading PDF:", storageError);
-      } else {
-        // Get public URL for the PDF
-        const { data: publicUrlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(pdfFileName);
-          
-        if (publicUrlData) {
-          pdfUrl = publicUrlData.publicUrl;
-        }
-      }
-    } catch (pdfError) {
-      console.error("Error generating PDF:", pdfError);
-      // Continue without PDF if there's an error
-    }
+      Dear ${orderData.doctor.name},
+      
+      Thank you for your order with Upkar Pharma. Your invoice is attached.
+      
+      Invoice Number: ${invoiceNumber}
+      Order ID: ${orderId}
+      Order Date: ${new Date(orderData.created_at).toLocaleDateString()}
+      Total Amount: ₹${orderData.total_amount.toFixed(2)}
+      
+      This amount has been added to your credit account.
+      
+      Regards,
+      Upkar Pharma Team
+    `);
     
-    // Save invoice record
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert({
-        order_id: orderId,
-        doctor_id: orderData.doctor_id,
-        invoice_number: invoiceNumber,
-        pdf_url: pdfUrl
-      })
-      .select()
-      .single()
-    
-    if (invoiceError) {
-      throw new Error(`Error creating invoice record: ${invoiceError.message}`)
-    }
-    
-    // Update the order with invoice information
-    await supabase
-      .from('orders')
-      .update({
-        invoice_number: invoiceNumber,
-        invoice_generated: true,
-        invoice_url: pdfUrl
-      })
-      .eq('id', orderId)
-    
-    // Add a status history entry
-    await supabase
-      .from('order_status_history')
-      .insert({
-        order_id: orderId,
-        status: 'invoice_generated',
-        notes: `Invoice generated: ${invoiceNumber}`
-      })
-    
-    console.log(`Invoice ${invoiceNumber} created for order ${orderId}`)
-    
-    // Trigger email notification with invoice
-    if (orderData.doctor?.email) {
-      try {
-        // Call another edge function to send email with invoice
-        await supabase.functions.invoke('send-invoice-email', {
-          body: {
-            email: orderData.doctor.email,
-            name: orderData.doctor.name,
-            invoiceNumber: invoiceNumber,
-            orderId: orderId,
-            pdfUrl: pdfUrl
-          }
-        });
-        
-        console.log(`Email notification sent to ${orderData.doctor.email}`);
-      } catch (emailError) {
-        console.error("Error sending email notification:", emailError);
-      }
-    }
-    
-    // Trigger WhatsApp notification
-    if (orderData.doctor?.phone) {
-      try {
-        // Call another edge function to send WhatsApp notification
-        await supabase.functions.invoke('notify-doctor-status-update', {
-          body: {
-            orderId: orderId,
-            doctorName: orderData.doctor.name,
-            doctorPhone: orderData.doctor.phone,
-            doctorEmail: orderData.doctor.email,
-            newStatus: 'invoice_generated'
-          }
-        });
-        
-        console.log(`WhatsApp notification sent to ${orderData.doctor.phone}`);
-      } catch (whatsappError) {
-        console.error("Error sending WhatsApp notification:", whatsappError);
-      }
-    }
+    // In a production environment, we would use a service like SendGrid or AWS SES to send the email with the PDF attachment
     
     return new Response(JSON.stringify({ 
       success: true,
       invoiceNumber,
-      pdfUrl,
       message: "Invoice generated successfully" 
     }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

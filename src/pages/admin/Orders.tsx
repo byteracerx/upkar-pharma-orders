@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Eye, FileText, Send, RefreshCw, Filter, Calendar } from "lucide-react";
+import { Loader2, Search, Eye, FileText, Send, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,12 +37,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { fetchAllOrders, updateOrderStatus, generateInvoice, synchronizeOrders } from "@/services/adminService";
+import { fetchOrderItems } from "@/services/orderService";
+import { subscribeToOrders } from "@/services/realtimeService";
 
 type Order = {
   id: string;
@@ -74,36 +71,6 @@ type OrderItem = {
   } | null;
 };
 
-const OrderStatusBadge = ({ status }: { status: string }) => {
-  let colorClass = "";
-  
-  switch (status) {
-    case "pending":
-      colorClass = "bg-blue-100 text-blue-800";
-      break;
-    case "processing":
-      colorClass = "bg-yellow-100 text-yellow-800";
-      break;
-    case "shipped":
-      colorClass = "bg-purple-100 text-purple-800";
-      break;
-    case "delivered":
-      colorClass = "bg-green-100 text-green-800";
-      break;
-    case "cancelled":
-      colorClass = "bg-red-100 text-red-800";
-      break;
-    default:
-      colorClass = "bg-gray-100 text-gray-800";
-  }
-  
-  return (
-    <Badge className={colorClass}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </Badge>
-  );
-};
-
 const AdminOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,30 +82,19 @@ const AdminOrders = () => {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [messageInput, setMessageInput] = useState("");
-  
+
   // Fetch orders from Supabase
   useEffect(() => {
     loadOrders();
     
     // Set up real-time subscription for orders table
-    const channel = supabase
-      .channel('orders-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        (payload) => {
-          console.log('Orders table changed:', payload);
-          loadOrders(); // Refresh data on any change
-        }
-      )
-      .subscribe();
+    const unsubscribe = subscribeToOrders((payload) => {
+      console.log('Orders table changed:', payload);
+      loadOrders(); // Refresh data on any change
+    });
     
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe(); // Clean up subscription on unmount
     };
   }, []);
 
@@ -147,30 +103,18 @@ const AdminOrders = () => {
       setLoading(true);
       console.log("Loading orders...");
       
-      // Fetch all orders with doctor information
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          doctor:doctor_id (
-            name,
-            phone
-          )
-        `)
-        .order("created_at", { ascending: false });
+      // Try to synchronize orders first to ensure all pending orders are visible
+      await synchronizeOrders();
       
-      if (error) throw error;
+      // Fetch all orders using the service
+      const data = await fetchAllOrders();
+      console.log(`Fetched ${data.length} orders from service`);
       
-      console.log(`Fetched ${data.length} orders`);
+      // Check for pending orders in the fetched data
+      const pendingOrders = data.filter((order: any) => order.status === 'pending');
+      console.log(`Found ${pendingOrders.length} pending orders in fetched data`);
       
-      // Process the data to ensure it has the correct structure
-      const processedOrders = data.map(order => ({
-        ...order,
-        doctor_name: order.doctor?.name || "Unknown",
-        doctor_phone: order.doctor?.phone || "N/A"
-      }));
-      
-      setOrders(processedOrders);
+      setOrders(data);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders", {
@@ -186,21 +130,9 @@ const AdminOrders = () => {
     try {
       setIsLoadingDetails(true);
       
-      // Fetch order items with product details
-      const { data, error } = await supabase
-        .from("order_items")
-        .select(`
-          *,
-          product:product_id (
-            name,
-            category
-          )
-        `)
-        .eq("order_id", orderId);
-      
-      if (error) throw error;
-      
-      setOrderItems(data);
+      // Use the orderService function
+      const items = await fetchOrderItems(orderId);
+      setOrderItems(items);
     } catch (error: any) {
       console.error("Error fetching order details:", error);
       toast.error("Failed to load order details", {
@@ -216,61 +148,21 @@ const AdminOrders = () => {
     try {
       setIsUpdatingStatus(true);
       
-      // Update order status
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", orderId);
+      const success = await updateOrderStatus(orderId, newStatus);
       
-      if (error) throw error;
-      
-      // Create status history entry
-      await supabase
-        .from("order_status_history")
-        .insert({
-          order_id: orderId,
-          status: newStatus,
-          notes: `Status updated to ${newStatus} by admin`
-        });
-      
-      // Update local state
-      setOrders(
-        orders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
+      if (success) {
+        // Update local state
+        setOrders(
+          orders.map((order) =>
+            order.id === orderId ? { ...order, status: newStatus } : order
+          )
+        );
 
-      toast.success("Status Updated", {
-        description: `Order status changed to ${newStatus}`
-      });
-      
-      // Get the order and doctor information for notification
-      const order = orders.find(o => o.id === orderId);
-      
-      if (order && order.doctor_phone) {
-        // Send notification to doctor
-        try {
-          await supabase.functions.invoke("notify-doctor-status-update", {
-            body: {
-              orderId: orderId,
-              doctorName: order.doctor_name || "Doctor",
-              doctorPhone: order.doctor_phone,
-              doctorEmail: "",
-              newStatus: newStatus
-            }
-          });
-          
-          toast.success("Notification Sent", {
-            description: "Doctor has been notified of the status change"
-          });
-        } catch (notifyError) {
-          console.error("Error sending notification:", notifyError);
-        }
-      }
-      
-      // If status changes to delivered and no invoice exists, generate one
-      if (newStatus === "delivered" && !order?.invoice_generated) {
-        handleGenerateInvoice(orderId);
+        toast.success("Status Updated", {
+          description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
+        });
+      } else {
+        throw new Error("Failed to update status");
       }
     } catch (error: any) {
       console.error("Error updating order status:", error);
@@ -287,29 +179,15 @@ const AdminOrders = () => {
     try {
       setIsGeneratingInvoice(true);
       
-      // Call the generate-invoice function
-      const { data, error } = await supabase.functions.invoke("generate-invoice", {
-        body: { orderId }
-      });
+      const success = await generateInvoice(orderId);
       
-      if (error) throw error;
-      
-      if (data.success) {
-        // Update the order in local state
-        setOrders(
-          orders.map((order) =>
-            order.id === orderId ? { 
-              ...order, 
-              invoice_generated: true,
-              invoice_number: data.invoiceNumber,
-              invoice_url: data.pdfUrl
-            } : order
-          )
-        );
-        
+      if (success) {
         toast.success("Invoice Generated", {
-          description: "The invoice has been generated and sent to the doctor"
+          description: "The invoice has been generated and sent to the doctor."
         });
+        
+        // Update orders list to reflect invoice generation
+        loadOrders();
       } else {
         throw new Error("Failed to generate invoice");
       }
@@ -323,51 +201,40 @@ const AdminOrders = () => {
     }
   };
   
-  // Send custom message
-  const sendCustomMessage = async () => {
-    if (!selectedOrder || !messageInput.trim()) return;
-    
+  // Send notification
+  const sendNotification = async (orderId: string) => {
     try {
       setIsSendingNotification(true);
       
-      // Create notification record in database
-      const { error } = await supabase
-        .from("order_communications")
-        .insert({
-          order_id: selectedOrder.id,
-          sender_id: "admin", // Special admin ID
-          recipient_id: selectedOrder.doctor_id,
-          message: messageInput
-        });
-        
-      if (error) throw error;
+      // Get the order details
+      const order = orders.find(o => o.id === orderId);
       
-      // Send notification to doctor
-      if (selectedOrder.doctor_phone) {
-        try {
-          await supabase.functions.invoke("notify-doctor-status-update", {
-            body: {
-              orderId: selectedOrder.id,
-              doctorName: selectedOrder.doctor_name || "Doctor",
-              doctorPhone: selectedOrder.doctor_phone,
-              doctorEmail: "",
-              newStatus: "custom_message",
-              customMessage: messageInput
-            }
-          });
-        } catch (notifyError) {
-          console.error("Error sending notification:", notifyError);
-        }
+      if (!order) {
+        throw new Error("Order not found");
       }
       
-      toast.success("Message Sent", {
-        description: "Your message has been sent to the doctor"
+      // Create notification record in database
+      const { error: notificationError } = await supabase
+        .from("order_notifications")
+        .insert({
+          order_id: orderId,
+          notification_type: "status_update",
+          recipient: order.doctor_id,
+          content: `Your order status has been updated to: ${order.status}`,
+          status: "sent"
+        });
+        
+      if (notificationError) {
+        throw notificationError;
+      }
+      
+      toast.success("Notification Sent", {
+        description: `Notification sent to doctor: ${order.doctor_name}`
       });
       
-      setMessageInput("");
     } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast.error("Failed to send message", {
+      console.error("Error sending notification:", error);
+      toast.error("Failed to send notification", {
         description: error.message || "Please try again."
       });
     } finally {
@@ -382,78 +249,19 @@ const AdminOrders = () => {
     setIsOrderDetailsOpen(true);
   };
 
-  // Filter orders based on active tab, search, and date
-  const filteredOrders = orders.filter(order => {
-    // Filter by tab (status)
-    if (activeTab !== 'all' && order.status !== activeTab) {
-      return false;
-    }
-    
-    // Filter by search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const orderIdMatch = order.id.toLowerCase().includes(searchLower);
-      const nameMatch = order.doctor_name?.toLowerCase().includes(searchLower) || false;
-      const phoneMatch = order.doctor_phone?.includes(searchTerm) || false;
-      const invoiceMatch = order.invoice_number?.toLowerCase().includes(searchLower) || false;
-      
-      if (!orderIdMatch && !nameMatch && !phoneMatch && !invoiceMatch) {
-        return false;
-      }
-    }
-    
-    // Filter by date
-    if (dateFilter !== 'all') {
-      const orderDate = new Date(order.created_at);
-      const today = new Date();
-      
-      if (dateFilter === 'today') {
-        return orderDate.toDateString() === today.toDateString();
-      } else if (dateFilter === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(today.getDate() - 7);
-        return orderDate >= weekAgo;
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date();
-        monthAgo.setMonth(today.getMonth() - 1);
-        return orderDate >= monthAgo;
-      }
-    }
-    
-    return true;
-  }).sort((a, b) => {
-    const dateA = new Date(a.created_at).getTime();
-    const dateB = new Date(b.created_at).getTime();
-    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-  });
-  
-  // Count orders by status
-  const getOrderCounts = () => {
-    const counts = {
-      all: orders.length,
-      pending: 0,
-      processing: 0,
-      shipped: 0,
-      delivered: 0, 
-      cancelled: 0
-    };
-    
-    orders.forEach(order => {
-      if (order.status in counts) {
-        counts[order.status as keyof typeof counts]++;
-      }
-    });
-    
-    return counts;
-  };
-  
-  const orderCounts = getOrderCounts();
+  // Filter orders based on search term
+  const filteredOrders = orders.filter(
+    (order) =>
+      (order.doctor_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.doctor_phone && order.doctor_phone.includes(searchTerm))
+  );
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Order Management</h1>
       
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
           <Input
@@ -465,30 +273,6 @@ const AdminOrders = () => {
         </div>
         
         <div className="flex gap-2">
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[180px]">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <SelectValue placeholder="Filter by date" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">Last 7 Days</SelectItem>
-              <SelectItem value="month">Last 30 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button
-            variant="outline"
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="flex items-center gap-2"
-          >
-            <Filter className={`h-4 w-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
-            {sortOrder === 'asc' ? 'Oldest' : 'Newest'}
-          </Button>
-          
           <Button 
             variant="outline" 
             onClick={loadOrders}
@@ -497,41 +281,95 @@ const AdminOrders = () => {
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                setLoading(true);
+                
+                // Direct query for pending orders
+                const { data, error } = await supabase
+                  .from("orders")
+                  .select(`
+                    *,
+                    doctor:doctor_id (
+                      id,
+                      name,
+                      phone
+                    )
+                  `)
+                  .eq("status", "pending")
+                  .order("created_at", { ascending: false });
+                  
+                if (error) throw error;
+                
+                console.log(`Found ${data.length} pending orders via direct query`);
+                
+                if (data.length === 0) {
+                  toast.info("No pending orders found");
+                  return;
+                }
+                
+                // Process the data
+                const processedOrders = data.map(order => ({
+                  ...order,
+                  doctor_name: order.doctor?.name || "Unknown",
+                  doctor_phone: order.doctor?.phone || "N/A"
+                }));
+                
+                // Update the orders state with only pending orders
+                setOrders(processedOrders);
+                
+                toast.success(`Found ${processedOrders.length} pending orders`);
+              } catch (error: any) {
+                console.error("Error fetching pending orders:", error);
+                toast.error("Failed to load pending orders", {
+                  description: error.message || "Please try again."
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            Show Pending Only
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                setLoading(true);
+                toast.info("Synchronizing orders...");
+                
+                const success = await synchronizeOrders();
+                
+                if (success) {
+                  toast.success("Orders synchronized successfully");
+                  loadOrders(); // Reload orders after synchronization
+                } else {
+                  toast.error("Failed to synchronize orders");
+                }
+              } catch (error: any) {
+                console.error("Error synchronizing orders:", error);
+                toast.error("Failed to synchronize orders", {
+                  description: error.message || "Please try again."
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            Sync Orders
+          </Button>
         </div>
       </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-3 md:grid-cols-6">
-          <TabsTrigger value="all">
-            All
-            <span className="ml-1 text-xs">({orderCounts.all})</span>
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pending
-            <span className="ml-1 text-xs">({orderCounts.pending})</span>
-          </TabsTrigger>
-          <TabsTrigger value="processing">
-            Processing
-            <span className="ml-1 text-xs">({orderCounts.processing})</span>
-          </TabsTrigger>
-          <TabsTrigger value="shipped">
-            Shipped
-            <span className="ml-1 text-xs">({orderCounts.shipped})</span>
-          </TabsTrigger>
-          <TabsTrigger value="delivered">
-            Delivered
-            <span className="ml-1 text-xs">({orderCounts.delivered})</span>
-          </TabsTrigger>
-          <TabsTrigger value="cancelled">
-            Cancelled
-            <span className="ml-1 text-xs">({orderCounts.cancelled})</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
 
       <Card>
         <CardHeader>
-          <CardTitle>Orders</CardTitle>
+          <CardTitle>All Orders</CardTitle>
           <CardDescription>
             Manage and track all orders placed by doctors
           </CardDescription>
@@ -542,91 +380,90 @@ const AdminOrders = () => {
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : filteredOrders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableCaption>A list of all orders</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Doctor</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Update Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">
-                        {order.invoice_number || order.id.substring(0, 8)}...
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{order.doctor_name}</div>
-                          <div className="text-sm text-gray-500">{order.doctor_phone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>₹{order.total_amount.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <OrderStatusBadge status={order.status} />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={order.status}
-                          onValueChange={(value) => handleStatusChange(order.id, value)}
-                          disabled={isUpdatingStatus}
+            <Table>
+              <TableCaption>A list of all orders</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Doctor</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Update Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      {order.invoice_number || order.id.substring(0, 8)}...
+                    </TableCell>
+                    <TableCell>{order.doctor_name}</TableCell>
+                    <TableCell>{order.doctor_phone}</TableCell>
+                    <TableCell>
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>₹{order.total_amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`${
+                          order.status === "delivered"
+                            ? "bg-green-100 text-green-800"
+                            : order.status === "processing"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : order.status === "pending"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={order.status}
+                        onValueChange={(value) => handleStatusChange(order.id, value)}
+                        disabled={isUpdatingStatus}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="processing">Processing</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => viewOrderDetails(order)}
                         >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="processing">Processing</SelectItem>
-                            <SelectItem value="shipped">Shipped</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => viewOrderDetails(order)}
-                            className="h-8 px-2"
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        
+                        {!order.invoice_generated && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleGenerateInvoice(order.id)}
+                            disabled={isGeneratingInvoice}
                           >
-                            <Eye className="h-4 w-4 mr-1" /> View
+                            <FileText className="h-4 w-4" />
                           </Button>
-                          
-                          {!order.invoice_generated && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleGenerateInvoice(order.id)}
-                              disabled={isGeneratingInvoice}
-                              className="h-8 px-2"
-                            >
-                              {isGeneratingInvoice ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                              ) : (
-                                <FileText className="h-4 w-4 mr-1" />
-                              )}
-                              Invoice
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <div className="text-center p-8">
               <p className="text-gray-500">
@@ -639,28 +476,19 @@ const AdminOrders = () => {
       
       {/* Order Details Dialog */}
       <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
             <DialogDescription>
               {selectedOrder && (
                 <div className="text-sm text-gray-500">
-                  <div className="flex flex-wrap justify-between">
-                    <div>
-                      <span className="font-medium">Order ID:</span> {selectedOrder.id}
-                      <br />
-                      <span className="font-medium">Date:</span> {new Date(selectedOrder.created_at).toLocaleString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Doctor:</span> {selectedOrder.doctor_name}
-                      <br />
-                      <span className="font-medium">Phone:</span> {selectedOrder.doctor_phone}
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <span className="font-medium">Status:</span>{' '}
-                    <OrderStatusBadge status={selectedOrder.status} />
-                  </div>
+                  <span className="font-medium">Order ID:</span> {selectedOrder.id}
+                  <br />
+                  <span className="font-medium">Date:</span> {new Date(selectedOrder.created_at).toLocaleString()}
+                  <br />
+                  <span className="font-medium">Doctor:</span> {selectedOrder.doctor_name}
+                  <br />
+                  <span className="font-medium">Status:</span> {selectedOrder.status}
                 </div>
               )}
             </DialogDescription>
@@ -698,46 +526,6 @@ const AdminOrders = () => {
                   Total: ₹{selectedOrder?.total_amount.toFixed(2)}
                 </p>
               </div>
-              
-              {/* Invoice Link */}
-              {selectedOrder?.invoice_url && (
-                <div className="mt-4">
-                  <a 
-                    href={selectedOrder.invoice_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 text-upkar-blue hover:underline"
-                  >
-                    <FileText className="h-4 w-4" />
-                    View Invoice {selectedOrder.invoice_number}
-                  </a>
-                </div>
-              )}
-              
-              {/* Send Message Form */}
-              <div className="mt-6 border-t pt-4">
-                <h3 className="font-medium mb-2">Send Message to Doctor</h3>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Type your message..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={sendCustomMessage}
-                    disabled={!messageInput.trim() || isSendingNotification}
-                    className="flex items-center gap-2"
-                  >
-                    {isSendingNotification ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    Send
-                  </Button>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="text-center p-4">
@@ -747,41 +535,37 @@ const AdminOrders = () => {
           
           <DialogFooter className="flex justify-between">
             <div className="flex gap-2">
-              <Select
-                value={selectedOrder?.status || ""}
-                onValueChange={(value) => selectedOrder && handleStatusChange(selectedOrder.id, value)}
-                disabled={isUpdatingStatus}
+              <Button
+                variant="outline"
+                className="flex items-center gap-1"
+                onClick={() => selectedOrder && handleGenerateInvoice(selectedOrder.id)}
+                disabled={isGeneratingInvoice || (selectedOrder?.invoice_generated)}
               >
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+                {isGeneratingInvoice ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Generate Invoice
+              </Button>
               
-              {selectedOrder && !selectedOrder.invoice_generated && (
-                <Button
-                  variant="outline"
-                  onClick={() => selectedOrder && handleGenerateInvoice(selectedOrder.id)}
-                  disabled={isGeneratingInvoice}
-                  className="flex items-center gap-2"
-                >
-                  {isGeneratingInvoice ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileText className="h-4 w-4" />
-                  )}
-                  Generate Invoice
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="flex items-center gap-1"
+                onClick={() => selectedOrder && sendNotification(selectedOrder.id)}
+                disabled={isSendingNotification}
+              >
+                {isSendingNotification ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send Notification
+              </Button>
             </div>
             
             <Button
+              variant="default"
               onClick={() => setIsOrderDetailsOpen(false)}
             >
               Close

@@ -22,20 +22,37 @@ import Contact from "./pages/Contact";
 import AdminDashboard from "./pages/admin/Dashboard";
 import DoctorDashboard from "./pages/doctor/Dashboard";
 import DoctorCreditHistory from "./pages/doctor/CreditHistory";
+import DoctorOrders from "./pages/doctor/Orders";
 import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import SetupAdminRLS from "./pages/SetupAdminRLS";
 
-const queryClient = new QueryClient();
+// Import admin pages
+import AdminHome from "./pages/admin/Home";
+import DoctorApprovals from "./pages/admin/DoctorApprovals";
+import AdminProducts from "./pages/admin/Products";
+import AdminOrders from "./pages/admin/Orders";
+import AdminCredits from "./pages/admin/Credits";
+import AdminInvoices from "./pages/admin/Invoices";
+import AdminSetupRLS from "./pages/admin/SetupRLS";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <AuthProvider>
         <TooltipProvider>
-          <Toaster />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -54,17 +71,27 @@ const App = () => (
             
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>
-              <Route path="/admin/*" element={<AdminDashboard />} />
+              <Route path="/admin" element={<AdminDashboard />}>
+                <Route path="" element={<AdminHome />} />
+                <Route path="doctors" element={<DoctorApprovals />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="credits" element={<AdminCredits />} />
+                <Route path="invoices" element={<AdminInvoices />} />
+                <Route path="setup-rls" element={<AdminSetupRLS />} />
+              </Route>
             </Route>
             
             {/* Doctor Routes - Protected */}
             <Route element={<DoctorRoute />}>
-              <Route path="/dashboard/*" element={<DoctorDashboard />} />
+              <Route path="/dashboard" element={<DoctorDashboard />} />
               <Route path="/credit-history" element={<DoctorCreditHistory />} />
+              <Route path="/dashboard/orders" element={<DoctorOrders />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Toaster position="top-right" richColors closeButton />
         </TooltipProvider>
       </AuthProvider>
     </BrowserRouter>

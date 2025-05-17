@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import AdminSidebar from "./AdminSidebar";
 import AdminNotifications from "./AdminNotifications";
@@ -5,22 +6,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Loader2 } from "lucide-react";
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, loading } = useAuth();
   
-  // Redirect if not logged in or not an admin
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+      </div>
+    );
+  }
+  
+  // Redirect if not logged in
   if (!user) {
     return <Navigate to="/login" />;
   }
   
+  // Redirect if not an admin
   if (!isAdmin) {
-    // If user is logged in but not an admin, redirect to doctor dashboard
     return <Navigate to="/dashboard" />;
   }
   
@@ -35,11 +45,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-upkar-blue text-white">
-                  A
+                  {user.name?.charAt(0) || 'A'}
                 </AvatarFallback>
               </Avatar>
               <div className="text-sm">
-                <div className="font-medium">Admin</div>
+                <div className="font-medium">{user.name || 'Admin'}</div>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={logout}>

@@ -18,4 +18,13 @@ window.addEventListener('unhandledrejection', (event) => {
   handleError(event.reason);
 });
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Get the root element
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  console.error("Root element not found");
+} else {
+  // Create root and render app
+  const root = createRoot(rootElement);
+  root.render(<App />);
+}

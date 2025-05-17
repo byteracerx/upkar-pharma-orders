@@ -120,14 +120,93 @@ export const clearCart = (): void => {
 export const placeOrder = async (doctorId: string): Promise<{ success: boolean; orderId?: string; error?: string }> => {
   try {
     const cartItems = getCartItems();
-    
+
     if (cartItems.length === 0) {
       return { success: false, error: "Your cart is empty" };
     }
 
+    // Try to use the ensure_doctor_exists function first
+    try {
+      console.log("Ensuring doctor record exists using RPC function");
+
+      // Get user data from auth
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !userData.user) {
+        console.error("Error getting user data:", userError);
+        return { success: false, error: "User authentication error. Please log in again." };
+      }
+
+      // Call the RPC function to ensure doctor exists
+      const { data: ensureDoctorData, error: ensureDoctorError } = await supabase.rpc(
+        'ensure_doctor_exists',
+        {
+          p_user_id: doctorId,
+          p_name: userData.user.user_metadata?.name || null,
+          p_phone: userData.user.user_metadata?.phone || null,
+          p_address: userData.user.user_metadata?.address || null,
+          p_gst_number: userData.user.user_metadata?.gstNumber || null,
+          p_email: userData.user.email || null,
+          p_is_approved: true // Auto-approve for now to allow order placement
+        }
+      );
+
+      if (ensureDoctorError) {
+        console.warn("RPC function failed, falling back to direct query:", ensureDoctorError);
+        throw ensureDoctorError; // This will trigger the fallback approach
+      }
+
+      console.log("Doctor record ensured via RPC:", ensureDoctorData);
+    } catch (rpcError) {
+      // Fallback: Check if doctor exists and create if needed
+      console.log("Using fallback approach to ensure doctor record exists");
+
+      // First, verify that a doctor record exists for this user
+      const { data: doctorExists, error: doctorCheckError } = await supabase
+        .from('doctors')
+        .select('id')
+        .eq('id', doctorId)
+        .single();
+
+      // If doctor doesn't exist, create one
+      if (doctorCheckError || !doctorExists) {
+        console.log("Doctor record not found, attempting to create one");
+
+        // Get user data from auth
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !userData.user) {
+          console.error("Error getting user data:", userError);
+          return { success: false, error: "User authentication error. Please log in again." };
+        }
+
+        // Create doctor record
+        const { error: createDoctorError } = await supabase
+          .from('doctors')
+          .insert({
+            id: doctorId,
+            name: userData.user.user_metadata?.name || 'Unknown Doctor',
+            phone: userData.user.user_metadata?.phone || 'N/A',
+            address: userData.user.user_metadata?.address || 'N/A',
+            gst_number: userData.user.user_metadata?.gstNumber || 'N/A',
+            is_approved: true, // Auto-approve for now to allow order placement
+            email: userData.user.email,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (createDoctorError) {
+          console.error("Error creating doctor record:", createDoctorError);
+          return { success: false, error: "Failed to create doctor profile. Please contact support." };
+        }
+
+        console.log("Doctor record created successfully");
+      }
+    }
+
     // Calculate total amount
     const totalAmount = cartItems.reduce(
-      (sum, item) => sum + (item.product.price * item.quantity), 
+      (sum, item) => sum + (item.product.price * item.quantity),
       0
     );
 
@@ -180,7 +259,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
       // Send WhatsApp notification to admin
       try {
         // Get a summary of items for the notification
-        const itemSummary = cartItems.map(item => 
+        const itemSummary = cartItems.map(item =>
           `${item.product.name} x ${item.quantity}`
         ).join(', ');
 
@@ -207,7 +286,7 @@ export const placeOrder = async (doctorId: string): Promise<{ success: boolean; 
 
     // Clear the cart
     clearCart();
-    
+
     return { success: true, orderId };
   } catch (error: any) {
     console.error("Error placing order:", error);

@@ -20,6 +20,7 @@ interface DoctorApprovalCardProps {
     phone: string;
     gstNumber: string;
     registrationDate: string;
+    address?: string;
   };
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -31,7 +32,7 @@ const DoctorApprovalCard = ({
   onReject
 }: DoctorApprovalCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const handleApprove = async () => {
     setIsLoading(true);
     try {
@@ -45,7 +46,7 @@ const DoctorApprovalCard = ({
       setIsLoading(false);
     }
   };
-  
+
   const handleReject = async () => {
     setIsLoading(true);
     try {
@@ -59,7 +60,7 @@ const DoctorApprovalCard = ({
       setIsLoading(false);
     }
   };
-  
+
   return (
     <Card>
       <CardHeader>
@@ -77,16 +78,22 @@ const DoctorApprovalCard = ({
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="font-medium">Email:</span>
-            <span>{doctor.email}</span>
+            <span className="text-right">{doctor.email}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-medium">Phone:</span>
-            <span>{doctor.phone}</span>
+            <span className="text-right">{doctor.phone}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-medium">GST Number:</span>
-            <span>{doctor.gstNumber}</span>
+            <span className="text-right">{doctor.gstNumber}</span>
           </div>
+          {doctor.address && (
+            <div className="flex justify-between">
+              <span className="font-medium">Address:</span>
+              <span className="text-right max-w-[200px]">{doctor.address}</span>
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">

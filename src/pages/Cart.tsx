@@ -72,6 +72,14 @@ const Cart = () => {
       return;
     }
     
+    // Prevent admins from placing orders
+    if (user.isAdmin) {
+      toast.error("Admin Cannot Place Orders", {
+        description: "As an admin, you cannot place orders. This functionality is only for doctors."
+      });
+      return;
+    }
+    
     setIsPlacingOrder(true);
     
     try {

@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fix-doctor-relationship": "node scripts/fix-doctor-relationship.js",
+    "fix-doctor-simple": "node scripts/fix-doctor-relationship-simple.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -49,6 +51,8 @@
     "dotenv": "^16.5.0",
     "embla-carousel-react": "^8.3.0",
     "input-otp": "^1.2.4",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

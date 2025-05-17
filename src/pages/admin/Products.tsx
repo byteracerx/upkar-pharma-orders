@@ -56,7 +56,7 @@ const AdminProducts = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
+
   const addForm = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -68,7 +68,7 @@ const AdminProducts = () => {
       image_url: "",
     },
   });
-  
+
   const editForm = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -80,7 +80,7 @@ const AdminProducts = () => {
       image_url: "",
     },
   });
-  
+
   // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
@@ -90,9 +90,10 @@ const AdminProducts = () => {
           .from("products")
           .select("*")
           .order("name");
-          
+
         if (error) throw error;
-        
+
+        console.log(`Loaded ${data.length} products from database`);
         setProducts(data as Product[]);
       } catch (error: any) {
         console.error("Error fetching products:", error);
@@ -103,23 +104,40 @@ const AdminProducts = () => {
         setIsLoading(false);
       }
     };
-    
+
     fetchProducts();
+
+    // Set up real-time subscription for products table
+    const productsChannel = supabase
+      .channel('products-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          console.log('Products table changed:', payload);
+          fetchProducts(); // Refresh data on any change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(productsChannel);
+    };
   }, []);
-  
+
   // Filter products based on search query
   const filteredProducts = products.filter(
-    product => 
+    product =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (product.category && product.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
-  
+
   // Handle add product
   const handleAddProduct = async (data: ProductFormValues) => {
     try {
       setIsLoading(true);
-      
+
       const { data: newProduct, error } = await supabase
         .from("products")
         .insert({
@@ -132,49 +150,32 @@ const AdminProducts = () => {
         })
         .select()
         .single();
-        
+
       if (error) throw error;
-      
+
       setProducts([...products, newProduct as Product]);
       setIsAddDialogOpen(false);
       addForm.reset();
       setImagePreview(null);
-      
+
       toast.success("Product added successfully");
     } catch (error: any) {
       console.error("Error adding product:", error);
-      // Check if this is an RLS policy error
-      if (error.message.includes("row-level security policy")) {
-        toast.error("Permission Error", {
-          description: (
-            <div>
-              <p>You don't have permission to add products.</p>
-              <a 
-                href="/admin/setup-rls" 
-                className="text-blue-500 underline mt-2 block"
-              >
-                Click here to setup admin permissions
-              </a>
-            </div>
-          )
-        });
-      } else {
-        toast.error("Failed to add product", {
-          description: error.message
-        });
-      }
+      toast.error("Failed to add product", {
+        description: error.message
+      });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Handle edit product
   const handleEditProduct = async (data: ProductFormValues) => {
     if (!selectedProduct) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       const { data: updatedProduct, error } = await supabase
         .from("products")
         .update({
@@ -188,91 +189,57 @@ const AdminProducts = () => {
         .eq("id", selectedProduct.id)
         .select()
         .single();
-        
+
       if (error) throw error;
-      
-      setProducts(products.map(product => 
+
+      setProducts(products.map(product =>
         product.id === selectedProduct.id ? (updatedProduct as Product) : product
       ));
       setIsEditDialogOpen(false);
       setSelectedProduct(null);
       editForm.reset();
       setImagePreview(null);
-      
+
       toast.success("Product updated successfully");
     } catch (error: any) {
       console.error("Error updating product:", error);
-      // Check if this is an RLS policy error
-      if (error.message.includes("row-level security policy")) {
-        toast.error("Permission Error", {
-          description: (
-            <div>
-              <p>You don't have permission to update products.</p>
-              <a 
-                href="/admin/setup-rls" 
-                className="text-blue-500 underline mt-2 block"
-              >
-                Click here to setup admin permissions
-              </a>
-            </div>
-          )
-        });
-      } else {
-        toast.error("Failed to update product", {
-          description: error.message
-        });
-      }
+      toast.error("Failed to update product", {
+        description: error.message
+      });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Handle delete product
   const handleDeleteProduct = async () => {
     if (!selectedProduct) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       const { error } = await supabase
         .from("products")
         .delete()
         .eq("id", selectedProduct.id);
-        
+
       if (error) throw error;
-      
+
       setProducts(products.filter(product => product.id !== selectedProduct.id));
       setIsDeleteDialogOpen(false);
       setSelectedProduct(null);
-      
+
       toast.success("Product deleted successfully");
     } catch (error: any) {
       console.error("Error deleting product:", error);
-      // Check if this is an RLS policy error
-      if (error.message.includes("row-level security policy")) {
-        toast.error("Permission Error", {
-          description: (
-            <div>
-              <p>You don't have permission to delete products.</p>
-              <a 
-                href="/admin/setup-rls" 
-                className="text-blue-500 underline mt-2 block"
-              >
-                Click here to setup admin permissions
-              </a>
-            </div>
-          )
-        });
-      } else {
-        toast.error("Failed to delete product", {
-          description: error.message
-        });
-      }
+      toast.error("Failed to delete product", {
+        description: error.message
+      });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Open edit dialog and populate form
   const openEditDialog = (product: Product) => {
     setSelectedProduct(product);
@@ -287,20 +254,20 @@ const AdminProducts = () => {
     setImagePreview(product.image_url);
     setIsEditDialogOpen(true);
   };
-  
+
   // Open delete dialog
   const openDeleteDialog = (product: Product) => {
     setSelectedProduct(product);
     setIsDeleteDialogOpen(true);
   };
-  
+
   // Handle image URL change
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>, form: any) => {
     const url = e.target.value;
     form.setValue("image_url", url);
     setImagePreview(url);
   };
-  
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -310,7 +277,7 @@ const AdminProducts = () => {
           Add Product
         </Button>
       </div>
-      
+
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
@@ -322,7 +289,7 @@ const AdminProducts = () => {
           />
         </div>
       </div>
-      
+
       {isLoading ? (
         <div className="text-center p-8">
           <p className="text-gray-500">Loading products...</p>
@@ -375,7 +342,7 @@ const AdminProducts = () => {
           <p className="text-gray-500">No products found.</p>
         </div>
       )}
-      
+
       {/* Add Product Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -385,7 +352,7 @@ const AdminProducts = () => {
               Enter the details for the new product.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...addForm}>
             <form onSubmit={addForm.handleSubmit(handleAddProduct)} className="space-y-4">
               <FormField
@@ -401,7 +368,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addForm.control}
                 name="description"
@@ -415,7 +382,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={addForm.control}
@@ -430,7 +397,7 @@ const AdminProducts = () => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={addForm.control}
                   name="stock"
@@ -445,7 +412,7 @@ const AdminProducts = () => {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={addForm.control}
                 name="category"
@@ -459,7 +426,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={addForm.control}
                 name="image_url"
@@ -468,15 +435,15 @@ const AdminProducts = () => {
                     <FormLabel>Image URL</FormLabel>
                     <FormControl>
                       <div className="flex gap-2">
-                        <Input 
-                          {...field} 
+                        <Input
+                          {...field}
                           onChange={(e) => handleImageUrlChange(e, addForm)}
                         />
                         {imagePreview && (
                           <div className="h-10 w-10 rounded overflow-hidden">
-                            <img 
-                              src={imagePreview} 
-                              alt="Preview" 
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
                               className="h-full w-full object-cover"
                               onError={() => setImagePreview(null)}
                             />
@@ -488,11 +455,11 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setIsAddDialogOpen(false);
                     addForm.reset();
@@ -509,7 +476,7 @@ const AdminProducts = () => {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Product Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -519,7 +486,7 @@ const AdminProducts = () => {
               Update the product details.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(handleEditProduct)} className="space-y-4">
               <FormField
@@ -535,7 +502,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="description"
@@ -549,7 +516,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
@@ -564,7 +531,7 @@ const AdminProducts = () => {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={editForm.control}
                   name="stock"
@@ -579,7 +546,7 @@ const AdminProducts = () => {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={editForm.control}
                 name="category"
@@ -593,7 +560,7 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="image_url"
@@ -602,15 +569,15 @@ const AdminProducts = () => {
                     <FormLabel>Image URL</FormLabel>
                     <FormControl>
                       <div className="flex gap-2">
-                        <Input 
-                          {...field} 
+                        <Input
+                          {...field}
                           onChange={(e) => handleImageUrlChange(e, editForm)}
                         />
                         {imagePreview && (
                           <div className="h-10 w-10 rounded overflow-hidden">
-                            <img 
-                              src={imagePreview} 
-                              alt="Preview" 
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
                               className="h-full w-full object-cover"
                               onError={() => setImagePreview(null)}
                             />
@@ -622,11 +589,11 @@ const AdminProducts = () => {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setIsEditDialogOpen(false);
                     setSelectedProduct(null);
@@ -644,7 +611,7 @@ const AdminProducts = () => {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Product Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
@@ -654,7 +621,7 @@ const AdminProducts = () => {
               Are you sure you want to delete this product? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedProduct && (
             <div className="py-4">
               <p className="font-medium">{selectedProduct.name}</p>
@@ -663,11 +630,11 @@ const AdminProducts = () => {
               </p>
             </div>
           )}
-          
+
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => {
                 setIsDeleteDialogOpen(false);
                 setSelectedProduct(null);
@@ -675,9 +642,9 @@ const AdminProducts = () => {
             >
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              variant="destructive" 
+            <Button
+              type="button"
+              variant="destructive"
               onClick={handleDeleteProduct}
               disabled={isLoading}
             >

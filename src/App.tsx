@@ -27,7 +27,6 @@ import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
-import SetupAdminRLS from "./pages/SetupAdminRLS";
 
 // Import admin pages
 import AdminHome from "./pages/admin/Home";
@@ -36,7 +35,6 @@ import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
 import AdminCredits from "./pages/admin/Credits";
 import AdminInvoices from "./pages/admin/Invoices";
-import AdminSetupRLS from "./pages/admin/SetupRLS";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,54 +46,58 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <AuthProvider>
-        <TooltipProvider>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/invoice-example" element={<InvoiceExample />} />
-            <Route path="/create-admin" element={<CreateAdmin />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/setup-admin-rls" element={<SetupAdminRLS />} />
-            
-            {/* Admin Routes - Protected */}
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminDashboard />}>
-                <Route path="" element={<AdminHome />} />
-                <Route path="doctors" element={<DoctorApprovals />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="credits" element={<AdminCredits />} />
-                <Route path="invoices" element={<AdminInvoices />} />
-                <Route path="setup-rls" element={<AdminSetupRLS />} />
-              </Route>
-            </Route>
-            
-            {/* Doctor Routes - Protected */}
-            <Route element={<DoctorRoute />}>
-              <Route path="/dashboard" element={<DoctorDashboard />} />
-              <Route path="/credit-history" element={<DoctorCreditHistory />} />
-              <Route path="/dashboard/orders" element={<DoctorOrders />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster position="top-right" richColors closeButton />
-        </TooltipProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+const App = () => {
+  console.log("App component rendering");
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <TooltipProvider>
+            <div className="app-container">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/invoice-example" element={<InvoiceExample />} />
+                <Route path="/create-admin" element={<CreateAdmin />} />
+                <Route path="/admin-login" element={<AdminLogin />} />
+                
+                {/* Admin Routes - Protected */}
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin" element={<AdminDashboard />}>
+                    <Route path="" element={<AdminHome />} />
+                    <Route path="doctors" element={<DoctorApprovals />} />
+                    <Route path="products" element={<AdminProducts />} />
+                    <Route path="orders" element={<AdminOrders />} />
+                    <Route path="credits" element={<AdminCredits />} />
+                    <Route path="invoices" element={<AdminInvoices />} />
+                  </Route>
+                </Route>
+                
+                {/* Doctor Routes - Protected */}
+                <Route element={<DoctorRoute />}>
+                  <Route path="/dashboard" element={<DoctorDashboard />} />
+                  <Route path="/credit-history" element={<DoctorCreditHistory />} />
+                  <Route path="/dashboard/orders" element={<DoctorOrders />} />
+                </Route>
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+            <Toaster position="top-right" richColors closeButton />
+          </TooltipProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

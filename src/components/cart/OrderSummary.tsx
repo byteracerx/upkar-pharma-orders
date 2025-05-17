@@ -1,12 +1,18 @@
 
 import { Button } from "@/components/ui/button";
 import { User } from "@supabase/supabase-js";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+
+interface ExtendedUser extends User {
+  isAdmin?: boolean;
+}
 
 interface OrderSummaryProps {
   subtotal: number;
   shipping: number;
   total: number;
-  user: User | null;
+  user: ExtendedUser | null;
   isPlacingOrder: boolean;
   onPlaceOrder: () => void;
 }
@@ -51,13 +57,23 @@ const OrderSummary = ({
         </div>
       )}
       
-      <Button 
-        className="w-full" 
-        onClick={onPlaceOrder} 
-        disabled={isPlacingOrder || subtotal === 0}
-      >
-        {isPlacingOrder ? "Processing..." : "Place Order"}
-      </Button>
+      {user?.isAdmin ? (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Admin Restriction</AlertTitle>
+          <AlertDescription>
+            As an admin, you cannot place orders. This functionality is only for doctors.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Button 
+          className="w-full" 
+          onClick={onPlaceOrder} 
+          disabled={isPlacingOrder || subtotal === 0}
+        >
+          {isPlacingOrder ? "Processing..." : "Place Order"}
+        </Button>
+      )}
     </div>
   );
 };

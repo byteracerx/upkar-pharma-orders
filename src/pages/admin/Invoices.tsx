@@ -133,12 +133,32 @@ const AdminInvoices = () => {
     try {
       setIsDownloading(true);
       
-      // In a real implementation, this would download the actual invoice file
-      // For now, we'll just show a success message
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!invoice.invoice_url) {
+        // If no invoice URL exists, generate a new invoice
+        const { generatePDFInvoice } = await import('@/services/invoiceService');
+        const invoiceUrl = await generatePDFInvoice(invoice.order_id);
+        
+        // Update the invoice in our local state
+        setInvoices(prevInvoices => 
+          prevInvoices.map(inv => 
+            inv.id === invoice.id ? { ...inv, invoice_url: invoiceUrl } : inv
+          )
+        );
+        
+        // If we're viewing the details of this invoice, update the selected invoice
+        if (selectedInvoice && selectedInvoice.id === invoice.id) {
+          setSelectedInvoice({ ...selectedInvoice, invoice_url: invoiceUrl });
+        }
+        
+        // Open the invoice URL in a new tab
+        window.open(invoiceUrl, '_blank');
+      } else {
+        // If invoice URL exists, open it in a new tab
+        window.open(invoice.invoice_url, '_blank');
+      }
       
       toast.success("Invoice Downloaded", {
-        description: `Invoice ${invoice.invoice_number} has been downloaded.`
+        description: `Invoice ${invoice.invoice_number} has been opened in a new tab.`
       });
     } catch (error: any) {
       console.error("Error downloading invoice:", error);

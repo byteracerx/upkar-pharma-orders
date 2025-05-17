@@ -17,6 +17,7 @@ interface Doctor {
   gstNumber: string;
   registrationDate: string;
   status: "pending" | "approved" | "rejected";
+  address?: string;
 }
 
 const DoctorApprovals = () => {
@@ -27,11 +28,11 @@ const DoctorApprovals = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
   const [processingDoctors, setProcessingDoctors] = useState<Set<string>>(new Set());
-  
+
   // Fetch doctors from Supabase
   useEffect(() => {
     fetchDoctors();
-    
+
     // Set up real-time subscription for doctors table
     const unsubscribe = subscribeToDoctors((payload) => {
       // Only update if we're not currently processing this doctor
@@ -41,7 +42,7 @@ const DoctorApprovals = () => {
         fetchDoctors();
       }
     });
-    
+
     return () => {
       unsubscribe(); // Clean up subscription on unmount
     };
@@ -50,37 +51,39 @@ const DoctorApprovals = () => {
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch pending doctors
       const pendingData = await fetchPendingDoctors();
-      
+
       // Fetch approved doctors
       const approvedData = await fetchApprovedDoctors();
-      
+
       // Format the data
       const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
+        address: doctor.address || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
         status: 'pending'
       }));
-      
+
       const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
         id: doctor.id,
         name: doctor.name || "Unnamed Doctor",
-        email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
+        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
         phone: doctor.phone || "N/A",
         gstNumber: doctor.gst_number || "N/A",
+        address: doctor.address || "N/A",
         registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
         status: 'approved'
       }));
-      
+
       setPendingDoctors(formattedPendingDoctors);
       setApprovedDoctors(formattedApprovedDoctors);
-      
+
     } catch (error: any) {
       console.error("Error fetching doctors:", error);
       toast.error("Failed to load doctors", {
@@ -90,14 +93,14 @@ const DoctorApprovals = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleApproveDoctor = async (id: string) => {
     try {
       console.log(`Handling approval for doctor ID: ${id}`);
-      
+
       // Find the doctor in the pending list before making the API call
       const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);
-      
+
       if (!doctorToApprove) {
         console.error("Doctor not found in pending list:", id);
         toast.error("Failed to approve doctor", {
@@ -105,20 +108,20 @@ const DoctorApprovals = () => {
         });
         return;
       }
-      
+
       // Add to processed set to prevent double processing from realtime events
       setProcessingDoctors(prev => new Set(prev).add(id));
-      
+
       // Call the API to approve the doctor
       const success = await approveDoctor(id);
-      
+
       if (success) {
         console.log("Doctor approved successfully, updating UI state");
-        
+
         // Update the UI state
         setPendingDoctors(prevPending => prevPending.filter(doctor => doctor.id !== id));
         setApprovedDoctors(prevApproved => [...prevApproved, { ...doctorToApprove, status: "approved" }]);
-        
+
         // Show success message
         toast.success("Doctor Approved", {
           description: `${doctorToApprove.name} has been approved successfully`
@@ -138,20 +141,20 @@ const DoctorApprovals = () => {
       });
     }
   };
-  
+
   const handleRejectDoctor = async (id: string) => {
     try {
       // Add to processed set to prevent double processing
       setProcessingDoctors(prev => new Set(prev).add(id));
-      
+
       const success = await rejectDoctor(id);
-      
+
       if (success) {
         const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
         if (doctorToReject) {
           setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
           setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
-          
+
           toast.success("Doctor Rejected", {
             description: `${doctorToReject.name}'s application has been rejected`
           });
@@ -171,46 +174,46 @@ const DoctorApprovals = () => {
       });
     }
   };
-  
+
   // Filter doctors based on search query
   const filteredPendingDoctors = pendingDoctors.filter(
-    doctor => 
+    doctor =>
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.phone.includes(searchQuery)
   );
-  
+
   const filteredApprovedDoctors = approvedDoctors.filter(
-    doctor => 
+    doctor =>
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.phone.includes(searchQuery)
   );
-  
+
   const filteredRejectedDoctors = rejectedDoctors.filter(
-    doctor => 
+    doctor =>
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.phone.includes(searchQuery)
   );
-  
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Doctor Approvals</h1>
-        
-        <Button 
-          variant="outline" 
+
+        <Button
+          variant="outline"
           onClick={fetchDoctors}
         >
           Refresh Data
         </Button>
       </div>
-      
+
       <div className="mb-6">
         <DoctorSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
       </div>
-      
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-6">
           <TabsTrigger value="pending" className="relative">
@@ -224,43 +227,43 @@ const DoctorApprovals = () => {
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="pending">
           {isLoading ? (
             <div className="flex justify-center items-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <DoctorList 
-              doctors={filteredPendingDoctors} 
+            <DoctorList
+              doctors={filteredPendingDoctors}
               status="pending"
               onApprove={handleApproveDoctor}
               onReject={handleRejectDoctor}
             />
           )}
         </TabsContent>
-        
+
         <TabsContent value="approved">
           {isLoading ? (
             <div className="flex justify-center items-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <DoctorList 
-              doctors={filteredApprovedDoctors} 
+            <DoctorList
+              doctors={filteredApprovedDoctors}
               status="approved"
             />
           )}
         </TabsContent>
-        
+
         <TabsContent value="rejected">
           {isLoading ? (
             <div className="flex justify-center items-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <DoctorList 
-              doctors={filteredRejectedDoctors} 
+            <DoctorList
+              doctors={filteredRejectedDoctors}
               status="rejected"
             />
           )}

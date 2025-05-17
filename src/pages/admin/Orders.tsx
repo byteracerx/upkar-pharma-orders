@@ -49,13 +49,18 @@ type Order = {
   total_amount: number;
   doctor_name?: string;
   doctor_phone?: string;
+  doctor_email?: string;
   invoice_number?: string;
   invoice_generated?: boolean;
   invoice_url?: string;
+  product_summary?: string;
+  total_items?: number;
   doctor?: {
     name: string;
     phone: string;
+    email?: string;
   };
+  order_items?: any[];
 };
 
 type OrderItem = {
@@ -86,13 +91,13 @@ const AdminOrders = () => {
   // Fetch orders from Supabase
   useEffect(() => {
     loadOrders();
-    
+
     // Set up real-time subscription for orders table
     const unsubscribe = subscribeToOrders((payload) => {
       console.log('Orders table changed:', payload);
       loadOrders(); // Refresh data on any change
     });
-    
+
     return () => {
       unsubscribe(); // Clean up subscription on unmount
     };
@@ -102,19 +107,19 @@ const AdminOrders = () => {
     try {
       setLoading(true);
       console.log("Loading orders...");
-      
+
       // Try to synchronize orders first to ensure all pending orders are visible
       await synchronizeOrders();
-      
+
       // Fetch all orders using the service
       const data = await fetchAllOrders();
       console.log(`Fetched ${data.length} orders from service`);
-      
+
       // Check for pending orders in the fetched data
       const pendingOrders = data.filter((order: any) => order.status === 'pending');
       console.log(`Found ${pendingOrders.length} pending orders in fetched data`);
-      
-      setOrders(data);
+
+      setOrders(data as unknown as Order[]);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders", {
@@ -129,7 +134,7 @@ const AdminOrders = () => {
   const fetchOrderDetails = async (orderId: string) => {
     try {
       setIsLoadingDetails(true);
-      
+
       // Use the orderService function
       const items = await fetchOrderItems(orderId);
       setOrderItems(items);
@@ -147,9 +152,9 @@ const AdminOrders = () => {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       setIsUpdatingStatus(true);
-      
+
       const success = await updateOrderStatus(orderId, newStatus);
-      
+
       if (success) {
         // Update local state
         setOrders(
@@ -161,6 +166,25 @@ const AdminOrders = () => {
         toast.success("Status Updated", {
           description: `Order ${orderId.substring(0, 8)}... status changed to ${newStatus}`
         });
+
+        // If the order is approved (status = processing or delivered), show a message about invoice generation
+        if (newStatus === 'processing' || newStatus === 'delivered') {
+          toast.success("Invoice Generated Automatically", {
+            description: "An invoice has been generated and sent to the doctor"
+          });
+
+          // Update the invoice_generated flag in the local state
+          setOrders(prev =>
+            prev.map(order =>
+              order.id === orderId ? { ...order, invoice_generated: true } : order
+            )
+          );
+
+          // Refresh orders to get the updated invoice information
+          setTimeout(() => {
+            loadOrders();
+          }, 2000);
+        }
       } else {
         throw new Error("Failed to update status");
       }
@@ -173,19 +197,19 @@ const AdminOrders = () => {
       setIsUpdatingStatus(false);
     }
   };
-  
+
   // Generate invoice
   const handleGenerateInvoice = async (orderId: string) => {
     try {
       setIsGeneratingInvoice(true);
-      
+
       const success = await generateInvoice(orderId);
-      
+
       if (success) {
         toast.success("Invoice Generated", {
           description: "The invoice has been generated and sent to the doctor."
         });
-        
+
         // Update orders list to reflect invoice generation
         loadOrders();
       } else {
@@ -200,38 +224,49 @@ const AdminOrders = () => {
       setIsGeneratingInvoice(false);
     }
   };
-  
+
   // Send notification
   const sendNotification = async (orderId: string) => {
     try {
       setIsSendingNotification(true);
-      
+
       // Get the order details
       const order = orders.find(o => o.id === orderId);
-      
+
       if (!order) {
         throw new Error("Order not found");
       }
-      
+
+      // Import the WhatsApp notification service
+      const { sendWhatsAppNotification } = await import('@/services/invoiceService');
+
+      // Send WhatsApp notification
+      const success = await sendWhatsAppNotification(orderId);
+
+      if (!success) {
+        throw new Error("Failed to send WhatsApp notification");
+      }
+
       // Create notification record in database
       const { error: notificationError } = await supabase
         .from("order_notifications")
         .insert({
           order_id: orderId,
-          notification_type: "status_update",
+          notification_type: "whatsapp",
           recipient: order.doctor_id,
           content: `Your order status has been updated to: ${order.status}`,
           status: "sent"
         });
-        
+
       if (notificationError) {
-        throw notificationError;
+        console.error("Error recording notification:", notificationError);
+        // Don't fail the whole process if recording fails
       }
-      
-      toast.success("Notification Sent", {
+
+      toast.success("WhatsApp Notification Sent", {
         description: `Notification sent to doctor: ${order.doctor_name}`
       });
-      
+
     } catch (error: any) {
       console.error("Error sending notification:", error);
       toast.error("Failed to send notification", {
@@ -241,7 +276,7 @@ const AdminOrders = () => {
       setIsSendingNotification(false);
     }
   };
-  
+
   // View order details
   const viewOrderDetails = (order: Order) => {
     setSelectedOrder(order);
@@ -260,7 +295,7 @@ const AdminOrders = () => {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Order Management</h1>
-      
+
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
@@ -271,23 +306,23 @@ const AdminOrders = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={loadOrders}
             className="flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={async () => {
               try {
                 setLoading(true);
-                
+
                 // Direct query for pending orders
                 const { data, error } = await supabase
                   .from("orders")
@@ -301,26 +336,26 @@ const AdminOrders = () => {
                   `)
                   .eq("status", "pending")
                   .order("created_at", { ascending: false });
-                  
+
                 if (error) throw error;
-                
+
                 console.log(`Found ${data.length} pending orders via direct query`);
-                
+
                 if (data.length === 0) {
                   toast.info("No pending orders found");
                   return;
                 }
-                
+
                 // Process the data
                 const processedOrders = data.map(order => ({
                   ...order,
                   doctor_name: order.doctor?.name || "Unknown",
                   doctor_phone: order.doctor?.phone || "N/A"
                 }));
-                
+
                 // Update the orders state with only pending orders
                 setOrders(processedOrders);
-                
+
                 toast.success(`Found ${processedOrders.length} pending orders`);
               } catch (error: any) {
                 console.error("Error fetching pending orders:", error);
@@ -335,16 +370,16 @@ const AdminOrders = () => {
           >
             Show Pending Only
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={async () => {
               try {
                 setLoading(true);
                 toast.info("Synchronizing orders...");
-                
+
                 const success = await synchronizeOrders();
-                
+
                 if (success) {
                   toast.success("Orders synchronized successfully");
                   loadOrders(); // Reload orders after synchronization
@@ -386,7 +421,7 @@ const AdminOrders = () => {
                 <TableRow>
                   <TableHead>Order ID</TableHead>
                   <TableHead>Doctor</TableHead>
-                  <TableHead>Phone</TableHead>
+                  <TableHead>Products</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
@@ -401,7 +436,9 @@ const AdminOrders = () => {
                       {order.invoice_number || order.id.substring(0, 8)}...
                     </TableCell>
                     <TableCell>{order.doctor_name}</TableCell>
-                    <TableCell>{order.doctor_phone}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={order.product_summary}>
+                      {order.product_summary || "No products"}
+                    </TableCell>
                     <TableCell>
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
@@ -440,24 +477,33 @@ const AdminOrders = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="icon"
                           onClick={() => viewOrderDetails(order)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        
-                        {!order.invoice_generated && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleGenerateInvoice(order.id)}
-                            disabled={isGeneratingInvoice}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        )}
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleGenerateInvoice(order.id)}
+                          disabled={isGeneratingInvoice}
+                          title={order.invoice_generated ? "Regenerate Invoice" : "Generate Invoice"}
+                        >
+                          <FileText className={`h-4 w-4 ${order.invoice_generated ? "text-green-600" : ""}`} />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => sendNotification(order.id)}
+                          disabled={isSendingNotification}
+                          title="Send WhatsApp Notification"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -473,7 +519,7 @@ const AdminOrders = () => {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Order Details Dialog */}
       <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -493,7 +539,7 @@ const AdminOrders = () => {
               )}
             </DialogDescription>
           </DialogHeader>
-          
+
           {isLoadingDetails ? (
             <div className="flex justify-center items-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
@@ -520,7 +566,7 @@ const AdminOrders = () => {
                   ))}
                 </TableBody>
               </Table>
-              
+
               <div className="mt-4 text-right">
                 <p className="font-bold">
                   Total: ₹{selectedOrder?.total_amount.toFixed(2)}
@@ -532,23 +578,24 @@ const AdminOrders = () => {
               <p className="text-gray-500">No items found for this order.</p>
             </div>
           )}
-          
+
           <DialogFooter className="flex justify-between">
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 className="flex items-center gap-1"
                 onClick={() => selectedOrder && handleGenerateInvoice(selectedOrder.id)}
-                disabled={isGeneratingInvoice || (selectedOrder?.invoice_generated)}
+                disabled={isGeneratingInvoice}
+                title={selectedOrder?.invoice_generated ? "Regenerate Invoice" : "Generate Invoice"}
               >
                 {isGeneratingInvoice ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <FileText className="h-4 w-4" />
+                  <FileText className={`h-4 w-4 ${selectedOrder?.invoice_generated ? "text-green-600" : ""}`} />
                 )}
-                Generate Invoice
+                {selectedOrder?.invoice_generated ? "Regenerate Invoice" : "Generate Invoice"}
               </Button>
-              
+
               <Button
                 variant="outline"
                 className="flex items-center gap-1"
@@ -563,7 +610,7 @@ const AdminOrders = () => {
                 Send Notification
               </Button>
             </div>
-            
+
             <Button
               variant="default"
               onClick={() => setIsOrderDetailsOpen(false)}

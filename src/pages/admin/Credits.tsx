@@ -10,12 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, Search } from "lucide-react";
-import { 
-  CreditSummary, 
-  CreditTransaction, 
-  fetchAllDoctorCredits, 
-  fetchCreditTransactions, 
-  recordDoctorPayment 
+import {
+  CreditSummary,
+  CreditTransaction,
+  fetchAllDoctorCredits,
+  fetchCreditTransactions,
+  recordDoctorPayment
 } from "@/services/creditService";
 import { supabase } from "@/integrations/supabase/client";
 import CreditSummaryTable from "@/components/admin/credit/CreditSummaryTable";
@@ -53,7 +53,7 @@ const AdminCredits = () => {
       setLoading(false);
     }
   };
-  
+
   const fetchDoctorTransactions = async (doctorId: string) => {
     setLoadingTransactions(true);
     try {
@@ -84,7 +84,7 @@ const AdminCredits = () => {
         toast.success("Payment Recorded", {
           description: `₹${paymentAmount} payment recorded for ${selectedDoctor.doctor_name}.`
         });
-        
+
         // Notify doctor about payment
         try {
           await supabase.functions.invoke('notify-doctor-payment', {
@@ -101,7 +101,7 @@ const AdminCredits = () => {
           console.error("Error notifying doctor about payment:", notifyError);
           // We don't fail the payment just because notification failed
         }
-        
+
         setPaymentDialogOpen(false);
         fetchCredits(); // Refresh data
       } else {
@@ -118,25 +118,36 @@ const AdminCredits = () => {
       setProcessing(false);
     }
   };
-  
+
   const handleSendCreditSummary = async (doctorId: string, doctorName: string) => {
     setSendingEmail(true);
     try {
       // Get the doctor's credit transactions
       const transactions = await fetchCreditTransactions(doctorId);
-      
+
       // Get the doctor's information
       const { data: doctorData, error: doctorError } = await supabase
         .from("doctors")
         .select("phone")
         .eq("id", doctorId)
         .single();
-        
+
       if (doctorError) throw doctorError;
-      
-      // Generate a placeholder email
-      const doctorEmail = `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
-      
+
+      // Get user email from auth
+      let doctorEmail = '';
+      try {
+        const { data: userData } = await supabase.auth.admin.getUserById(doctorId);
+        doctorEmail = userData?.user?.email || '';
+      } catch (err) {
+        console.error(`Error fetching email for doctor ${doctorId}:`, err);
+      }
+
+      // Fallback to generated email if not found
+      if (!doctorEmail) {
+        doctorEmail = `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+      }
+
       // Create a notification record
       const { error: notificationError } = await supabase
         .from("order_notifications")
@@ -146,12 +157,12 @@ const AdminCredits = () => {
           status: "sent",
           recipient: doctorEmail
         });
-        
+
       if (notificationError) {
         console.warn("Error creating notification record:", notificationError);
         // Continue even if notification record creation fails
       }
-      
+
       // Try to call Edge Function if available
       try {
         await supabase.functions.invoke('send-credit-summary', {
@@ -167,7 +178,7 @@ const AdminCredits = () => {
         console.warn("Edge function call failed:", edgeFunctionError);
         // Continue even if edge function fails
       }
-      
+
       toast.success("Credit Summary Sent", {
         description: `Credit summary sent to ${doctorName}.`
       });
@@ -180,7 +191,7 @@ const AdminCredits = () => {
       setSendingEmail(false);
     }
   };
-  
+
   const viewCreditHistory = (doctor: CreditSummary) => {
     setSelectedDoctor(doctor);
     fetchDoctorTransactions(doctor.doctor_id);
@@ -206,7 +217,7 @@ const AdminCredits = () => {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Credit Management</h1>
-      
+
       <div className="flex items-center justify-between mb-6">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
@@ -217,7 +228,7 @@ const AdminCredits = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <Button onClick={fetchCredits} variant="outline" className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
         </Button>
@@ -236,7 +247,7 @@ const AdminCredits = () => {
               <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
             </div>
           ) : (
-            <CreditSummaryTable 
+            <CreditSummaryTable
               credits={sortedAndFilteredDoctors}
               sortOrder={sortOrder}
               toggleSortOrder={toggleSortOrder}
@@ -253,14 +264,14 @@ const AdminCredits = () => {
       </Card>
 
       {/* Payment Dialog */}
-      <PaymentDialog 
+      <PaymentDialog
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         doctor={selectedDoctor}
         onRecordPayment={handleRecordPayment}
         processing={processing}
       />
-      
+
       {/* Credit History Dialog */}
       <CreditHistoryDialog
         open={historyDialogOpen}

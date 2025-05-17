@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.8.0'
 import twilio from 'https://esm.sh/twilio@4.19.0'
 
-const supabaseUrl = 'https://hohfvjzagukucseffpmc.supabase.co'
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://hohfvjzagukucseffpmc.supabase.co'
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 // Twilio configuration
@@ -85,10 +85,19 @@ serve(async (req) => {
       console.log('Twilio configuration missing or doctor phone not available. WhatsApp notification not sent.')
     }
     
-    // If we have the doctor's email, also send an email notification
-    if (doctorEmail) {
-      // Email notification logic would go here
-      console.log(`Email notification would be sent to: ${doctorEmail}`)
+    // Record the notification in the database
+    const { data: notificationData, error: notificationError } = await supabase
+      .from('order_notifications')
+      .insert({
+        order_id: orderId,
+        notification_type: 'status_update',
+        recipient: doctorName,
+        content: messageText,
+        status: twilioAccountSid && twilioAuthToken && twilioFromNumber && doctorPhone ? 'sent' : 'failed'
+      })
+    
+    if (notificationError) {
+      console.error('Error recording notification:', notificationError)
     }
     
     return new Response(JSON.stringify({ success: true }), {

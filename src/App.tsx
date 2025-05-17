@@ -62,12 +62,12 @@ const App = () => (
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/setup-rls" element={<AdminSetupRLS />} />
               <Route path="/admin/doctors" element={<DoctorApprovals />} />
               <Route path="/admin/products" element={<AdminProducts />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
               <Route path="/admin/credits" element={<AdminCredits />} />
               <Route path="/admin/invoices" element={<AdminInvoices />} />
+              <Route path="/admin/setup-rls" element={<AdminSetupRLS />} />
             </Route>
             
             {/* Doctor Routes - Protected */}

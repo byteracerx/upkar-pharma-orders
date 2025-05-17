@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 // Define user roles
 export type UserRole = 'admin' | 'doctor' | 'unapproved';
@@ -98,6 +98,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setUser(null);
         }
+        
+        setLoading(false);
       }
     );
 
@@ -115,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(currentSession);
         setUser(extendedUser);
       }
+      
       setLoading(false);
     });
 

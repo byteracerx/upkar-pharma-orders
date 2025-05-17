@@ -20,7 +20,7 @@ const Login = () => {
 
   // If the user is already logged in, redirect to the appropriate dashboard
   if (user) {
-    if (user.role === 'admin') {
+    if (user.isAdmin) {
       return <Navigate to="/admin" />;
     }
     return <Navigate to="/dashboard" />;

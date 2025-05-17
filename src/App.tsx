@@ -26,15 +26,6 @@ import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
-import SetupAdminRLS from "./pages/SetupAdminRLS";
-
-// Import admin page components
-import DoctorApprovals from "./pages/admin/DoctorApprovals";
-import AdminProducts from "./pages/admin/Products";
-import AdminOrders from "./pages/admin/Orders";
-import AdminCredits from "./pages/admin/Credits";
-import AdminInvoices from "./pages/admin/Invoices";
-import AdminSetupRLS from "./pages/admin/SetupRLS";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +34,7 @@ const App = () => (
     <BrowserRouter>
       <AuthProvider>
         <TooltipProvider>
+          <Toaster />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -57,28 +49,20 @@ const App = () => (
             <Route path="/invoice-example" element={<InvoiceExample />} />
             <Route path="/create-admin" element={<CreateAdmin />} />
             <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/setup-admin-rls" element={<SetupAdminRLS />} />
             
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/doctors" element={<DoctorApprovals />} />
-              <Route path="/admin/products" element={<AdminProducts />} />
-              <Route path="/admin/orders" element={<AdminOrders />} />
-              <Route path="/admin/credits" element={<AdminCredits />} />
-              <Route path="/admin/invoices" element={<AdminInvoices />} />
-              <Route path="/admin/setup-rls" element={<AdminSetupRLS />} />
+              <Route path="/admin/*" element={<AdminDashboard />} />
             </Route>
             
             {/* Doctor Routes - Protected */}
             <Route element={<DoctorRoute />}>
-              <Route path="/dashboard" element={<DoctorDashboard />} />
+              <Route path="/dashboard/*" element={<DoctorDashboard />} />
               <Route path="/credit-history" element={<DoctorCreditHistory />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <Toaster position="top-right" richColors closeButton />
         </TooltipProvider>
       </AuthProvider>
     </BrowserRouter>

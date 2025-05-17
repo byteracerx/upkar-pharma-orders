@@ -1,14 +1,13 @@
 
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const DoctorRoute = () => {
-  const { user, isAuthenticated, isAdmin, isDoctor, loading } = useAuth();
-  const location = useLocation();
+  const { user, isAuthenticated, isAdmin, isDoctor } = useAuth();
 
-  // If auth is still loading, show a loading spinner
-  if (loading) {
+  // If auth is still initializing, show a loading spinner
+  if (!user && isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
@@ -18,7 +17,7 @@ const DoctorRoute = () => {
 
   // If user is not authenticated, redirect to login
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // If user is an admin, redirect to admin dashboard

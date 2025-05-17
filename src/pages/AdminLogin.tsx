@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,17 +13,11 @@ const AdminLogin = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if already logged in as admin
+    // Check if already logged in
     const checkSession = async () => {
-      console.log("AdminLogin: Checking for existing session");
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        // Need to check if the user is an admin
-        const user = data.session.user;
-        if (user.email === 'admin@upkar.com') {
-          console.log("AdminLogin: Already logged in as admin, redirecting");
-          navigate('/admin');
-        }
+        navigate('/admin');
       }
     };
     
@@ -36,7 +29,7 @@ const AdminLogin = () => {
     setError(null);
     
     try {
-      console.log("AdminLogin: Attempting direct admin login");
+      console.log("Attempting direct admin login");
       
       // Try to sign in with admin credentials
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -45,7 +38,7 @@ const AdminLogin = () => {
       });
       
       if (error) {
-        console.error("AdminLogin: Error during login:", error);
+        console.error("Admin login error:", error);
         
         if (error.message.includes("Invalid login credentials")) {
           setError("Admin account doesn't exist yet. Please create it first.");
@@ -59,19 +52,19 @@ const AdminLogin = () => {
           });
         }
       } else {
-        console.log("AdminLogin: Login successful, redirecting");
+        console.log("Admin login successful:", data);
         setIsSuccess(true);
         toast.success("Admin Login Successful", {
           description: "Redirecting to admin dashboard..."
         });
         
-        // Redirect to admin dashboard after a short delay
+        // Redirect to admin dashboard
         setTimeout(() => {
           navigate('/admin');
         }, 1000);
       }
     } catch (err: any) {
-      console.error("AdminLogin: Unexpected error:", err);
+      console.error("Unexpected error during admin login:", err);
       setError(err.message || "An unexpected error occurred");
       toast.error("Login Error", {
         description: err.message || "Please try again"

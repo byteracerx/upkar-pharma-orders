@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 
 // Define user roles
 export type UserRole = 'admin' | 'doctor' | 'unapproved';
@@ -21,7 +21,6 @@ interface AuthContextType {
   isAdmin: boolean;
   isDoctor: boolean;
   isApprovedDoctor: boolean;
-  loading: boolean;
   login: (email: string, password: string) => Promise<{ error: any | null }>;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;  // Alias for login
   register: (email: string, password: string, userData: any) => Promise<{ error: any | null; }>;
@@ -37,7 +36,6 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isDoctor: false,
   isApprovedDoctor: false,
-  loading: true,
   login: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
   register: async () => ({ error: null }),
@@ -58,7 +56,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user.email === 'admin@upkar.com' || 
       user.user_metadata?.role === 'admin'
     ) {
-      console.log("User determined to be admin:", user.email);
       return 'admin';
     }
 
@@ -75,9 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return 'unapproved';
       }
 
-      const role = doctorData.is_approved ? 'doctor' : 'unapproved';
-      console.log("User determined to be:", role);
-      return role;
+      return doctorData.is_approved ? 'doctor' : 'unapproved';
     } catch (err) {
       console.error("Error determining user role:", err);
       return 'unapproved';
@@ -85,13 +80,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    console.log("AuthProvider: Setting up auth state listener");
-    
     // Set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log("Auth state changed:", event, newSession?.user?.email);
-        
         if (newSession && newSession.user) {
           const extendedUser = newSession.user as ExtendedUser;
           
@@ -100,7 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Determine user role
           extendedUser.role = await determineUserRole(extendedUser);
-          console.log("User role set:", extendedUser.role);
           
           setSession(newSession);
           setUser(extendedUser);
@@ -108,18 +98,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSession(null);
           setUser(null);
         }
-        
-        setLoading(false);
       }
     );
 
     // Check for existing session
-    const checkCurrentSession = async () => {
-      console.log("Checking for existing session");
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
       if (currentSession && currentSession.user) {
-        console.log("Existing session found:", currentSession.user.email);
         const extendedUser = currentSession.user as ExtendedUser;
         
         // Add name from user metadata if available
@@ -127,41 +111,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Determine user role
         extendedUser.role = await determineUserRole(extendedUser);
-        console.log("User role set for existing session:", extendedUser.role);
         
         setSession(currentSession);
         setUser(extendedUser);
-      } else {
-        console.log("No existing session found");
       }
-      
       setLoading(false);
-    };
-    
-    checkCurrentSession();
+    });
 
     return () => {
-      console.log("Unsubscribing from auth state changes");
       subscription.unsubscribe();
     };
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
-    console.log("Attempting login for:", email);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        console.error("Login error:", error.message);
         toast.error("Login failed", {
           description: error.message
         });
-      } else {
-        console.log("Login successful");
       }
       return { error };
     } catch (error) {
-      console.error("Unexpected login error:", error);
       toast.error("Login failed", {
         description: "An unexpected error occurred"
       });
@@ -171,7 +143,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Register function
   const register = async (email: string, password: string, userData: any) => {
-    console.log("Attempting registration for:", email);
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -181,19 +152,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       if (error) {
-        console.error("Registration error:", error.message);
         toast.error("Registration failed", {
           description: error.message
         });
       } else {
-        console.log("Registration successful");
         toast.success("Registration successful", {
           description: "Please check your email for verification"
         });
       }
       return { error };
     } catch (error) {
-      console.error("Unexpected registration error:", error);
       toast.error("Registration failed", {
         description: "An unexpected error occurred"
       });
@@ -203,7 +171,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout function
   const logout = async () => {
-    console.log("Logging out user");
     await supabase.auth.signOut();
     toast.success("Logged out successfully");
   };
@@ -215,7 +182,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAdmin: user?.role === 'admin',
     isDoctor: user?.role === 'doctor',
     isApprovedDoctor: user?.role === 'doctor',
-    loading,
     login,
     signIn: login, // Alias for login
     register,
@@ -225,7 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

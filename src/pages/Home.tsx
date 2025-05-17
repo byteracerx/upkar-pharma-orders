@@ -7,18 +7,9 @@ import PhotoGallery from "@/components/home/PhotoGallery";
 import CtaSection from "@/components/home/CtaSection";
 import { useAuth } from "@/contexts/AuthContext";
 import ProductList from "@/components/products/ProductList";
-import { Loader2 } from "lucide-react";
 
 const Home = () => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-upkar-blue" />
-      </div>
-    );
-  }
+  const { isAuthenticated } = useAuth();
   
   return (
     <Layout>

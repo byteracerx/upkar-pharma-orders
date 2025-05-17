@@ -1,14 +1,13 @@
 
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const AdminRoute = () => {
-  const { user, isAuthenticated, isAdmin, loading } = useAuth();
-  const location = useLocation();
-  
-  // If auth is still loading, show a loading spinner
-  if (loading) {
+  const { user, isAuthenticated, isAdmin, session } = useAuth();
+
+  // If auth is still initializing, show a loading spinner
+  if (!user && isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
@@ -16,17 +15,12 @@ const AdminRoute = () => {
     );
   }
 
-  // If user is not authenticated, redirect to login
-  if (!isAuthenticated) {
-    return <Navigate to="/admin-login" state={{ from: location }} replace />;
+  // If user is not authenticated or not an admin, redirect to login
+  if (!isAuthenticated || !isAdmin) {
+    return <Navigate to="/admin-login" replace />;
   }
 
-  // If user is authenticated but not an admin, redirect to appropriate page
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  // If user is authenticated and is an admin, render the outlet (child routes)
+  // If user is authenticated and is an admin, render the children
   return <Outlet />;
 };
 

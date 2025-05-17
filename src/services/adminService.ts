@@ -6,11 +6,12 @@ import { toast } from "sonner";
 type Doctor = {
   id: string;
   name: string;
-  email: string;
+  email?: string; // Make email optional since it's not in the database
   phone: string;
   gst_number: string;
   created_at: string;
   is_approved: boolean;
+  address?: string;
 };
 
 type Order = {
@@ -18,6 +19,7 @@ type Order = {
   doctor_id: string;
   doctor_name?: string;
   doctor_phone?: string;
+  doctor_email?: string;
   total_amount: number;
   status: string;
   created_at: string;
@@ -37,7 +39,13 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
 
     if (error) throw error;
     
-    return data || [];
+    // Transform data to add email field (use name to generate placeholder email if needed)
+    const doctorsWithEmail = data?.map(doctor => ({
+      ...doctor,
+      email: doctor.name ? `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com` : undefined
+    })) || [];
+    
+    return doctorsWithEmail;
   } catch (error: any) {
     console.error("Error fetching pending doctors:", error);
     toast.error("Failed to load pending doctors");
@@ -55,7 +63,13 @@ export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
 
     if (error) throw error;
     
-    return data || [];
+    // Transform data to add email field (use name to generate placeholder email if needed)
+    const doctorsWithEmail = data?.map(doctor => ({
+      ...doctor,
+      email: doctor.name ? `${doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com` : undefined
+    })) || [];
+    
+    return doctorsWithEmail;
   } catch (error: any) {
     console.error("Error fetching approved doctors:", error);
     toast.error("Failed to load approved doctors");
@@ -116,7 +130,7 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
           doctor:doctor_id (
             name,
             phone,
-            email
+            id
           )
         `)
         .order("created_at", { ascending: false });
@@ -128,7 +142,7 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
         ...order,
         doctor_name: order.doctor?.name || "Unknown",
         doctor_phone: order.doctor?.phone || "N/A",
-        doctor_email: order.doctor?.email || "N/A"
+        doctor_email: order.doctor?.id ? `${order.doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com` : "N/A"
       }));
     }
     
@@ -161,13 +175,18 @@ export const updateOrderStatus = async (orderId: string, newStatus: string): Pro
           doctor:doctor_id (
             name,
             phone,
-            email
+            id
           )
         `)
         .eq('id', orderId)
         .single();
         
       if (!orderError && orderData?.doctor) {
+        // Generate email from name if needed
+        const doctorEmail = orderData.doctor.name ? 
+          `${orderData.doctor.name.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+          `doctor-${orderData.doctor.id.substring(0, 8)}@example.com`;
+          
         // Send notification to doctor
         try {
           await supabase.functions.invoke('notify-doctor-status-update', {
@@ -175,8 +194,7 @@ export const updateOrderStatus = async (orderId: string, newStatus: string): Pro
               orderId,
               doctorName: orderData.doctor.name || "Doctor",
               doctorPhone: orderData.doctor.phone || "",
-              doctorEmail: orderData.doctor.email || "",
-              newStatus
+              doctorEmail: doctorEmail
             }
           });
         } catch (notifyError) {

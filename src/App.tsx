@@ -26,6 +26,14 @@ import NotFound from "./pages/NotFound";
 import InvoiceExample from "./pages/InvoiceExample";
 import CreateAdmin from "./pages/CreateAdmin";
 import AdminLogin from "./pages/AdminLogin";
+import SetupAdminRLS from "./pages/SetupAdminRLS";
+
+// Import admin page components
+import DoctorApprovals from "./pages/admin/DoctorApprovals";
+import AdminProducts from "./pages/admin/Products";
+import AdminOrders from "./pages/admin/Orders";
+import AdminCredits from "./pages/admin/Credits";
+import AdminInvoices from "./pages/admin/Invoices";
 import AdminSetupRLS from "./pages/admin/SetupRLS";
 
 const queryClient = new QueryClient();
@@ -49,6 +57,7 @@ const App = () => (
             <Route path="/invoice-example" element={<InvoiceExample />} />
             <Route path="/create-admin" element={<CreateAdmin />} />
             <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/setup-admin-rls" element={<SetupAdminRLS />} />
             
             {/* Admin Routes - Protected */}
             <Route element={<AdminRoute />}>

@@ -1,8 +1,10 @@
 
-import { useState, useEffect } from "react";
-import { fetchOrderItems, OrderItem } from "@/services/orderService";
-import {
-  Dialog,
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { 
+  Dialog, 
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -10,269 +12,197 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { 
+  Form, 
+  FormControl, 
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { initiateReturn, OrderItem } from "@/services/orderService";
 import { toast } from "sonner";
 
 interface InitiateReturnDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string;
-  onSubmit: (orderId: string, reason: string, items: any[]) => void;
+  doctorId: string;
+  orderItems: OrderItem[];
+  onReturnComplete?: () => void;
 }
+
+const schema = z.object({
+  reason: z.string().min(10, "Reason must be at least 10 characters"),
+  items: z.array(z.string()).min(1, "Select at least one item to return"),
+});
+
+type FormValues = z.infer<typeof schema>;
 
 const InitiateReturnDialog = ({
   open,
   onOpenChange,
   orderId,
-  onSubmit
+  doctorId,
+  orderItems,
+  onReturnComplete,
 }: InitiateReturnDialogProps) => {
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   
-  // Fetch order items when dialog opens
-  useEffect(() => {
-    if (open && orderId) {
-      fetchOrderItems();
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      reason: "",
+      items: [],
+    },
+  });
+  
+  // Handle item selection
+  const handleItemSelect = (checked: boolean, itemId: string) => {
+    if (checked) {
+      const item = orderItems.find(i => i.id === itemId);
+      if (item) {
+        setSelectedItems([...selectedItems, item]);
+      }
+    } else {
+      setSelectedItems(selectedItems.filter(i => i.id !== itemId));
     }
-  }, [open, orderId]);
+    
+    // Update form values
+    const currentItems = form.getValues().items;
+    form.setValue(
+      "items",
+      checked 
+        ? [...currentItems, itemId]
+        : currentItems.filter(i => i !== itemId)
+    );
+  };
   
-  const fetchOrderItems = async () => {
-    setLoading(true);
+  const onSubmit = async (data: FormValues) => {
     try {
-      const items = await fetchOrderItems(orderId);
-      setOrderItems(items);
+      setIsSubmitting(true);
       
-      // Initialize selected items and quantities
-      const initialSelected: Record<string, boolean> = {};
-      const initialQuantities: Record<string, number> = {};
+      // Map selected items to the format required by the API
+      const itemsForReturn = selectedItems.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        price: item.price_per_unit
+      }));
       
-      items.forEach(item => {
-        initialSelected[item.id] = false;
-        initialQuantities[item.id] = item.quantity;
-      });
+      const returnId = await initiateReturn(
+        orderId,
+        doctorId,
+        data.reason,
+        itemsForReturn
+      );
       
-      setSelectedItems(initialSelected);
-      setQuantities(initialQuantities);
+      if (returnId) {
+        toast.success("Return Request Initiated", {
+          description: "Your return request has been submitted successfully"
+        });
+        
+        onOpenChange(false);
+        if (onReturnComplete) onReturnComplete();
+      }
     } catch (error: any) {
-      console.error("Error fetching order items:", error);
-      toast.error("Failed to load order items", {
-        description: error.message || "Please try again."
+      console.error("Error initiating return:", error);
+      toast.error("Failed to Initiate Return", {
+        description: error.message || "Please try again later"
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
-  
-  const handleSelectItem = (itemId: string, checked: boolean) => {
-    setSelectedItems(prev => ({
-      ...prev,
-      [itemId]: checked
-    }));
-  };
-  
-  const handleQuantityChange = (itemId: string, value: string) => {
-    const item = orderItems.find(item => item.id === itemId);
-    if (!item) return;
-    
-    const quantity = parseInt(value);
-    if (isNaN(quantity) || quantity < 1) return;
-    
-    // Don't allow more than the original quantity
-    const maxQuantity = item.quantity;
-    const validQuantity = Math.min(quantity, maxQuantity);
-    
-    setQuantities(prev => ({
-      ...prev,
-      [itemId]: validQuantity
-    }));
-  };
-  
-  const handleSubmit = () => {
-    if (!reason.trim()) {
-      toast.error("Please provide a reason for the return");
-      return;
-    }
-    
-    const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
-    if (selectedItemIds.length === 0) {
-      toast.error("Please select at least one item to return");
-      return;
-    }
-    
-    setSubmitting(true);
-    
-    // Prepare return items
-    const returnItems = selectedItemIds.map(itemId => {
-      const item = orderItems.find(item => item.id === itemId);
-      if (!item) return null;
-      
-      const quantity = quantities[itemId];
-      const price_per_unit = item.price_per_unit;
-      const total_price = price_per_unit * quantity;
-      
-      return {
-        product_id: item.product_id,
-        quantity,
-        price_per_unit,
-        total_price,
-        reason: "Item return"
-      };
-    }).filter(Boolean);
-    
-    onSubmit(orderId, reason, returnItems);
-    setSubmitting(false);
-  };
-  
-  // Calculate total return amount
-  const calculateTotalReturn = () => {
-    return Object.keys(selectedItems)
-      .filter(id => selectedItems[id])
-      .reduce((total, itemId) => {
-        const item = orderItems.find(item => item.id === itemId);
-        if (!item) return total;
-        
-        const quantity = quantities[itemId];
-        return total + (item.price_per_unit * quantity);
-      }, 0);
-  };
-  
-  const totalReturnAmount = calculateTotalReturn();
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Return Items</DialogTitle>
+          <DialogTitle>Initiate Return Request</DialogTitle>
           <DialogDescription>
-            Select the items you want to return and provide a reason
+            Select items you wish to return and provide a reason
           </DialogDescription>
         </DialogHeader>
         
-        {loading ? (
-          <div className="flex justify-center items-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-          </div>
-        ) : (
-          <>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="return-reason">Reason for Return</Label>
-                <Textarea
-                  id="return-reason"
-                  placeholder="Please explain why you're returning these items"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason for Return</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Please explain why you're returning these items..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Provide a detailed explanation for your return request
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <div>
-                <Label>Select Items to Return</Label>
-                <div className="rounded-md border mt-1">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]">Select</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+              <FormField
+                control={form.control}
+                name="items"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Select Items to Return</FormLabel>
+                    <div className="border rounded-md p-4 space-y-3">
                       {orderItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedItems[item.id] || false}
-                              onCheckedChange={(checked) => 
-                                handleSelectItem(item.id, checked === true)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {item.product?.name || 'Unknown Product'}
-                          </TableCell>
-                          <TableCell>{formatCurrency(item.price_per_unit)}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="1"
-                              max={item.quantity}
-                              value={quantities[item.id] || 1}
-                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                              disabled={!selectedItems[item.id]}
-                              className="w-20"
-                            />
-                            <span className="text-xs text-gray-500 ml-2">
-                              (Max: {item.quantity})
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {selectedItems[item.id]
-                              ? formatCurrency(item.price_per_unit * (quantities[item.id] || 0))
-                              : "-"}
-                          </TableCell>
-                        </TableRow>
+                        <div key={item.id} className="flex items-start space-x-3">
+                          <Checkbox
+                            id={`item-${item.id}`}
+                            onCheckedChange={(checked) => 
+                              handleItemSelect(checked === true, item.id)
+                            }
+                          />
+                          <div className="space-y-1">
+                            <label
+                              htmlFor={`item-${item.id}`}
+                              className="font-medium text-sm cursor-pointer"
+                            >
+                              {item.product?.name || "Unknown Product"}
+                            </label>
+                            <p className="text-xs text-gray-500">
+                              Quantity: {item.quantity} | Price: ₹{item.price_per_unit.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center pt-2">
-                <span className="font-medium">Total Return Amount:</span>
-                <span className="font-bold text-lg">
-                  {formatCurrency(totalReturnAmount)}
-                </span>
-              </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
             <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={submitting}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={
-                  submitting || 
-                  !reason.trim() || 
-                  Object.keys(selectedItems).filter(id => selectedItems[id]).length === 0
-                }
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  "Submit Return Request"
-                )}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Submit Return Request
               </Button>
             </DialogFooter>
-          </>
-        )}
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

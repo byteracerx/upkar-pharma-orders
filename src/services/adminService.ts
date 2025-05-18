@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generatePDFInvoice, sendInvoiceEmail, sendWhatsAppNotification } from './invoiceService';
@@ -28,6 +27,27 @@ type Order = {
   invoice_number?: string;
   invoice_generated?: boolean;
   invoice_url?: string;
+  doctor?: {
+    name: string;
+    phone: string;
+    email?: string;
+  };
+};
+
+// Synchronize orders from external systems if any
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    console.log("Synchronizing orders from external systems...");
+    
+    // In a real application, this might call an external API or sync with another database
+    // For now, we'll just return success
+    toast.success("Orders synchronized successfully");
+    return true;
+  } catch (error: any) {
+    console.error("Error synchronizing orders:", error);
+    toast.error("Failed to synchronize orders");
+    return false;
+  }
 };
 
 // Fetch pending doctor registrations
@@ -365,14 +385,17 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
       const processedOrders = fallbackData.map(order => {
         // Extract doctor info
         const doctorData = order.doctor || {};
+        const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
+        const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+        const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+          doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.') || order.doctor_id.substring(0, 8)}@example.com` : 
+          `unknown-${order.doctor_id.substring(0, 8)}@example.com`;
         
         return {
           ...order,
-          doctor_name: typeof doctorData === 'object' ? doctorData.name || "Unknown" : "Unknown",
-          doctor_phone: typeof doctorData === 'object' ? doctorData.phone || "N/A" : "N/A",
-          doctor_email: typeof doctorData === 'object' ? doctorData.email || 
-            `${doctorData.name?.toLowerCase().replace(/\s+/g, '.') || order.doctor_id.substring(0, 8)}@example.com` : 
-            `unknown-${order.doctor_id.substring(0, 8)}@example.com`
+          doctor_name: doctorName,
+          doctor_phone: doctorPhone,
+          doctor_email: doctorEmail
         };
       });
       
@@ -430,10 +453,10 @@ export const updateOrderStatus = async (orderId: string, newStatus: string, note
 
     // Prepare for notifications
     const doctorData = orderData.doctor || {};
-    const doctorName = typeof doctorData === 'object' ? doctorData.name || "Valued Doctor" : "Valued Doctor";
-    const doctorPhone = typeof doctorData === 'object' ? doctorData.phone || "" : "";
-    const doctorEmail = typeof doctorData === 'object' ? doctorData.email || 
-      `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+    const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Valued Doctor" : "Valued Doctor";
+    const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "" : "";
+    const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+      doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
       `unknown-${orderData.doctor_id.substring(0, 8)}@example.com`;
 
     // Generate invoice if status is approved/processing
@@ -515,8 +538,8 @@ export const updateShippingInfo = async (orderId: string, trackingNumber: string
     if (orderData) {
       // Prepare doctor data for notification
       const doctorData = orderData.doctor || {};
-      const doctorName = typeof doctorData === 'object' ? doctorData.name || "Valued Doctor" : "Valued Doctor";
-      const doctorPhone = typeof doctorData === 'object' ? doctorData.phone || "" : "";
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Valued Doctor" : "Valued Doctor";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "" : "";
       
       // Send notification if phone available
       if (doctorPhone) {

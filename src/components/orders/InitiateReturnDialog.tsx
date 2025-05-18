@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { fetchOrderDetails, OrderItem } from "@/services/orderService";
+import { fetchOrderItems, OrderItem } from "@/services/orderService";
 import {
   Dialog,
   DialogContent,
@@ -55,14 +56,14 @@ const InitiateReturnDialog = ({
   const fetchOrderItems = async () => {
     setLoading(true);
     try {
-      const details = await fetchOrderDetails(orderId);
-      setOrderItems(details.items);
+      const items = await fetchOrderItems(orderId);
+      setOrderItems(items);
       
       // Initialize selected items and quantities
       const initialSelected: Record<string, boolean> = {};
       const initialQuantities: Record<string, number> = {};
       
-      details.items.forEach(item => {
+      items.forEach(item => {
         initialSelected[item.id] = false;
         initialQuantities[item.id] = item.quantity;
       });

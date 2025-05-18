@@ -1,125 +1,133 @@
 
-import { useState } from 'react';
-import { OrderReturn } from '@/services/orderService';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatDate, formatCurrency } from '@/lib/utils';
-import { Box, CheckCircle2, XCircle, Clock, ListFilter } from 'lucide-react';
+import { OrderReturn } from "@/services/orderService";
+import { formatDate, formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RotateCcw, CheckCircle, XCircle } from "lucide-react";
+import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface OrderReturnsListProps {
   returns: OrderReturn[];
+  isAdmin?: boolean;
+  onUpdateReturnStatus?: (returnId: string, status: string) => void;
 }
 
-const OrderReturnsList = ({ returns }: OrderReturnsListProps) => {
-  const [expandedDefault, setExpandedDefault] = useState<string | null>(null);
-  
-  // Get status badge color
-  const getStatusBadgeColor = (status: string) => {
+const OrderReturnsList = ({ returns, isAdmin = false, onUpdateReturnStatus }: OrderReturnsListProps) => {
+  const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
+
+  // Function to get badge color based on status
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'pending':
-        return "bg-yellow-100 text-yellow-800";
-      case 'approved':
-        return "bg-green-100 text-green-800";
-      case 'rejected':
-        return "bg-red-100 text-red-800";
+      case "approved":
+        return "success";
+      case "pending":
+        return "warning";
+      case "rejected":
+        return "destructive";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "secondary";
     }
   };
-  
-  // Get status icon
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'approved':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <ListFilter className="h-4 w-4" />;
+
+  // Function to handle return status update
+  const handleStatusUpdate = async (returnId: string, status: string) => {
+    if (!onUpdateReturnStatus) return;
+    
+    setProcessingReturnId(returnId);
+    try {
+      await onUpdateReturnStatus(returnId, status);
+    } finally {
+      setProcessingReturnId(null);
     }
   };
-  
+
   if (!returns || returns.length === 0) {
-    return (
-      <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-200">
-        <Box className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-medium text-gray-900">No Returns</h3>
-        <p className="text-gray-500 mt-2">This order doesn't have any returns</p>
-      </div>
-    );
+    return <p className="text-gray-500 text-center py-4">No returns found for this order.</p>;
   }
-  
+
   return (
-    <Accordion type="single" collapsible defaultValue={expandedDefault || undefined}>
+    <div className="space-y-6">
       {returns.map((returnItem) => (
-        <AccordionItem key={returnItem.id} value={returnItem.id}>
-          <AccordionTrigger className="hover:bg-gray-50 px-4">
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3">
-                <Box className="h-5 w-5 text-gray-500" />
-                <span>Return #{returnItem.id.substring(0, 8)}</span>
-                <Badge className={getStatusBadgeColor(returnItem.status)}>
-                  <span className="flex items-center gap-1">
-                    {getStatusIcon(returnItem.status)}
-                    {returnItem.status.charAt(0).toUpperCase() + returnItem.status.slice(1)}
-                  </span>
-                </Badge>
-              </div>
-              <div className="text-right">
-                <div className="font-semibold">{formatCurrency(returnItem.amount)}</div>
-                <div className="text-sm text-gray-500">{formatDate(returnItem.created_at)}</div>
-              </div>
+        <div
+          key={returnItem.id}
+          className="border rounded-md p-4 bg-gray-50"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-gray-500" />
+              <h4 className="font-medium">Return #{returnItem.id.slice(0, 8)}</h4>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4">
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Reason for Return</p>
-                <p className="mt-1">{returnItem.reason}</p>
+            <Badge variant={getStatusBadgeVariant(returnItem.status)}>
+              {returnItem.status.charAt(0).toUpperCase() + returnItem.status.slice(1)}
+            </Badge>
+          </div>
+
+          <div className="grid gap-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Date Requested:</span>
+              <span>{formatDate(returnItem.created_at)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Amount:</span>
+              <span className="font-medium">{formatCurrency(returnItem.amount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Reason:</span>
+              <span className="text-right">{returnItem.reason}</span>
+            </div>
+            {returnItem.notes && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Notes:</span>
+                <span className="text-right">{returnItem.notes}</span>
               </div>
-              
-              {returnItem.notes && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Additional Notes</p>
-                  <p className="mt-1">{returnItem.notes}</p>
-                </div>
-              )}
-              
-              {returnItem.items && returnItem.items.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">Returned Items</p>
-                  <div className="rounded-md border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Price</TableHead>
-                          <TableHead>Reason</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {returnItem.items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.product?.name || 'Unknown Product'}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{formatCurrency(item.total_price)}</TableCell>
-                            <TableCell>{item.reason || 'Not specified'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+            )}
+          </div>
+
+          {returnItem.items && returnItem.items.length > 0 && (
+            <div className="mt-4 border-t pt-4">
+              <h5 className="font-medium mb-2">Returned Items</h5>
+              <div className="space-y-2">
+                {returnItem.items.map((item, index) => (
+                  <div key={item.id || index} className="flex justify-between text-sm">
+                    <span>
+                      {item.product?.name || "Unknown product"} x {item.quantity}
+                    </span>
+                    <span>{formatCurrency(item.total_price)}</span>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-          </AccordionContent>
-        </AccordionItem>
+          )}
+
+          {isAdmin && returnItem.status === "pending" && (
+            <div className="mt-4 border-t pt-4 flex items-center justify-between">
+              <span className="text-sm font-medium">Update Status:</span>
+              <div className="flex gap-2">
+                <Select
+                  disabled={!!processingReturnId}
+                  onValueChange={(value) => handleStatusUpdate(returnItem.id, value)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Change status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="approved">Approve</SelectItem>
+                    <SelectItem value="rejected">Reject</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </div>
       ))}
-    </Accordion>
+    </div>
   );
 };
 

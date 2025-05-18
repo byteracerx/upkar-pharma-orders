@@ -123,6 +123,29 @@ export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   }
 };
 
+// Add this new function to fetch order items
+export const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('*, product:product_id(*)')
+      .eq('order_id', orderId);
+
+    if (error) {
+      throw error;
+    }
+
+    return data.map(item => ({
+      ...item,
+      product: item.product as OrderItem['product']
+    }));
+  } catch (error) {
+    console.error('Error fetching order items:', error);
+    toast.error('Failed to load order items');
+    return [];
+  }
+};
+
 // Function to get specific order details including items
 export const getOrderDetails = async (orderId: string): Promise<OrderDetails | null> => {
   try {

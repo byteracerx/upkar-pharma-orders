@@ -1,196 +1,57 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
-import { Order, OrderReturn } from '@/services/orderService';
 
-// ShippingInfo type definition
-export interface ShippingInfo {
-  trackingNumber?: string;
-  shippingCarrier?: string;
-  estimatedDeliveryDate?: string;
-}
-
-// Doctor type definition
+// Define the Doctor interface
 export interface Doctor {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone: string;
-  address?: string;
-  clinic_name?: string;
-  specialty?: string;
-  status: string;
+  address: string;
+  gst_number: string;
+  is_approved: boolean;
   created_at: string;
   updated_at: string;
-  approved_at?: string;
-  approved_by?: string;
-  rejected_at?: string;
-  rejected_by?: string;
-  rejection_reason?: string;
 }
 
-export interface DoctorCredit {
-  id: string;
-  doctor_id: string;
-  amount: number;
-  type: string;
-  order_id?: string;
-  payment_id?: string;
-  created_at: string;
-  updated_at: string;
-  notes?: string;
-  doctor?: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-  order?: {
-    id: string;
-    invoice_number?: string;
-  };
-}
-
-export interface DoctorCreditSummary {
-  doctor_id: string;
-  doctor_name: string;
-  doctor_phone: string;
-  doctor_email: string;
-  total_credit: number;
-}
-
-// Function to fetch all orders with doctor information
-export const fetchAllOrders = async () => {
+// Function to fetch all doctors
+export const fetchDoctors = async (): Promise<Doctor[]> => {
   try {
     const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        doctor:doctor_id (
-          id,
-          name,
-          phone,
-          email
-        )
-      `)
+      .from('doctors')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    // Process the data to flatten doctor information
-    const processedOrders = data.map(order => ({
-      ...order,
-      doctor_name: order.doctor?.name || 'Unknown',
-      doctor_phone: order.doctor?.phone || 'N/A',
-      doctor_email: order.doctor?.email || 'N/A'
-    }));
-
-    return processedOrders;
-  } catch (error: any) {
-    console.error('Error fetching orders:', error);
-    toast.error('Failed to load orders');
+    return data as Doctor[];
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    toast.error('Failed to load doctors');
     return [];
   }
 };
 
-// Function to generate invoice for an order
-export const generateInvoice = async (orderId: string): Promise<boolean> => {
-  try {
-    // Call the edge function to generate invoice
-    const { data, error } = await supabase.functions.invoke('generate-invoice', {
-      body: { orderId }
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data?.success) {
-      throw new Error(data?.message || 'Failed to generate invoice');
-    }
-
-    return true;
-  } catch (error: any) {
-    console.error('Error generating invoice:', error);
-    toast.error('Failed to generate invoice', {
-      description: error.message || 'Please try again.'
-    });
-    return false;
-  }
-};
-
-// Function to synchronize orders with external systems
-export const synchronizeOrders = async (): Promise<boolean> => {
-  try {
-    // First, check for any pending orders in the database
-    const { data: pendingOrders, error: pendingError } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('status', 'pending');
-
-    if (pendingError) {
-      throw pendingError;
-    }
-
-    console.log(`Found ${pendingOrders.length} pending orders in database`);
-
-    // Update order summaries
-    const { error: updateError } = await supabase.rpc('update_order_summaries');
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    return true;
-  } catch (error: any) {
-    console.error('Error synchronizing orders:', error);
-    toast.error('Failed to synchronize orders', {
-      description: error.message || 'Please try again.'
-    });
-    return false;
-  }
-};
-
-// Function to fetch pending doctor approvals
+// Function to fetch pending doctors
 export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   try {
     const { data, error } = await supabase
       .from('doctors')
       .select('*')
-      .eq('status', 'pending')
+      .eq('is_approved', false)
       .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    return data;
+    return data as Doctor[];
   } catch (error) {
     console.error('Error fetching pending doctors:', error);
-    toast.error('Failed to load pending doctor approvals');
-    return [];
-  }
-};
-
-// Function to fetch approved doctors
-export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('doctors')
-      .select('*')
-      .eq('status', 'approved')
-      .order('name', { ascending: true });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching approved doctors:', error);
-    toast.error('Failed to load approved doctors');
+    toast.error('Failed to load pending doctors');
     return [];
   }
 };
@@ -198,30 +59,15 @@ export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
 // Function to approve a doctor
 export const approveDoctor = async (doctorId: string, adminId: string): Promise<boolean> => {
   try {
-    // Update doctor status
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from('doctors')
-      .update({
-        status: 'approved',
-        approved_at: new Date().toISOString(),
-        approved_by: adminId,
-      })
+      .update({ is_approved: true, updated_at: new Date() })
       .eq('id', doctorId);
 
-    if (updateError) {
-      throw updateError;
+    if (error) {
+      throw error;
     }
 
-    // Call edge function to notify doctor
-    await supabase.functions.invoke('send-doctor-notification', {
-      body: {
-        doctorId,
-        type: 'approval',
-        message: 'Your account has been approved. You can now log in and start using the system.',
-      },
-    });
-
-    toast.success('Doctor approved successfully');
     return true;
   } catch (error) {
     console.error('Error approving doctor:', error);
@@ -231,37 +77,17 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
 };
 
 // Function to reject a doctor
-export const rejectDoctor = async (
-  doctorId: string,
-  adminId: string,
-  reason: string
-): Promise<boolean> => {
+export const rejectDoctor = async (doctorId: string, adminId: string, reason: string): Promise<boolean> => {
   try {
-    // Update doctor status
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from('doctors')
-      .update({
-        status: 'rejected',
-        rejected_at: new Date().toISOString(),
-        rejected_by: adminId,
-        rejection_reason: reason,
-      })
+      .update({ is_approved: false, updated_at: new Date() })
       .eq('id', doctorId);
 
-    if (updateError) {
-      throw updateError;
+    if (error) {
+      throw error;
     }
 
-    // Call edge function to notify doctor
-    await supabase.functions.invoke('send-doctor-notification', {
-      body: {
-        doctorId,
-        type: 'rejection',
-        message: `Your account has been rejected. Reason: ${reason}`,
-      },
-    });
-
-    toast.success('Doctor rejected successfully');
     return true;
   } catch (error) {
     console.error('Error rejecting doctor:', error);
@@ -270,48 +96,58 @@ export const rejectDoctor = async (
   }
 };
 
-// Function to update order status
-export const updateOrderStatus = async (
-  orderId: string,
-  newStatus: string,
-  adminId: string
-): Promise<boolean> => {
+// Function to fetch all orders
+export const fetchAllOrders = async () => {
   try {
-    // Update order status
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
+    const { data, error } = await supabase
+      .rpc('get_all_orders_enhanced');
 
-    if (updateError) {
-      throw updateError;
+    if (error) {
+      throw error;
     }
 
-    // Add status history entry
-    const { error: historyError } = await supabase
-      .from('order_status_history')
-      .insert({
-        order_id: orderId,
-        status: newStatus,
-        created_by: adminId,
+    // Process orders to add summary of products
+    const ordersWithProductInfo = await Promise.all(data.map(async (order) => {
+      // Fetch items for this order
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('*, product:product_id(*)')
+        .eq('order_id', order.id);
+      
+      // Generate product summary
+      const productSummary = items?.map(item => 
+        `${item.product?.name} (${item.quantity})`
+      ).join(', ');
+      
+      return {
+        ...order,
+        product_summary: productSummary,
+        total_items: items?.length || 0
+      };
+    }));
+
+    return ordersWithProductInfo;
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    toast.error('Failed to load orders');
+    return [];
+  }
+};
+
+// Function to update order status
+export const updateOrderStatus = async (orderId: string, status: string, notes?: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .rpc('update_order_status', {
+        p_order_id: orderId,
+        p_status: status,
+        p_notes: notes || null
       });
 
-    if (historyError) {
-      throw historyError;
+    if (error) {
+      throw error;
     }
 
-    // Call edge function to notify doctor
-    await supabase.functions.invoke('notify-doctor-status-update', {
-      body: {
-        orderId,
-        status: newStatus,
-      },
-    });
-
-    toast.success('Order status updated successfully');
     return true;
   } catch (error) {
     console.error('Error updating order status:', error);
@@ -320,111 +156,26 @@ export const updateOrderStatus = async (
   }
 };
 
-// Function to get all doctor credit summaries
-export const getDoctorCreditSummaries = async (): Promise<DoctorCreditSummary[]> => {
-  try {
-    const { data, error } = await supabase.rpc('get_doctor_credit_summary');
-
-    if (error) {
-      throw error;
-    }
-
-    return data as unknown as DoctorCreditSummary[];
-  } catch (error) {
-    console.error('Error getting doctor credit summaries:', error);
-    toast.error('Failed to load doctor credit summaries');
-    return [];
-  }
-};
-
-// Function to get all credits for a specific doctor
-export const getDoctorCredits = async (doctorId: string): Promise<DoctorCredit[]> => {
-  try {
-    const { data, error } = await supabase.rpc('get_doctor_credits', {
-      doctor_id_param: doctorId
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data || data.length === 0) {
-      return [];
-    }
-
-    return data as unknown as DoctorCredit[];
-  } catch (error) {
-    console.error('Error getting doctor credits:', error);
-    toast.error('Failed to load doctor credits');
-    return [];
-  }
-};
-
-// Function to add a payment to a doctor's account
-export const addDoctorPayment = async (
-  doctorId: string, 
-  amount: number,
-  notes: string,
-  adminId: string
-): Promise<boolean> => {
-  try {
-    // Add payment record
-    const { data, error: paymentError } = await supabase
-      .from('doctor_credits')
-      .insert({
-        doctor_id: doctorId,
-        amount: amount * -1, // Negative amount for payment
-        type: 'payment',
-        notes,
-        created_by: adminId
-      })
-      .select('id')
-      .single();
-
-    if (paymentError) {
-      throw paymentError;
-    }
-
-    // Call edge function to notify doctor
-    await supabase.functions.invoke('notify-doctor-payment', {
-      body: {
-        doctorId,
-        amount,
-        paymentId: data.id,
-        notes
-      },
-    });
-
-    toast.success('Payment recorded successfully');
-    return true;
-  } catch (error) {
-    console.error('Error recording payment:', error);
-    toast.error('Failed to record payment');
-    return false;
-  }
-};
-
-// Function to update shipping information
+// Function to update shipping info
 export const updateShippingInfo = async (
-  orderId: string,
-  shippingInfo: ShippingInfo
+  orderId: string, 
+  trackingNumber: string, 
+  shippingCarrier: string,
+  estimatedDeliveryDate?: string
 ): Promise<boolean> => {
   try {
     const { error } = await supabase
-      .from('orders')
-      .update({
-        tracking_number: shippingInfo.trackingNumber,
-        shipping_carrier: shippingInfo.shippingCarrier,
-        estimated_delivery_date: shippingInfo.estimatedDeliveryDate || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId);
+      .rpc('update_shipping_info', {
+        p_order_id: orderId,
+        p_tracking_number: trackingNumber,
+        p_shipping_carrier: shippingCarrier,
+        p_estimated_delivery_date: estimatedDeliveryDate || null
+      });
 
     if (error) {
       throw error;
     }
 
-    toast.success('Shipping information updated successfully');
     return true;
   } catch (error) {
     console.error('Error updating shipping info:', error);
@@ -433,73 +184,108 @@ export const updateShippingInfo = async (
   }
 };
 
+// Function to generate invoice
+export const generateInvoice = async (orderId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .rpc('generate_invoice', {
+        p_order_id: orderId
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    toast.error('Failed to generate invoice');
+    return false;
+  }
+};
+
+// Function to synchronize orders
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    // This is just a placeholder since we're not implementing actual synchronization yet
+    console.log('Synchronizing orders...');
+    
+    // For demo purposes, just refresh the data
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .limit(1);
+      
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error synchronizing orders:', error);
+    toast.error('Failed to synchronize orders');
+    return false;
+  }
+};
+
+// Function to get doctor credits
+export const getDoctorCredits = async (doctorId: string) => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_doctor_credit_summary', {
+        p_doctor_id: doctorId
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting doctor credits:', error);
+    toast.error('Failed to load credit information');
+    return null;
+  }
+};
+
+// Function to get all doctors with credit information
+export const getAllDoctorsWithCredits = async () => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_all_doctor_credits');
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting all doctors with credits:', error);
+    toast.error('Failed to load doctor credits');
+    return [];
+  }
+};
+
 // Function to update return status
 export const updateReturnStatus = async (
   returnId: string, 
-  newStatus: string,
+  status: string, 
   adminId: string,
   notes?: string
 ): Promise<boolean> => {
   try {
-    // Update return status
-    const { error: updateError } = await supabase
-      .from('order_returns')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-        processed_by: adminId,
-        notes: notes || null
-      })
-      .eq('id', returnId);
+    const { error } = await supabase
+      .rpc('update_return_status', {
+        p_return_id: returnId,
+        p_status: status,
+        p_processed_by: adminId,
+        p_notes: notes || null
+      });
 
-    if (updateError) {
-      throw updateError;
+    if (error) {
+      throw error;
     }
 
-    // If approved, need to update order status and create credit
-    if (newStatus === 'approved') {
-      // Get return details
-      const { data: returnData, error: fetchError } = await supabase
-        .from('order_returns')
-        .select('*')
-        .eq('id', returnId)
-        .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      // Update order status
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({
-          status: 'returned',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', returnData.order_id);
-
-      if (orderError) {
-        throw orderError;
-      }
-
-      // Add credit for return amount
-      const { error: creditError } = await supabase
-        .from('doctor_credits')
-        .insert({
-          doctor_id: returnData.doctor_id,
-          amount: returnData.amount,
-          type: 'return',
-          order_id: returnData.order_id,
-          notes: `Return #${returnId} approved`,
-          created_by: adminId
-        });
-
-      if (creditError) {
-        throw creditError;
-      }
-    }
-
-    toast.success(`Return ${newStatus} successfully`);
     return true;
   } catch (error) {
     console.error('Error updating return status:', error);
@@ -508,47 +294,37 @@ export const updateReturnStatus = async (
   }
 };
 
-// Function to get order counts by status
-export const getOrderCounts = async (): Promise<Record<string, number>> => {
+// Function to fetch return details
+export const fetchReturnDetails = async (returnId: string) => {
   try {
-    // Using a simple query instead of RPC to avoid the error
-    const { data, error } = await supabase
-      .from('orders')
-      .select('status, count')
-      .eq('status', 'pending')
-      .or('status.eq.processing,status.eq.shipped,status.eq.delivered,status.eq.cancelled')
-      .then(({ data, error }) => {
-        if (error) throw error;
-        
-        // Transform the result to the expected format
-        const counts: Record<string, number> = {
-          'pending': 0,
-          'processing': 0,
-          'shipped': 0,
-          'delivered': 0,
-          'cancelled': 0,
-        };
-        
-        data?.forEach(row => {
-          counts[row.status] = row.count;
-        });
-        
-        return { data: counts, error: null };
-      });
+    // Fetch the return
+    const { data: returnData, error: returnError } = await supabase
+      .from('returns')
+      .select('*')
+      .eq('id', returnId)
+      .single();
 
-    if (error) {
-      throw error;
+    if (returnError) {
+      throw returnError;
     }
 
-    return data as Record<string, number>;
-  } catch (error) {
-    console.error('Error getting order counts:', error);
+    // Fetch the return items
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('return_items')
+      .select('*, product:product_id(*)')
+      .eq('return_id', returnId);
+
+    if (itemsError) {
+      throw itemsError;
+    }
+
     return {
-      'pending': 0,
-      'processing': 0,
-      'shipped': 0,
-      'delivered': 0,
-      'cancelled': 0,
+      ...returnData,
+      items: itemsData
     };
+  } catch (error) {
+    console.error('Error fetching return details:', error);
+    toast.error('Failed to load return details');
+    return null;
   }
 };

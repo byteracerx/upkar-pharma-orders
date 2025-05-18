@@ -107,7 +107,15 @@ const DoctorApprovals = () => {
           {pendingDoctors.map(doctor => (
             <DoctorApprovalCard 
               key={doctor.id}
-              doctor={doctor}
+              doctor={{
+                id: doctor.id,
+                name: doctor.name,
+                email: doctor.email || '',
+                phone: doctor.phone,
+                address: doctor.address,
+                gstNumber: doctor.gst_number,
+                registrationDate: doctor.created_at
+              }}
               onApprove={() => handleApprove(doctor.id)}
               onReject={(reason) => handleReject(doctor.id, reason)}
               isProcessing={processingDoctorId === doctor.id}

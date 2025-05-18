@@ -41,14 +41,19 @@ const Login = () => {
     try {
       console.log("Attempting login with:", { email, password: "***" });
       
-      const { error } = await login(email.trim(), password);
+      const result = await login(email.trim(), password);
 
-      if (!error) {
+      if (result.success) {
         console.log("Login successful");
         toast.success("Login Successful", {
           description: email === 'admin@upkar.com' 
             ? "Welcome to the Admin Dashboard" 
             : "Welcome back to Upkar Pharma"
+        });
+      } else if (result.error) {
+        // Handle error from login result
+        toast.error("Login Failed", {
+          description: result.message || "Please check your credentials and try again"
         });
       }
     } catch (error: any) {

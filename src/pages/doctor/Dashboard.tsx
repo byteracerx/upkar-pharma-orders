@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +173,7 @@ const DoctorDashboard = () => {
       <div className="container-custom py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Welcome, {user.name}</h1>
+            <h1 className="text-3xl font-bold">Welcome back, {user.name || 'Doctor'}</h1>
             <p className="text-gray-600">Manage your orders and account details</p>
           </div>
           <div className="flex gap-3">

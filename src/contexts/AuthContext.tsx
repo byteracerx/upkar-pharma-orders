@@ -1,20 +1,7 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
-
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  isApproved: boolean;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  signup: (email: string, password: string, userData: any) => Promise<{ success: boolean; message: string }>;
-  logout: () => Promise<void>;
-  updateUserProfile: (data: any) => Promise<boolean>;
-}
+import { Session } from "@supabase/supabase-js";
+import { User, AuthContextType } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -29,7 +16,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        // Convert Supabase User to our extended User type
+        const extendedUser = {
+          ...session.user,
+          name: session.user.user_metadata?.name || null,
+          phone: session.user.user_metadata?.phone || null,
+          address: session.user.user_metadata?.address || null,
+          gstNumber: session.user.user_metadata?.gstNumber || null,
+        } as User;
+        setUser(extendedUser);
+      } else {
+        setUser(null);
+      }
       checkUserStatus(session?.user?.id);
     });
 
@@ -37,11 +36,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
-        setUser(session?.user ?? null);
-        
         if (session?.user) {
+          // Convert Supabase User to our extended User type
+          const extendedUser = {
+            ...session.user,
+            name: session.user.user_metadata?.name || null,
+            phone: session.user.user_metadata?.phone || null,
+            address: session.user.user_metadata?.address || null,
+            gstNumber: session.user.user_metadata?.gstNumber || null,
+          } as User;
+          setUser(extendedUser);
           checkUserStatus(session.user.id);
         } else {
+          setUser(null);
           setIsAdmin(false);
           setIsApproved(false);
         }
@@ -122,14 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      return { success: true, message: "Login successful" };
+      return { success: true, message: "Login successful", error: null };
     } catch (error: any) {
       console.error("Login error:", error);
-      return { success: false, message: error.message || "Failed to login" };
+      return { success: false, message: error.message || "Failed to login", error };
     }
   };
 
-  const signup = async (email: string, password: string, userData: any) => {
+  const signUp = async (email: string, password: string, userData: any) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -167,6 +174,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Failed to create your doctor profile. Please contact support.");
       }
 
+      return { error: null };
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      return { error };
+    }
+  };
+
+  // Include both signup and signUp methods for backward compatibility
+  const signup = async (email: string, password: string, userData: any) => {
+    try {
+      const { error } = await signUp(email, password, userData);
+      
+      if (error) {
+        return { 
+          success: false, 
+          message: error.message || "Failed to register" 
+        };
+      }
+      
       return { 
         success: true, 
         message: "Registration successful! Your account is pending approval by an administrator." 
@@ -219,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     session,
     isAuthenticated: !!user,
@@ -228,6 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     login,
     signup,
+    signUp,
     logout,
     updateUserProfile,
   };

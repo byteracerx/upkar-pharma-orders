@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { getUserDisplayName } from "@/utils/user-helpers";
 
 interface SidebarLinkProps {
   to: string;
@@ -44,6 +45,7 @@ const SidebarLink = ({ to, icon, children }: SidebarLinkProps) => {
 const AdminSidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const displayName = getUserDisplayName(user);
 
   const handleLogout = () => {
     logout();
@@ -90,7 +92,7 @@ const AdminSidebar = () => {
             <User className="h-6 w-6 text-gray-600" />
           </div>
           <div>
-            <p className="font-medium">{user?.name}</p>
+            <p className="font-medium">{displayName}</p>
             <p className="text-xs text-gray-500">{user?.email}</p>
           </div>
         </div>

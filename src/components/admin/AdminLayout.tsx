@@ -7,6 +7,7 @@ import { Navigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LogOut, Loader2 } from "lucide-react";
+import { getUserDisplayName } from "@/utils/user-helpers";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -34,6 +35,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     return <Navigate to="/dashboard" />;
   }
   
+  const displayName = getUserDisplayName(user);
+  
   return (
     <div className="flex h-screen">
       <AdminSidebar />
@@ -45,11 +48,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-upkar-blue text-white">
-                  {user.name?.charAt(0) || 'A'}
+                  {displayName.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="text-sm">
-                <div className="font-medium">{user.name || 'Admin'}</div>
+                <div className="font-medium">{displayName}</div>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={logout}>

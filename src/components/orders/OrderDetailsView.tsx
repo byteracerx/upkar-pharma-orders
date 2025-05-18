@@ -42,6 +42,9 @@ const OrderDetailsView = ({ orderDetails, isAdmin = false }: OrderDetailsViewPro
     }
   };
 
+  // Calculate shipping cost with fallback to 0
+  const shippingCost = order.shipping_cost || 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -183,12 +186,12 @@ const OrderDetailsView = ({ orderDetails, isAdmin = false }: OrderDetailsViewPro
                 </tr>
                 <tr>
                   <td colSpan={3} className="px-6 py-4 text-right font-medium">Shipping</td>
-                  <td className="px-6 py-4 text-right font-medium">{formatCurrency(order.shipping_cost || 0)}</td>
+                  <td className="px-6 py-4 text-right font-medium">{formatCurrency(shippingCost)}</td>
                 </tr>
                 <tr>
                   <td colSpan={3} className="px-6 py-4 text-right text-lg font-semibold">Total</td>
                   <td className="px-6 py-4 text-right text-lg font-semibold">
-                    {formatCurrency(order.total_amount + (order.shipping_cost || 0))}
+                    {formatCurrency(order.total_amount + shippingCost)}
                   </td>
                 </tr>
               </tfoot>

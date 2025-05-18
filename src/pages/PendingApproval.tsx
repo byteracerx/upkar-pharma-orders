@@ -14,6 +14,9 @@ const PendingApproval = () => {
     navigate("/login");
   };
 
+  // Get user name with fallback
+  const userName = user?.name || user?.user_metadata?.name || 'Doctor';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -26,7 +29,7 @@ const PendingApproval = () => {
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           <p className="text-gray-600">
-            Hello {user?.name || 'Doctor'},
+            Hello {userName},
           </p>
           <p className="text-gray-600">
             Your registration has been received and is currently under review by our admin team.

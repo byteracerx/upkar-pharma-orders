@@ -1,113 +1,71 @@
 
-// Define all order-related types in one place for better organization
+export interface Order {
+  id: string;
+  doctor_id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  estimated_delivery_date?: string;
+  actual_delivery_date?: string;
+  tracking_number?: string;
+  shipping_carrier?: string;
+  payment_status?: string;
+  invoice_number?: string;
+  invoice_generated?: boolean;
+  shipping_cost?: number;
+  invoice_url?: string;
+  shipping_address?: string;
+  billing_address?: string;
+  payment_method?: string;
+  notes?: string;
+  doctor?: Doctor;
+}
 
-// Order item type definition
 export interface OrderItem {
   id: string;
+  order_id: string;
   product_id: string;
   quantity: number;
   price_per_unit: number;
   total_price: number;
-  product: {
-    name: string;
-    price: number;
-    description?: string;
-    image_url?: string;
-    category?: string;
-  };
+  product?: Product;
 }
 
-// Main order type definition
-export interface Order {
+export interface Doctor {
   id: string;
-  doctor_id: string;
-  status: string;
-  total_amount: number;
-  created_at: string;
-  updated_at: string;
-  payment_method?: string;
-  payment_status?: string;
-  shipping_address?: string;
-  billing_address?: string;
-  tracking_number?: string | null;
-  shipping_carrier?: string | null;
-  estimated_delivery_date?: string | null;
-  actual_delivery_date?: string | null;
-  notes?: string;
-  invoice_number?: string;
-  invoice_generated?: boolean;
-  invoice_url?: string;
-  doctor?: {
-    name: string;
-    email: string;
-    phone: string;
-  };
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  gst_number?: string;
+  is_approved?: boolean;
 }
 
-// Order status history type
-export interface OrderStatusHistory {
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  image_url?: string;
+  category?: string;
+  stock?: number;
+}
+
+export interface StatusHistory {
   id: string;
   order_id: string;
   status: string;
-  created_at: string;
-  created_by: string;
   notes?: string;
-  admin_name?: string;
-}
-
-// Order communication type
-export interface OrderCommunication {
-  id: string;
-  order_id: string;
-  sender_id: string;
-  message: string;
   created_at: string;
-  read: boolean;
-  sender_type: 'admin' | 'doctor';
-  recipient_id?: string;
-  read_at?: string;
+  created_by?: string;
 }
 
-// Order return type
-export interface OrderReturn {
-  id: string;
-  order_id: string;
-  doctor_id: string;
-  reason: string;
-  status: string;
-  amount: number;
-  created_at: string;
-  updated_at: string;
-  processed_by?: string;
-  notes?: string;
-  items?: {
-    id: string;
-    product_id: string;
-    quantity: number;
-    price_per_unit: number;
-    total_price: number;
-    reason?: string;
-    condition?: string;
-    product?: {
-      name: string;
-      price: number;
-      category?: string;
-    };
-  }[];
-}
-
-// Combined order details type
 export interface OrderDetails {
   order: Order;
   items: OrderItem[];
-  statusHistory?: OrderStatusHistory[];
-  communications?: OrderCommunication[];
-  returns?: OrderReturn[];
-}
-
-// Shipping info type
-export interface ShippingInfo {
-  tracking_number: string;
-  shipping_carrier: string;
-  estimated_delivery_date?: string;
+  statusHistory?: StatusHistory[];
+  notifications?: any[];
+  communications?: any[];
+  returns?: any[];
 }

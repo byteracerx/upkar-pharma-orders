@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -222,7 +221,7 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
       doctor: orderData.doctor as { name: string; email: string; phone: string },
     };
 
-    // Convert communications to match OrderCommunication interface
+    // Convert communications to match OrderCommunication interface by adding the sender_type if missing
     const communications: OrderCommunication[] = communicationsData ? communicationsData.map(comm => ({
       ...comm,
       sender_type: comm.sender_type || 'doctor' // Default to 'doctor' if not specified

@@ -1,5 +1,5 @@
 
-import { OrderReturn } from "@/services/orderService";
+import { OrderReturn } from "@/services/order/types";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

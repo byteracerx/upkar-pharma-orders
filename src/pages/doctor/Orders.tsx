@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, FileText, ArrowUpRight, AlertCircle, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDoctorOrders } from "@/services/doctorOrderService";
+import { fetchDoctorOrdersReliable } from "@/services/doctorOrderService";
 
 interface Order {
   id: string;
@@ -31,7 +31,7 @@ const Orders = () => {
       
       try {
         setIsLoading(true);
-        const ordersData = await getDoctorOrders(user.id);
+        const ordersData = await fetchDoctorOrdersReliable(user.id);
         setOrders(ordersData);
         setFilteredOrders(ordersData);
       } catch (error: any) {

@@ -81,7 +81,6 @@ const OrderDetails = () => {
         ) : orderDetails ? (
           <OrderDetailsView 
             orderDetails={orderDetails}
-            isDoctor={true}
           />
         ) : (
           <Card className="p-8 text-center">

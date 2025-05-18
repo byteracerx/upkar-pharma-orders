@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Order } from "./orderService";
-import { toast } from "@/hooks/use-toast";
+import { Order } from "./order";
+import { toast } from "sonner";
 
 /**
  * Fetch orders for a specific doctor with improved reliability

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Check, X, User } from "lucide-react";
 import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface DoctorApprovalCardProps {
   doctor: {
@@ -23,13 +23,15 @@ interface DoctorApprovalCardProps {
     address?: string;
   };
   onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onReject: (id: string, reason?: string) => void;
+  isProcessing?: boolean;
 }
 
 const DoctorApprovalCard = ({
   doctor,
   onApprove,
-  onReject
+  onReject,
+  isProcessing = false
 }: DoctorApprovalCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,9 +41,7 @@ const DoctorApprovalCard = ({
       await onApprove(doctor.id);
     } catch (error: any) {
       console.error("Error approving doctor:", error);
-      toast.error("Error", {
-        description: "Failed to approve the doctor. Please try again."
-      });
+      toast.error("Failed to approve doctor.");
     } finally {
       setIsLoading(false);
     }
@@ -53,9 +53,7 @@ const DoctorApprovalCard = ({
       await onReject(doctor.id);
     } catch (error: any) {
       console.error("Error rejecting doctor:", error);
-      toast.error("Error", {
-        description: "Failed to reject the doctor. Please try again."
-      });
+      toast.error("Failed to reject doctor.");
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +100,7 @@ const DoctorApprovalCard = ({
         <Button
           variant="outline"
           onClick={handleReject}
-          disabled={isLoading}
+          disabled={isLoading || isProcessing}
           className="flex items-center gap-1"
         >
           <X className="h-4 w-4" />
@@ -110,7 +108,7 @@ const DoctorApprovalCard = ({
         </Button>
         <Button
           onClick={handleApprove}
-          disabled={isLoading}
+          disabled={isLoading || isProcessing}
           className="flex items-center gap-1"
         >
           <Check className="h-4 w-4" />

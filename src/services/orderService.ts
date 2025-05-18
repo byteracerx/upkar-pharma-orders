@@ -62,6 +62,8 @@ export interface OrderCommunication {
   created_at: string;
   read: boolean;
   sender_type: 'admin' | 'doctor';
+  recipient_id?: string;
+  read_at?: string;
 }
 
 export interface OrderReturn {
@@ -99,6 +101,12 @@ export interface OrderDetails {
   returns?: OrderReturn[];
 }
 
+export interface ShippingInfo {
+  tracking_number: string;
+  shipping_carrier: string;
+  estimated_delivery_date?: string;
+}
+
 // Function to get orders for a doctor
 export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   try {
@@ -123,7 +131,7 @@ export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   }
 };
 
-// Add this new function to fetch order items
+// Function to fetch order items
 export const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
   try {
     const { data, error } = await supabase
@@ -186,7 +194,7 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
 
     // Get returns
     const { data: returnsData, error: returnsError } = await supabase
-      .from('order_returns')
+      .from('returns')
       .select('*')
       .eq('order_id', orderId)
       .order('created_at', { ascending: false });
@@ -196,14 +204,14 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
     if (returnsData && returnsData.length > 0) {
       const returnPromises = returnsData.map(async (returnItem) => {
         const { data: returnItemsData } = await supabase
-          .from('order_return_items')
+          .from('return_items')
           .select('*, product:product_id(*)')
           .eq('return_id', returnItem.id);
         
         return {
           ...returnItem,
           items: returnItemsData || []
-        };
+        } as OrderReturn;
       });
       
       returnsWithItems = await Promise.all(returnPromises);
@@ -214,11 +222,17 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
       doctor: orderData.doctor as { name: string; email: string; phone: string },
     };
 
+    // Convert communications to match OrderCommunication interface
+    const communications = communicationsData ? communicationsData.map(comm => ({
+      ...comm,
+      sender_type: comm.sender_type || 'doctor' // Default to 'doctor' if not specified
+    })) as OrderCommunication[] : [];
+
     return {
       order,
       items: itemsData,
       statusHistory: statusHistoryData || [],
-      communications: communicationsData || [],
+      communications: communications,
       returns: returnsWithItems
     };
   } catch (error) {
@@ -283,6 +297,114 @@ export const markOrderCommunicationsAsRead = async (
   }
 };
 
+// Fetch all orders
+export const fetchAllOrders = async () => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_all_orders_enhanced');
+
+    if (error) {
+      throw error;
+    }
+
+    // Process orders to add summary of products
+    const ordersWithProductInfo = await Promise.all(data.map(async (order) => {
+      // Fetch items for this order
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('*, product:product_id(*)')
+        .eq('order_id', order.id);
+      
+      // Generate product summary
+      const productSummary = items?.map(item => 
+        `${item.product?.name} (${item.quantity})`
+      ).join(', ');
+      
+      return {
+        ...order,
+        product_summary: productSummary,
+        total_items: items?.length || 0
+      };
+    }));
+
+    return ordersWithProductInfo;
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    toast.error('Failed to load orders');
+    return [];
+  }
+};
+
+// Function to update order status
+export const updateOrderStatus = async (orderId: string, status: string, notes?: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .rpc('update_order_status', {
+        p_order_id: orderId,
+        p_status: status,
+        p_notes: notes || null
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    toast.error('Failed to update order status');
+    return false;
+  }
+};
+
+// Function to update shipping info
+export const updateShippingInfo = async (
+  orderId: string, 
+  trackingNumber: string, 
+  shippingCarrier: string,
+  estimatedDeliveryDate?: string
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .rpc('update_shipping_info', {
+        p_order_id: orderId,
+        p_tracking_number: trackingNumber,
+        p_shipping_carrier: shippingCarrier,
+        p_estimated_delivery_date: estimatedDeliveryDate || null
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating shipping info:', error);
+    toast.error('Failed to update shipping information');
+    return false;
+  }
+};
+
+// Function to generate invoice
+export const generateInvoice = async (orderId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .rpc('generate_invoice', {
+        p_order_id: orderId
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    toast.error('Failed to generate invoice');
+    return false;
+  }
+};
+
 // Function to process a return
 export const processReturn = async (
   orderId: string,
@@ -320,7 +442,7 @@ export const processReturn = async (
     
     // Create the return record
     const { data: returnData, error: returnError } = await supabase
-      .from('order_returns')
+      .from('returns')
       .insert({
         order_id: orderId,
         doctor_id: doctorId,
@@ -343,7 +465,7 @@ export const processReturn = async (
       }));
       
       const { error: itemsError } = await supabase
-        .from('order_return_items')
+        .from('return_items')
         .insert(returnItemsWithReturnId);
         
       if (itemsError) {
@@ -386,3 +508,27 @@ export const processReturn = async (
 
 // Add this alias for backward compatibility
 export const initiateReturn = processReturn;
+
+// Function to synchronize orders
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    // This is just a placeholder since we're not implementing actual synchronization yet
+    console.log('Synchronizing orders...');
+    
+    // For demo purposes, just refresh the data
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .limit(1);
+      
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error synchronizing orders:', error);
+    toast.error('Failed to synchronize orders');
+    return false;
+  }
+};

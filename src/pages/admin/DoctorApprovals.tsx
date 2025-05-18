@@ -48,7 +48,7 @@ const DoctorApprovals = () => {
     }
   };
   
-  const handleReject = async (doctorId: string, reason: string) => {
+  const handleReject = async (doctorId: string, reason: string = '') => {
     if (!user?.id) {
       toast.error('You need to be logged in to reject doctors.');
       return;
@@ -57,7 +57,7 @@ const DoctorApprovals = () => {
     setProcessingDoctorId(doctorId);
     
     try {
-      const success = await rejectDoctor(doctorId, user.id, reason);
+      const success = await rejectDoctor(doctorId, user.id, reason || 'No reason provided');
       if (success) {
         // Remove rejected doctor from list
         setPendingDoctors(current => current.filter(d => d.id !== doctorId));

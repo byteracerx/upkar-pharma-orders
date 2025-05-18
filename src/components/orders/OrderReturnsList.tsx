@@ -26,13 +26,13 @@ const OrderReturnsList = ({ returns, isAdmin = false, onUpdateReturnStatus }: Or
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "approved":
-        return "success";
+        return "default"; // Changed from "success" to "default"
       case "pending":
-        return "warning";
+        return "secondary"; // Changed from "warning" to "secondary"
       case "rejected":
         return "destructive";
       default:
-        return "secondary";
+        return "outline";
     }
   };
 

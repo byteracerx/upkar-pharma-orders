@@ -37,7 +37,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { fetchAllOrders, updateOrderStatus, generateInvoice, synchronizeOrders } from "@/services/adminService";
-import { fetchOrderItems } from "@/services/orderService";
+import { fetchOrderItems, OrderItem } from "@/services/orderService";
 import { subscribeToOrders } from "@/services/realtimeService";
 
 type Order = {
@@ -62,7 +62,8 @@ type Order = {
   order_items?: any[];
 };
 
-type OrderItem = {
+// Define local OrderItem type to avoid conflicts with imported OrderItem
+type LocalOrderItem = {
   id: string;
   order_id: string;
   product_id: string;
@@ -80,7 +81,7 @@ const AdminOrders = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [orderItems, setOrderItems] = useState<LocalOrderItem[]>([]);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
@@ -136,7 +137,22 @@ const AdminOrders = () => {
 
       // Use the orderService function
       const items = await fetchOrderItems(orderId);
-      setOrderItems(items);
+      
+      // Convert to LocalOrderItem type
+      const localItems: LocalOrderItem[] = items.map(item => ({
+        id: item.id,
+        order_id: orderId, // Add the missing order_id property
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price_per_unit: item.price_per_unit,
+        total_price: item.total_price,
+        product: item.product ? {
+          name: item.product.name,
+          category: item.product.category || null
+        } : null
+      }));
+      
+      setOrderItems(localItems);
     } catch (error: any) {
       console.error("Error fetching order details:", error);
       toast.error("Failed to load order details", {

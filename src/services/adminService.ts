@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -61,7 +60,10 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
   try {
     const { error } = await supabase
       .from('doctors')
-      .update({ is_approved: true, updated_at: new Date() })
+      .update({ 
+        is_approved: true, 
+        updated_at: new Date().toISOString() // Fixed: Convert Date to string
+      })
       .eq('id', doctorId);
 
     if (error) {
@@ -81,7 +83,10 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
   try {
     const { error } = await supabase
       .from('doctors')
-      .update({ is_approved: false, updated_at: new Date() })
+      .update({ 
+        is_approved: false, 
+        updated_at: new Date().toISOString() // Fixed: Convert Date to string
+      })
       .eq('id', doctorId);
 
     if (error) {
@@ -328,3 +333,19 @@ export const fetchReturnDetails = async (returnId: string) => {
     return null;
   }
 };
+
+// Export these functions for EnhancedOrders.tsx
+export const {
+  fetchAllOrders,
+  updateOrderStatus,
+  updateShippingInfo,
+  generateInvoice,
+  synchronizeOrders
+} = require('./orderService');
+
+// Export type for EnhancedOrders.tsx
+export interface ShippingInfo {
+  tracking_number: string;
+  shipping_carrier: string;
+  estimated_delivery_date?: string;
+}

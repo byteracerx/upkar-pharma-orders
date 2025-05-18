@@ -1,15 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
-  fetchAllOrders, 
-  updateOrderStatus,
-  updateShippingInfo,
-  generateInvoice,
   Order,
   ShippingInfo
 } from "@/services/orderService";
 import {
+  fetchAllOrders,
+  updateOrderStatus,
+  updateShippingInfo,
+  generateInvoice,
   synchronizeOrders
 } from "@/services/adminService";
 import {

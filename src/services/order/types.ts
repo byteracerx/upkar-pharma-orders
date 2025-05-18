@@ -59,6 +59,7 @@ export interface StatusHistory {
   notes?: string;
   created_at: string;
   created_by?: string;
+  admin_name?: string; // Added for admin name display
 }
 
 export interface OrderDetails {
@@ -66,6 +67,47 @@ export interface OrderDetails {
   items: OrderItem[];
   statusHistory?: StatusHistory[];
   notifications?: any[];
-  communications?: any[];
-  returns?: any[];
+  communications?: OrderCommunication[];
+  returns?: OrderReturn[];
+}
+
+// Add missing OrderCommunication interface
+export interface OrderCommunication {
+  id: string;
+  order_id: string;
+  sender_id: string;
+  sender_type: 'admin' | 'doctor';
+  recipient_id?: string;
+  message: string;
+  read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+
+// Add missing OrderReturn interface
+export interface OrderReturn {
+  id: string;
+  order_id: string;
+  doctor_id: string;
+  reason: string;
+  notes?: string;
+  status: string;
+  amount: number;
+  created_at: string;
+  updated_at?: string;
+  processed_by?: string;
+  items?: OrderReturnItem[];
+}
+
+// Add OrderReturnItem interface
+export interface OrderReturnItem {
+  id: string;
+  return_id: string;
+  product_id: string;
+  quantity: number;
+  price_per_unit: number;
+  total_price: number;
+  reason?: string;
+  condition?: string;
+  product?: Product;
 }

@@ -1,5 +1,5 @@
 
-import { OrderStatusHistory } from '@/services/orderService';
+import { StatusHistory } from '@/services/order/types';
 import { formatDate } from '@/lib/utils';
 import {
   Truck,
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 interface OrderStatusTimelineProps {
-  statusHistory: OrderStatusHistory[];
+  statusHistory: StatusHistory[];
 }
 
 const OrderStatusTimeline = ({ statusHistory = [] }: OrderStatusTimelineProps) => {

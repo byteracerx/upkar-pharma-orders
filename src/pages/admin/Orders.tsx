@@ -256,7 +256,7 @@ const AdminOrders = () => {
       const { sendWhatsAppNotification } = await import('@/services/invoiceService');
 
       // Send WhatsApp notification
-      const success = await sendWhatsAppNotification(orderId);
+      const success = await sendWhatsAppNotification(orderId, 'order_status_update');
 
       if (!success) {
         throw new Error("Failed to send WhatsApp notification");

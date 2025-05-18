@@ -16,6 +16,7 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
       .select(`
         *,
         doctor:doctor_id (
+          id,
           name,
           phone
         )
@@ -40,6 +41,7 @@ export const fetchDoctorOrdersReliable = async (doctorId: string): Promise<Order
         ...order,
         doctor: {
           // Safely handle the doctor data with type checking
+          id: typeof doctorData === 'object' && doctorData ? String(doctorData.id || doctorId) : doctorId,
           name: typeof doctorData === 'object' && doctorData ? String(doctorData.name || "Unknown") : "Unknown",
           phone: typeof doctorData === 'object' && doctorData ? String(doctorData.phone || "N/A") : "N/A",
           email: "" // Since email isn't in the select query, we'll set a default empty string

@@ -13,7 +13,7 @@ export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, doctor:doctor_id(name, email, phone)')
+      .select('*, doctor:doctor_id(id, name, email, phone)')
       .eq('doctor_id', doctorId)
       .order('created_at', { ascending: false });
 
@@ -23,7 +23,7 @@ export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
 
     return data.map(order => ({
       ...order,
-      doctor: order.doctor as { name: string; email: string; phone: string },
+      doctor: order.doctor as Order['doctor'],
     }));
   } catch (error) {
     console.error('Error getting doctor orders:', error);
@@ -61,7 +61,7 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
     // Get order details
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('*, doctor:doctor_id(name, email, phone)')
+      .select('*, doctor:doctor_id(id, name, email, phone)')
       .eq('id', orderId)
       .single();
 
@@ -120,7 +120,7 @@ export const getOrderDetails = async (orderId: string): Promise<OrderDetails | n
 
     const order = {
       ...orderData,
-      doctor: orderData.doctor as { name: string; email: string; phone: string },
+      doctor: orderData.doctor as Order['doctor'],
     };
 
     // Convert communications to match OrderCommunication interface by adding the sender_type if missing

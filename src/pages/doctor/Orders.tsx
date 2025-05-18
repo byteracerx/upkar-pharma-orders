@@ -1,11 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
-  fetchOrderDetails, 
-  reorderPreviousOrder,
-  addOrderCommunication,
+  getOrderDetails, 
   processReturn,
+  addOrderCommunication, 
   Order,
   OrderDetails,
   OrderItem
@@ -109,7 +107,7 @@ const DoctorOrders = () => {
     setIsDetailsOpen(true);
     
     try {
-      const details = await fetchOrderDetails(orderId);
+      const details = await getOrderDetails(orderId);
       setOrderDetails(details);
       setOrderItems(details.items);
     } catch (error: any) {
@@ -126,20 +124,16 @@ const DoctorOrders = () => {
     
     setIsReordering(true);
     try {
-      const newOrderId = await reorderPreviousOrder(orderId, user.id);
+      // This functionality needs to be implemented
+      // For now we'll show a toast that this feature is coming soon
+      toast.info("Reorder functionality coming soon");
       
-      if (newOrderId) {
-        toast.success("Order Resubmitted");
-        
-        // Refresh orders
-        fetchOrders();
-      } else {
-        throw new Error("Failed to reorder");
-      }
+      // Refresh orders
+      fetchOrders();
+      setIsReordering(false);
     } catch (error: any) {
       console.error("Error reordering:", error);
       toast.error("Failed to reorder");
-    } finally {
       setIsReordering(false);
     }
   };
@@ -149,19 +143,16 @@ const DoctorOrders = () => {
     if (!user?.id) return;
     
     try {
-      // Assuming admin has a fixed ID or role
-      const adminId = 'admin';
-      
-      const messageId = await addOrderCommunication(
-        orderId,
+      const success = await addOrderCommunication(
+        orderId, 
+        message, 
         user.id,
-        adminId,
-        message
+        "doctor"
       );
       
-      if (messageId) {
+      if (success) {
         // Refresh order details to show the new message
-        const details = await fetchOrderDetails(orderId);
+        const details = await getOrderDetails(orderId);
         setOrderDetails(details);
         
         toast.success("Message Sent");
@@ -184,7 +175,7 @@ const DoctorOrders = () => {
   const handleReturnComplete = async () => {
     if (selectedOrder) {
       // Refresh order details
-      const details = await fetchOrderDetails(selectedOrder);
+      const details = await getOrderDetails(selectedOrder);
       setOrderDetails(details);
     }
   };
@@ -194,8 +185,10 @@ const DoctorOrders = () => {
     // Find the order
     const order = orders.find(o => o.id === orderId);
     
-    if (order?.invoice_url) {
-      window.open(order.invoice_url, '_blank');
+    if (order?.invoice_number) {
+      // We don't have direct access to invoice_url in the type,
+      // Let's download based on invoice_number instead
+      window.open(`/invoices/${order.invoice_number}.pdf`, '_blank');
     } else {
       toast.error("Invoice Not Available");
     }

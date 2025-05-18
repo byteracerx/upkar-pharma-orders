@@ -64,7 +64,7 @@ const OrderTrackingInfo = ({ order, isAdmin, onUpdateTracking }: OrderTrackingIn
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-500">Status:</span>
-              <Badge variant={order.status === "delivered" ? "secondary" : "default"}>
+              <Badge variant={order.status === "delivered" ? "outline" : "default"}>
                 {order.status === "delivered" ? "Delivered" : "In Transit"}
               </Badge>
             </div>

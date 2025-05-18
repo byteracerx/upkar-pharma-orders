@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -36,6 +35,7 @@ export interface Order {
   notes?: string;
   invoice_number?: string;
   invoice_generated?: boolean;
+  invoice_url?: string;
   doctor?: {
     name: string;
     email: string;
@@ -50,6 +50,7 @@ export interface OrderStatusHistory {
   created_at: string;
   created_by: string;
   notes?: string;
+  admin_name?: string;
 }
 
 export interface OrderCommunication {
@@ -358,3 +359,6 @@ export const processReturn = async (
     return false;
   }
 };
+
+// Add this alias for backward compatibility
+export const initiateReturn = processReturn;

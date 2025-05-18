@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
-import { initiateReturn, OrderItem } from "@/services/orderService";
+import { processReturn, OrderItem } from "@/services/orderService";
 import { toast } from "sonner";
 
 interface InitiateReturnDialogProps {
@@ -89,19 +89,19 @@ const InitiateReturnDialog = ({
       
       // Map selected items to the format required by the API
       const itemsForReturn = selectedItems.map(item => ({
-        productId: item.product_id,
+        id: item.id,
         quantity: item.quantity,
-        price: item.price_per_unit
+        reason: "Return requested by customer"
       }));
       
-      const returnId = await initiateReturn(
+      const success = await processReturn(
         orderId,
         doctorId,
         data.reason,
         itemsForReturn
       );
       
-      if (returnId) {
+      if (success) {
         toast.success("Return Request Initiated", {
           description: "Your return request has been submitted successfully"
         });

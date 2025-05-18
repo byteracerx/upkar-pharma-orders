@@ -1,26 +1,32 @@
 
-import { OrderStatusHistory } from "@/services/orderService";
-import { formatDate } from "@/lib/utils";
-import { 
-  CheckCircle2, 
-  Clock, 
-  Package, 
-  Truck, 
-  XCircle, 
+import { OrderStatusHistory } from '@/services/orderService';
+import { formatDate } from '@/lib/utils';
+import {
+  Truck,
+  Package,
+  ShoppingBag,
+  CheckCircle2,
+  XCircle,
   RotateCcw,
-  ShoppingBag
-} from "lucide-react";
+  Clock,
+  User
+} from 'lucide-react';
 
 interface OrderStatusTimelineProps {
   statusHistory: OrderStatusHistory[];
 }
 
-const OrderStatusTimeline = ({ statusHistory }: OrderStatusTimelineProps) => {
-  // Function to get icon based on status
+const OrderStatusTimeline = ({ statusHistory = [] }: OrderStatusTimelineProps) => {
+  // Sort status history by date (newest first)
+  const sortedHistory = [...statusHistory].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  // Function to get status icon
   const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status) {
       case 'pending':
-        return <Clock className="h-5 w-5 text-blue-500" />;
+        return <ShoppingBag className="h-5 w-5 text-blue-500" />;
       case 'processing':
         return <Package className="h-5 w-5 text-yellow-500" />;
       case 'shipped':
@@ -30,62 +36,96 @@ const OrderStatusTimeline = ({ statusHistory }: OrderStatusTimelineProps) => {
       case 'cancelled':
         return <XCircle className="h-5 w-5 text-red-500" />;
       case 'return_initiated':
-      case 'returned':
         return <RotateCcw className="h-5 w-5 text-orange-500" />;
-      case 'shipping_updated':
-        return <Truck className="h-5 w-5 text-indigo-500" />;
-      default:
-        return <ShoppingBag className="h-5 w-5 text-gray-500" />;
-    }
-  };
-  
-  // Function to get title based on status
-  const getStatusTitle = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'Order Placed';
-      case 'processing':
-        return 'Processing Order';
-      case 'shipped':
-        return 'Order Shipped';
-      case 'delivered':
-        return 'Order Delivered';
-      case 'cancelled':
-        return 'Order Cancelled';
-      case 'return_initiated':
-        return 'Return Initiated';
       case 'returned':
-        return 'Order Returned';
-      case 'shipping_updated':
-        return 'Shipping Updated';
+        return <RotateCcw className="h-5 w-5 text-gray-500" />;
       default:
-        return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+        return <Clock className="h-5 w-5 text-gray-500" />;
     }
   };
-  
+
+  // Function to get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'text-blue-600';
+      case 'processing':
+        return 'text-yellow-600';
+      case 'shipped':
+        return 'text-purple-600';
+      case 'delivered':
+        return 'text-green-600';
+      case 'cancelled':
+        return 'text-red-600';
+      case 'return_initiated':
+        return 'text-orange-600';
+      case 'returned':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  // Function to get status description
+  const getStatusDescription = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Order has been placed and is awaiting processing';
+      case 'processing':
+        return 'Order is being prepared for shipment';
+      case 'shipped':
+        return 'Order has been shipped and is on the way';
+      case 'delivered':
+        return 'Order has been delivered successfully';
+      case 'cancelled':
+        return 'Order has been cancelled';
+      case 'return_initiated':
+        return 'Return has been initiated for this order';
+      case 'returned':
+        return 'Order has been returned';
+      default:
+        return 'Status updated';
+    }
+  };
+
+  // Render empty state if no status history
+  if (!sortedHistory || sortedHistory.length === 0) {
+    return <div className="text-gray-500 italic">No status history available</div>;
+  }
+
   return (
     <div className="space-y-6">
-      {statusHistory.map((status, index) => (
-        <div key={status.id} className="flex gap-4">
-          <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50">
+      {sortedHistory.map((status, index) => (
+        <div key={status.id} className="relative flex">
+          {/* Left timeline */}
+          <div className="flex flex-col items-center mr-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-200 bg-white">
               {getStatusIcon(status.status)}
             </div>
-            {index < statusHistory.length - 1 && (
-              <div className="h-full w-px bg-gray-200 my-1"></div>
+            {index !== sortedHistory.length - 1 && (
+              <div className="w-0.5 h-full bg-gray-200 mt-2"></div>
             )}
           </div>
-          <div className="space-y-1 pt-1">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium">{getStatusTitle(status.status)}</p>
-              <span className="text-xs text-gray-500">{formatDate(status.created_at)}</span>
+
+          {/* Content */}
+          <div className="flex flex-col pb-6">
+            <div className={`font-medium text-lg ${getStatusColor(status.status)}`}>
+              {status.status.charAt(0).toUpperCase() + status.status.slice(1).replace('_', ' ')}
             </div>
-            {status.notes && (
-              <p className="text-sm text-gray-600">{status.notes}</p>
-            )}
-            {status.created_by && status.admin_name && (
-              <p className="text-xs text-gray-500">Updated by {status.admin_name}</p>
-            )}
+            <div className="text-gray-600 mb-1">{getStatusDescription(status.status)}</div>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {formatDate(status.created_at)}
+              </div>
+              {status.admin_name && (
+                <div className="flex items-center gap-1 ml-3">
+                  <User className="h-4 w-4" />
+                  <span>Updated by: {status.admin_name}</span>
+                </div>
+              )}
+            </div>
+            {status.notes && <div className="mt-1 text-gray-700 italic">{status.notes}</div>}
           </div>
         </div>
       ))}

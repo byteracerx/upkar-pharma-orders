@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -50,7 +51,7 @@ import {
 } from "lucide-react";
 import OrderDetailsView from "@/components/orders/OrderDetailsView";
 import InitiateReturnDialog from "@/components/orders/InitiateReturnDialog";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const DoctorOrders = () => {
   const { user } = useAuth();
@@ -109,7 +110,9 @@ const DoctorOrders = () => {
     try {
       const details = await getOrderDetails(orderId);
       setOrderDetails(details);
-      setOrderItems(details.items);
+      if (details) {
+        setOrderItems(details.items);
+      }
     } catch (error: any) {
       console.error("Error fetching order details:", error);
       toast.error("Failed to load order details");
@@ -370,7 +373,7 @@ const DoctorOrders = () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {getStatusIcon(order.status)}
-                          <Badge className={getStatusBadgeColor(order.status)}>
+                          <Badge variant="outline" className={getStatusBadgeColor(order.status)}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </Badge>
                         </div>

@@ -75,7 +75,7 @@ const OrderCommunicationPanel = ({
           ) : (
             communications.map((comm) => {
               const isCurrentUser = isAdmin 
-                ? comm.sender_id === 'admin' 
+                ? comm.sender_type === 'admin'
                 : comm.sender_id === user?.id;
               
               return (

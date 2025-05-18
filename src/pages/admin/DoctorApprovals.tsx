@@ -1,292 +1,120 @@
 
-import { useState, useEffect } from "react";
-import DoctorList from "@/components/admin/DoctorList";
-import DoctorSearch from "@/components/admin/DoctorSearch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { fetchPendingDoctors, fetchApprovedDoctors, approveDoctor, rejectDoctor } from "@/services/adminService";
-import { subscribeToDoctors } from "@/services/realtimeService";
-
-interface Doctor {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  gstNumber: string;
-  registrationDate: string;
-  status: "pending" | "approved" | "rejected";
-  address?: string;
-}
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchPendingDoctors, approveDoctor, rejectDoctor, Doctor } from '@/services/adminService';
+import DoctorApprovalCard from '@/components/admin/DoctorApprovalCard';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const DoctorApprovals = () => {
+  const { user } = useAuth();
   const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
-  const [approvedDoctors, setApprovedDoctors] = useState<Doctor[]>([]);
-  const [rejectedDoctors, setRejectedDoctors] = useState<Doctor[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
-  const [isLoading, setIsLoading] = useState(true);
-  const [processingDoctors, setProcessingDoctors] = useState<Set<string>>(new Set());
-
-  // Fetch doctors from Supabase
+  const [loading, setLoading] = useState(true);
+  const [processingDoctorId, setProcessingDoctorId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  
   useEffect(() => {
-    fetchDoctors();
-
-    // Set up real-time subscription for doctors table
-    const unsubscribe = subscribeToDoctors((payload) => {
-      // Only update if we're not currently processing this doctor
-      const doctorId = payload.new?.id;
-      if (!doctorId || !processingDoctors.has(doctorId)) {
-        console.log("Doctors table changed, refreshing data");
-        fetchDoctors();
-      }
-    });
-
-    return () => {
-      unsubscribe(); // Clean up subscription on unmount
-    };
-  }, [processingDoctors]);
-
-  const fetchDoctors = async () => {
-    try {
-      setIsLoading(true);
-
-      // Fetch pending doctors
-      const pendingData = await fetchPendingDoctors();
-
-      // Fetch approved doctors
-      const approvedData = await fetchApprovedDoctors();
-
-      // Format the data
-      const formattedPendingDoctors: Doctor[] = pendingData.map(doctor => ({
-        id: doctor.id,
-        name: doctor.name || "Unnamed Doctor",
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
-        phone: doctor.phone || "N/A",
-        gstNumber: doctor.gst_number || "N/A",
-        address: doctor.address || "N/A",
-        registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
-        status: 'pending'
-      }));
-
-      const formattedApprovedDoctors: Doctor[] = approvedData.map(doctor => ({
-        id: doctor.id,
-        name: doctor.name || "Unnamed Doctor",
-        email: doctor.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`,
-        phone: doctor.phone || "N/A",
-        gstNumber: doctor.gst_number || "N/A",
-        address: doctor.address || "N/A",
-        registrationDate: new Date(doctor.created_at || Date.now()).toLocaleDateString(),
-        status: 'approved'
-      }));
-
-      setPendingDoctors(formattedPendingDoctors);
-      setApprovedDoctors(formattedApprovedDoctors);
-
-      console.log(`Loaded ${formattedPendingDoctors.length} pending doctors and ${formattedApprovedDoctors.length} approved doctors`);
-
-    } catch (error: any) {
-      console.error("Error fetching doctors:", error);
-      toast.error("Failed to load doctors", {
-        description: error.message
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    fetchPendingDoctorsList();
+  }, []);
+  
+  const fetchPendingDoctorsList = async () => {
+    setLoading(true);
+    const doctors = await fetchPendingDoctors();
+    setPendingDoctors(doctors);
+    setLoading(false);
   };
-
-  const handleApproveDoctor = async (id: string) => {
+  
+  const handleApprove = async (doctorId: string) => {
+    if (!user?.id) {
+      toast.error('You need to be logged in to approve doctors.');
+      return;
+    }
+    
+    setProcessingDoctorId(doctorId);
+    
     try {
-      console.log(`Handling approval for doctor ID: ${id}`);
-
-      // Find the doctor in the pending list before making the API call
-      const doctorToApprove = pendingDoctors.find(doctor => doctor.id === id);
-
-      if (!doctorToApprove) {
-        console.error("Doctor not found in pending list:", id);
-        toast.error("Failed to approve doctor", {
-          description: "Doctor not found in pending list"
-        });
-        return;
-      }
-
-      // Add to processed set to prevent double processing from realtime events
-      setProcessingDoctors(prev => new Set(prev).add(id));
-
-      // Show loading state
-      toast.loading("Approving doctor...");
-
-      // Call the API to approve the doctor
-      const success = await approveDoctor(id);
-
+      const success = await approveDoctor(doctorId, user.id);
       if (success) {
-        console.log("Doctor approved successfully, updating UI state");
-
-        // Update the UI state
-        setPendingDoctors(prevPending => prevPending.filter(doctor => doctor.id !== id));
-        setApprovedDoctors(prevApproved => [...prevApproved, { ...doctorToApprove, status: "approved" }]);
-
-        // Show success message
-        toast.success("Doctor Approved", {
-          description: `${doctorToApprove.name} has been approved successfully and notified via email and WhatsApp`
-        });
+        // Remove approved doctor from list
+        setPendingDoctors(current => current.filter(d => d.id !== doctorId));
+        toast.success('Doctor approved successfully!');
       }
-    } catch (error: any) {
-      console.error("Error approving doctor:", error);
-      toast.error("Failed to approve doctor", {
-        description: error.message || "An unknown error occurred"
-      });
+    } catch (error) {
+      console.error('Error approving doctor:', error);
+      toast.error('Failed to approve doctor.');
     } finally {
-      // Remove from processing set
-      setProcessingDoctors(prev => {
-        const updated = new Set(prev);
-        updated.delete(id);
-        return updated;
-      });
+      setProcessingDoctorId(null);
     }
   };
-
-  const handleRejectDoctor = async (id: string) => {
+  
+  const handleReject = async (doctorId: string, reason: string) => {
+    if (!user?.id) {
+      toast.error('You need to be logged in to reject doctors.');
+      return;
+    }
+    
+    setProcessingDoctorId(doctorId);
+    
     try {
-      // Find the doctor to reject
-      const doctorToReject = pendingDoctors.find(doctor => doctor.id === id);
-      
-      if (!doctorToReject) {
-        toast.error("Failed to reject doctor", {
-          description: "Doctor not found in pending list"
-        });
-        return;
-      }
-      
-      // Add to processed set to prevent double processing
-      setProcessingDoctors(prev => new Set(prev).add(id));
-      
-      // Show loading state
-      toast.loading("Rejecting doctor application...");
-
-      const success = await rejectDoctor(id);
-
+      const success = await rejectDoctor(doctorId, user.id, reason);
       if (success) {
-        setPendingDoctors(pendingDoctors.filter(doctor => doctor.id !== id));
-        setRejectedDoctors([...rejectedDoctors, { ...doctorToReject, status: "rejected" }]);
-
-        toast.success("Doctor Rejected", {
-          description: `${doctorToReject.name}'s application has been rejected and they have been notified`
-        });
+        // Remove rejected doctor from list
+        setPendingDoctors(current => current.filter(d => d.id !== doctorId));
+        toast.success('Doctor rejected.');
       }
-    } catch (error: any) {
-      console.error("Error rejecting doctor:", error);
-      toast.error("Failed to reject doctor", {
-        description: error.message
-      });
+    } catch (error) {
+      console.error('Error rejecting doctor:', error);
+      toast.error('Failed to reject doctor.');
     } finally {
-      // Remove from processing set
-      setProcessingDoctors(prev => {
-        const updated = new Set(prev);
-        updated.delete(id);
-        return updated;
-      });
+      setProcessingDoctorId(null);
     }
   };
-
-  // Filter doctors based on search query
-  const filteredPendingDoctors = pendingDoctors.filter(
-    doctor =>
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.phone.includes(searchQuery)
-  );
-
-  const filteredApprovedDoctors = approvedDoctors.filter(
-    doctor =>
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.phone.includes(searchQuery)
-  );
-
-  const filteredRejectedDoctors = rejectedDoctors.filter(
-    doctor =>
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.phone.includes(searchQuery)
-  );
-
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-20">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+  
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Doctor Approvals</h1>
-
-        <Button
-          variant="outline"
-          onClick={fetchDoctors}
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Refresh Data
-        </Button>
-      </div>
-
-      <div className="mb-6">
-        <DoctorSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-md mb-6">
-          <TabsTrigger value="pending" className="relative">
-            Pending
-            {pendingDoctors.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {pendingDoctors.length}
-              </span>
+    <div className="container mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-6">Doctor Approvals</h1>
+      
+      {pendingDoctors.length === 0 ? (
+        <div className="text-center p-10 border rounded-lg bg-slate-50">
+          <p className="text-gray-500">No pending doctor approvals at this time.</p>
+          <Button 
+            onClick={fetchPendingDoctorsList}
+            className="mt-4"
+            variant="outline"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              'Refresh'
             )}
-          </TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pending">
-          {isLoading ? (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-            </div>
-          ) : (
-            <DoctorList
-              doctors={filteredPendingDoctors}
-              status="pending"
-              onApprove={handleApproveDoctor}
-              onReject={handleRejectDoctor}
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {pendingDoctors.map(doctor => (
+            <DoctorApprovalCard 
+              key={doctor.id}
+              doctor={doctor}
+              onApprove={() => handleApprove(doctor.id)}
+              onReject={(reason) => handleReject(doctor.id, reason)}
+              isProcessing={processingDoctorId === doctor.id}
             />
-          )}
-        </TabsContent>
-
-        <TabsContent value="approved">
-          {isLoading ? (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-            </div>
-          ) : (
-            <DoctorList
-              doctors={filteredApprovedDoctors}
-              status="approved"
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="rejected">
-          {isLoading ? (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-            </div>
-          ) : (
-            <DoctorList
-              doctors={filteredRejectedDoctors}
-              status="rejected"
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

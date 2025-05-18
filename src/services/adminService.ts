@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -51,6 +50,100 @@ export interface DoctorCreditSummary {
   doctor_email: string;
   total_credit: number;
 }
+
+// Function to fetch all orders with doctor information
+export const fetchAllOrders = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        doctor:doctor_id (
+          id,
+          name,
+          phone,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // Process the data to flatten doctor information
+    const processedOrders = data.map(order => ({
+      ...order,
+      doctor_name: order.doctor?.name || 'Unknown',
+      doctor_phone: order.doctor?.phone || 'N/A',
+      doctor_email: order.doctor?.email || 'N/A'
+    }));
+
+    return processedOrders;
+  } catch (error: any) {
+    console.error('Error fetching orders:', error);
+    toast.error('Failed to load orders');
+    return [];
+  }
+};
+
+// Function to generate invoice for an order
+export const generateInvoice = async (orderId: string): Promise<boolean> => {
+  try {
+    // Call the edge function to generate invoice
+    const { data, error } = await supabase.functions.invoke('generate-invoice', {
+      body: { orderId }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.message || 'Failed to generate invoice');
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error('Error generating invoice:', error);
+    toast.error('Failed to generate invoice', {
+      description: error.message || 'Please try again.'
+    });
+    return false;
+  }
+};
+
+// Function to synchronize orders with external systems
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    // First, check for any pending orders in the database
+    const { data: pendingOrders, error: pendingError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('status', 'pending');
+
+    if (pendingError) {
+      throw pendingError;
+    }
+
+    console.log(`Found ${pendingOrders.length} pending orders in database`);
+
+    // Update order summaries
+    const { error: updateError } = await supabase.rpc('update_order_summaries');
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error('Error synchronizing orders:', error);
+    toast.error('Failed to synchronize orders', {
+      description: error.message || 'Please try again.'
+    });
+    return false;
+  }
+};
 
 // Function to fetch pending doctor approvals
 export const fetchPendingDoctors = async (): Promise<Doctor[]> => {

@@ -1,12 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   fetchOrderDetails, 
-  reorderPreviousOrder, 
+  reorderPreviousOrder,
   addOrderCommunication,
   processReturn,
   Order,
-  OrderDetails
+  OrderDetails,
+  OrderItem
 } from "@/services/orderService";
 import { fetchDoctorOrdersReliable, subscribeToDoctorOrdersReliable } from "@/services/doctorOrderService";
 import {
@@ -64,6 +66,7 @@ const DoctorOrders = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   
   // Fetch doctor's orders
   useEffect(() => {
@@ -108,6 +111,7 @@ const DoctorOrders = () => {
     try {
       const details = await fetchOrderDetails(orderId);
       setOrderDetails(details);
+      setOrderItems(details.items);
     } catch (error: any) {
       console.error("Error fetching order details:", error);
       toast.error("Failed to load order details");
@@ -176,37 +180,12 @@ const DoctorOrders = () => {
     setIsReturnDialogOpen(true);
   };
   
-  // Handle submit return
-  const handleSubmitReturn = async (
-    orderId: string,
-    reason: string,
-    items: any[]
-  ) => {
-    if (!user?.id) return;
-    
-    try {
-      const returnId = await processReturn(
-        orderId,
-        user.id,
-        reason,
-        items
-      );
-      
-      if (returnId) {
-        toast.success("Return Initiated");
-        
-        // Close the dialog
-        setIsReturnDialogOpen(false);
-        
-        // Refresh order details
-        const details = await fetchOrderDetails(orderId);
-        setOrderDetails(details);
-      } else {
-        throw new Error("Failed to process return");
-      }
-    } catch (error: any) {
-      console.error("Error processing return:", error);
-      toast.error("Failed to process return");
+  // Handle return completion
+  const handleReturnComplete = async () => {
+    if (selectedOrder) {
+      // Refresh order details
+      const details = await fetchOrderDetails(selectedOrder);
+      setOrderDetails(details);
     }
   };
   
@@ -502,12 +481,14 @@ const DoctorOrders = () => {
       </Dialog>
       
       {/* Initiate Return Dialog */}
-      {selectedOrder && (
+      {selectedOrder && orderDetails && (
         <InitiateReturnDialog
           open={isReturnDialogOpen}
           onOpenChange={setIsReturnDialogOpen}
           orderId={selectedOrder}
-          onSubmit={handleSubmitReturn}
+          doctorId={orderDetails.order.doctor_id}
+          orderItems={orderItems}
+          onReturnComplete={handleReturnComplete}
         />
       )}
     </div>

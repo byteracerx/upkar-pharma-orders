@@ -1,16 +1,17 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   fetchAllOrders, 
-  fetchOrderDetails, 
-  updateOrderStatus, 
-  generateInvoice,
+  updateOrderStatus,
   updateShippingInfo,
-  addOrderCommunication,
-  updateReturnStatus,
+  generateInvoice,
   Order,
-  OrderDetails
+  ShippingInfo
 } from "@/services/orderService";
+import {
+  synchronizeOrders
+} from "@/services/adminService";
 import {
   Card,
   CardContent,
@@ -36,51 +37,54 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { 
   Search, 
-  Eye, 
+  MoreVertical, 
   FileText, 
-  Truck, 
-  Loader2,
+  Eye, 
+  TruckIcon,
+  RefreshCw,
   ShoppingBag,
   Package,
+  Truck,
   CheckCircle2,
-  XCircle,
-  RefreshCw,
-  Filter,
-  Calendar,
-  Download
+  XCircle
 } from "lucide-react";
-import OrderDetailsView from "@/components/orders/OrderDetailsView";
 import UpdateShippingDialog from "@/components/admin/orders/UpdateShippingDialog";
 import { toast } from "sonner";
 
-const AdminOrders = () => {
+const EnhancedOrders = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isShippingDialogOpen, setIsShippingDialogOpen] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
-  const [dateFilter, setDateFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [isActionInProgress, setIsActionInProgress] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
-  // Fetch all orders
+  // Fetch orders data
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -89,222 +93,161 @@ const AdminOrders = () => {
     setLoading(true);
     try {
       const data = await fetchAllOrders();
+      console.log(`Fetched ${data.length} orders`);
       setOrders(data);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders", {
-        description: error.message || "Please try again."
-      });
+      toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
   };
   
-  // View order details
-  const viewOrderDetails = async (orderId: string) => {
-    setSelectedOrder(orderId);
-    setIsDetailsLoading(true);
-    setIsDetailsOpen(true);
-    
+  // Handle order status change
+  const handleStatusChange = async (orderId: string, status: string) => {
+    setIsActionInProgress(true);
     try {
-      const details = await fetchOrderDetails(orderId);
-      setOrderDetails(details);
-    } catch (error: any) {
-      console.error("Error fetching order details:", error);
-      toast.error("Failed to load order details", {
-        description: error.message || "Please try again."
-      });
-    } finally {
-      setIsDetailsLoading(false);
-    }
-  };
-  
-  // Handle update order status
-  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    setIsUpdatingStatus(true);
-    try {
-      const success = await updateOrderStatus(
-        orderId, 
-        newStatus, 
-        `Status updated to ${newStatus} by admin`, 
-        user?.id
-      );
-      
+      const success = await updateOrderStatus(orderId, status);
       if (success) {
-        toast.success("Status Updated", {
-          description: `Order status has been updated to ${newStatus}.`
+        toast.success("Order Status Updated", {
+          description: `Order #${orderId.substring(0, 8)} has been marked as ${status}`
         });
         
         // Update local state
-        setOrders(orders.map(order => 
-          order.id === orderId ? { ...order, status: newStatus } : order
-        ));
-        
-        // If details are open, refresh them
-        if (isDetailsOpen && selectedOrder === orderId) {
-          const details = await fetchOrderDetails(orderId);
-          setOrderDetails(details);
-        }
+        setOrders(orders.map(order => {
+          if (order.id === orderId) {
+            return { ...order, status };
+          }
+          return order;
+        }));
       } else {
         throw new Error("Failed to update status");
       }
     } catch (error: any) {
-      console.error("Error updating status:", error);
-      toast.error("Failed to update status", {
-        description: error.message || "Please try again."
+      console.error("Error changing status:", error);
+      toast.error("Status Update Failed", {
+        description: error.message || "Please try again"
       });
     } finally {
-      setIsUpdatingStatus(false);
+      setIsActionInProgress(false);
     }
   };
   
-  // Handle generate invoice
+  // Handle invoice generation
   const handleGenerateInvoice = async (orderId: string) => {
-    setIsGeneratingInvoice(true);
+    setIsActionInProgress(true);
     try {
-      const success = await generateInvoice(orderId);
+      const invoiceUrl = await generateInvoice(orderId);
       
-      if (success) {
+      if (invoiceUrl) {
         toast.success("Invoice Generated", {
-          description: "The invoice has been generated and sent to the doctor."
+          description: "Invoice has been generated successfully"
         });
         
-        // Refresh order details
-        if (isDetailsOpen && selectedOrder === orderId) {
-          const details = await fetchOrderDetails(orderId);
-          setOrderDetails(details);
-        }
+        // Update local state
+        setOrders(orders.map(order => {
+          if (order.id === orderId) {
+            return { 
+              ...order, 
+              invoice_generated: true,
+              invoice_url: invoiceUrl 
+            };
+          }
+          return order;
+        }));
         
-        // Update orders list
-        fetchOrders();
+        // Open the invoice in a new tab
+        window.open(invoiceUrl, '_blank');
       } else {
-        throw new Error("Failed to generate invoice");
+        throw new Error("No invoice URL returned");
       }
     } catch (error: any) {
       console.error("Error generating invoice:", error);
-      toast.error("Failed to generate invoice", {
-        description: error.message || "Please try again."
+      toast.error("Invoice Generation Failed", {
+        description: error.message || "Please try again"
       });
     } finally {
-      setIsGeneratingInvoice(false);
+      setIsActionInProgress(false);
     }
   };
   
-  // Handle update shipping info
-  const handleUpdateShipping = async (data: {
-    trackingNumber: string;
-    shippingCarrier: string;
-    estimatedDeliveryDate?: string;
-  }) => {
-    if (!selectedOrder) return;
-    
+  // Handle opening shipping dialog
+  const handleUpdateShipping = (order: Order) => {
+    setSelectedOrder(order);
+    setIsShippingDialogOpen(true);
+  };
+  
+  // Handle shipping info update
+  const handleShippingInfoUpdate = async (
+    orderId: string, 
+    shippingInfo: ShippingInfo
+  ) => {
+    setIsActionInProgress(true);
     try {
       const success = await updateShippingInfo(
-        selectedOrder,
-        data.trackingNumber,
-        data.shippingCarrier,
-        data.estimatedDeliveryDate
+        orderId,
+        shippingInfo.tracking_number || "",
+        shippingInfo.shipping_carrier || "",
+        shippingInfo.estimated_delivery_date
       );
       
       if (success) {
-        toast.success("Shipping Info Updated", {
-          description: "The shipping information has been updated successfully."
+        toast.success("Shipping Information Updated", {
+          description: "The order has been marked as shipped"
         });
         
-        // Close the dialog
+        // Update local state
+        setOrders(orders.map(order => {
+          if (order.id === orderId) {
+            return { 
+              ...order, 
+              status: 'shipped',
+              tracking_number: shippingInfo.tracking_number,
+              shipping_carrier: shippingInfo.shipping_carrier,
+              estimated_delivery_date: shippingInfo.estimated_delivery_date
+            };
+          }
+          return order;
+        }));
+        
+        // Close dialog
         setIsShippingDialogOpen(false);
-        
-        // Refresh order details
-        if (isDetailsOpen && selectedOrder) {
-          const details = await fetchOrderDetails(selectedOrder);
-          setOrderDetails(details);
-        }
-        
-        // Update orders list
-        fetchOrders();
       } else {
         throw new Error("Failed to update shipping info");
       }
     } catch (error: any) {
-      console.error("Error updating shipping info:", error);
-      toast.error("Failed to update shipping info", {
-        description: error.message || "Please try again."
+      console.error("Error updating shipping:", error);
+      toast.error("Update Failed", {
+        description: error.message || "Please try again"
       });
+    } finally {
+      setIsActionInProgress(false);
     }
   };
   
-  // Handle send message
-  const handleSendMessage = async (orderId: string, message: string) => {
-    if (!user?.id) return;
-    
+  // Handle sync orders action
+  const handleSyncOrders = async () => {
+    setIsSyncing(true);
     try {
-      // Get the doctor ID from the order
-      const order = orders.find(o => o.id === orderId);
-      if (!order) throw new Error("Order not found");
-      
-      const messageId = await addOrderCommunication(
-        orderId,
-        'admin', // Admin ID
-        order.doctor_id,
-        message
-      );
-      
-      if (messageId) {
-        // Refresh order details to show the new message
-        const details = await fetchOrderDetails(orderId);
-        setOrderDetails(details);
-        
-        toast.success("Message Sent", {
-          description: "Your message has been sent to the doctor."
-        });
-      } else {
-        throw new Error("Failed to send message");
-      }
-    } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast.error("Failed to send message", {
-        description: error.message || "Please try again."
-      });
+      await synchronizeOrders();
+      // Refresh orders after sync
+      fetchOrders();
+    } catch (error) {
+      console.error("Error syncing orders:", error);
+    } finally {
+      setIsSyncing(false);
     }
   };
   
-  // Handle update return status
-  const handleUpdateReturnStatus = async (returnId: string, status: string) => {
-    if (!user?.id) return;
-    
-    try {
-      const success = await updateReturnStatus(
-        returnId,
-        status,
-        user.id,
-        `Return ${status} by admin`
-      );
-      
-      if (success) {
-        toast.success("Return Status Updated", {
-          description: `Return status has been updated to ${status}.`
-        });
-        
-        // Refresh order details
-        if (isDetailsOpen && selectedOrder) {
-          const details = await fetchOrderDetails(selectedOrder);
-          setOrderDetails(details);
-        }
-      } else {
-        throw new Error("Failed to update return status");
-      }
-    } catch (error: any) {
-      console.error("Error updating return status:", error);
-      toast.error("Failed to update return status", {
-        description: error.message || "Please try again."
-      });
-    }
-  };
-  
-  // Filter orders based on tab, search term, and date filter
+  // Filter orders based on tab, status filter and search term
   const filteredOrders = orders.filter(order => {
     // Filter by tab
     if (activeTab !== 'all' && order.status !== activeTab) {
+      return false;
+    }
+    
+    // Filter by status dropdown if selected
+    if (statusFilter && order.status !== statusFilter) {
       return false;
     }
     
@@ -315,38 +258,11 @@ const AdminOrders = () => {
         order.id.toLowerCase().includes(searchLower) ||
         (order.invoice_number && order.invoice_number.toLowerCase().includes(searchLower)) ||
         (order.doctor?.name && order.doctor.name.toLowerCase().includes(searchLower)) ||
-        (order.doctor?.phone && order.doctor.phone.includes(searchTerm))
+        (order.doctor?.phone && order.doctor.phone.toLowerCase().includes(searchLower))
       );
     }
     
-    // Filter by date
-    if (dateFilter !== 'all') {
-      const orderDate = new Date(order.created_at);
-      const today = new Date();
-      
-      if (dateFilter === 'today') {
-        return (
-          orderDate.getDate() === today.getDate() &&
-          orderDate.getMonth() === today.getMonth() &&
-          orderDate.getFullYear() === today.getFullYear()
-        );
-      } else if (dateFilter === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(today.getDate() - 7);
-        return orderDate >= weekAgo;
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date();
-        monthAgo.setMonth(today.getMonth() - 1);
-        return orderDate >= monthAgo;
-      }
-    }
-    
     return true;
-  }).sort((a, b) => {
-    // Sort by date
-    const dateA = new Date(a.created_at).getTime();
-    const dateB = new Date(b.created_at).getTime();
-    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
   });
   
   // Get counts for each status
@@ -361,7 +277,7 @@ const AdminOrders = () => {
     };
     
     orders.forEach(order => {
-      if (counts[order.status as keyof typeof counts] !== undefined) {
+      if (counts.hasOwnProperty(order.status)) {
         counts[order.status as keyof typeof counts]++;
       }
     });
@@ -370,6 +286,24 @@ const AdminOrders = () => {
   };
   
   const statusCounts = getStatusCounts();
+  
+  // Function to get status icon
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <ShoppingBag className="h-4 w-4 text-blue-500" />;
+      case 'processing':
+        return <Package className="h-4 w-4 text-yellow-500" />;
+      case 'shipped':
+        return <Truck className="h-4 w-4 text-purple-500" />;
+      case 'delivered':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <ShoppingBag className="h-4 w-4" />;
+    }
+  };
   
   // Function to get status badge color
   const getStatusBadgeColor = (status: string) => {
@@ -390,55 +324,64 @@ const AdminOrders = () => {
   };
   
   return (
-    <div className="p-6">
+    <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Order Management</h1>
-        <Button onClick={fetchOrders} variant="outline" className="gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Refresh
+        <Button 
+          variant="outline"
+          className="flex items-center"
+          onClick={handleSyncOrders}
+          disabled={isSyncing}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          {isSyncing ? 'Syncing...' : 'Sync Orders'}
         </Button>
       </div>
       
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            placeholder="Search by doctor name, phone, order ID..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <Card className="col-span-full md:col-span-1">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Status Filter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select 
+              value={statusFilter || ""}
+              onValueChange={(value) => setStatusFilter(value || null)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Status</SelectLabel>
+                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
         
-        <div className="flex gap-2">
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[180px]">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <SelectValue placeholder="Filter by date" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">Last 7 Days</SelectItem>
-              <SelectItem value="month">Last 30 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="w-10 h-10"
-          >
-            {sortOrder === 'asc' ? (
-              <Filter className="h-4 w-4 rotate-180" />
-            ) : (
-              <Filter className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        <Card className="col-span-full md:col-span-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+              <Input
+                placeholder="Search by order ID, invoice number, or doctor name..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -491,16 +434,16 @@ const AdminOrders = () => {
         <CardHeader>
           <CardTitle>Orders</CardTitle>
           <CardDescription>
-            Manage and track all orders placed by doctors
+            View and manage customer orders
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
           ) : filteredOrders.length > 0 ? (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -509,7 +452,7 @@ const AdminOrders = () => {
                     <TableHead>Date</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -520,58 +463,94 @@ const AdminOrders = () => {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{order.doctor?.name || "Unknown"}</div>
-                          <div className="text-sm text-gray-500">{order.doctor?.phone || "N/A"}</div>
+                          <p className="font-medium">{order.doctor?.name || "Unknown"}</p>
+                          <p className="text-xs text-gray-500">{order.doctor?.phone || "No phone"}</p>
                         </div>
                       </TableCell>
                       <TableCell>{formatDate(order.created_at)}</TableCell>
                       <TableCell>{formatCurrency(order.total_amount)}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusBadgeColor(order.status)}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1"
-                            onClick={() => viewOrderDetails(order.id)}
-                          >
-                            <Eye className="h-3 w-3" />
-                            View
-                          </Button>
-                          
-                          <Select
-                            value={order.status}
-                            onValueChange={(value) => handleUpdateStatus(order.id, value)}
-                            disabled={isUpdatingStatus}
-                          >
-                            <SelectTrigger className="h-8 w-[110px]">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="processing">Processing</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          {!order.invoice_generated && (
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleGenerateInvoice(order.id)}
-                              disabled={isGeneratingInvoice}
-                            >
-                              <FileText className="h-3 w-3" />
-                            </Button>
-                          )}
+                        <div className="flex items-center gap-1">
+                          {getStatusIcon(order.status)}
+                          <Badge className={getStatusBadgeColor(order.status)}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </Badge>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem 
+                              onClick={() => window.location.href = `/admin/orders/${order.id}`}
+                              className="cursor-pointer"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(order.id, 'pending')}
+                              disabled={order.status === 'pending' || isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <ShoppingBag className="h-4 w-4 mr-2 text-blue-500" />
+                              Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(order.id, 'processing')}
+                              disabled={order.status === 'processing' || isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <Package className="h-4 w-4 mr-2 text-yellow-500" />
+                              Processing
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleUpdateShipping(order)}
+                              disabled={isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <Truck className="h-4 w-4 mr-2 text-purple-500" />
+                              Mark as Shipped
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(order.id, 'delivered')}
+                              disabled={order.status === 'delivered' || isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                              Delivered
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(order.id, 'cancelled')}
+                              disabled={order.status === 'cancelled' || isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <XCircle className="h-4 w-4 mr-2 text-red-500" />
+                              Cancel
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem
+                              onClick={() => handleGenerateInvoice(order.id)}
+                              disabled={order.invoice_generated || isActionInProgress}
+                              className="cursor-pointer"
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              {order.invoice_generated ? 'Invoice Generated' : 'Generate Invoice'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -582,19 +561,18 @@ const AdminOrders = () => {
             <div className="text-center p-8">
               <ShoppingBag className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">
-                {searchTerm
-                  ? "No orders found matching your search."
+                {searchTerm || statusFilter
+                  ? "No orders found matching your filters."
                   : activeTab !== 'all'
-                  ? `No ${activeTab} orders found.`
+                  ? `No orders with status "${activeTab}".`
                   : "No orders found."}
               </p>
-              {(searchTerm || dateFilter !== 'all' || activeTab !== 'all') && (
+              {(searchTerm || statusFilter) && (
                 <Button
                   variant="link"
                   onClick={() => {
                     setSearchTerm("");
-                    setDateFilter("all");
-                    setActiveTab("all");
+                    setStatusFilter(null);
                   }}
                   className="mt-2"
                 >
@@ -606,59 +584,14 @@ const AdminOrders = () => {
         </CardContent>
       </Card>
       
-      {/* Order Details Dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
-            <DialogDescription>
-              View and manage order details
-            </DialogDescription>
-          </DialogHeader>
-          
-          {isDetailsLoading ? (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-            </div>
-          ) : orderDetails ? (
-            <OrderDetailsView
-              orderDetails={orderDetails}
-              isAdmin={true}
-              onUpdateStatus={handleUpdateStatus}
-              onSendMessage={handleSendMessage}
-              onDownloadInvoice={(orderId) => {
-                // Find the order
-                const order = orders.find(o => o.id === orderId);
-                
-                if (order?.invoice_url) {
-                  window.open(order.invoice_url, '_blank');
-                } else {
-                  toast.error("Invoice Not Available", {
-                    description: "The invoice for this order is not available yet."
-                  });
-                }
-              }}
-            />
-          ) : (
-            <div className="text-center p-4">
-              <p className="text-gray-500">Failed to load order details.</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      
       {/* Update Shipping Dialog */}
       {selectedOrder && (
         <UpdateShippingDialog
           open={isShippingDialogOpen}
           onOpenChange={setIsShippingDialogOpen}
-          onSubmit={handleUpdateShipping}
-          initialData={
-            orders.find(o => o.id === selectedOrder) || {
-              tracking_number: "",
-              shipping_carrier: "",
-              estimated_delivery_date: ""
-            }
+          order={selectedOrder}
+          onSubmit={(shippingInfo) => 
+            handleShippingInfoUpdate(selectedOrder.id, shippingInfo)
           }
         />
       )}
@@ -666,4 +599,4 @@ const AdminOrders = () => {
   );
 };
 
-export default AdminOrders;
+export default EnhancedOrders;

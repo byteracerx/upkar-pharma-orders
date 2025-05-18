@@ -1,145 +1,93 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generatePDFInvoice, sendInvoiceEmail, sendWhatsAppNotification } from './invoiceService';
+import { Order } from "@/services/orderService";
 
-// Types
-type Doctor = {
+// Interface for admin user
+export interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string;
+  role: string;
+  name?: string;
+}
+
+// Interface for doctor approval
+export interface DoctorApproval {
   id: string;
   name: string;
-  email?: string; // Make email optional since it's not in the database
+  email: string;
   phone: string;
+  address: string;
   gst_number: string;
   created_at: string;
   is_approved: boolean;
-  address?: string;
-};
+}
 
-type Order = {
+// Interface for doctor credit summary
+export interface DoctorCreditSummary {
+  doctor_id: string;
+  doctor_name: string;
+  total_orders: number;
+  total_spent: number;
+  credit_balance: number;
+  last_order_date: string | null;
+}
+
+// Interface for doctor credit data
+export interface DoctorCredit {
+  doctor_id: string;
+  doctor_name: string;
+  total_orders_amount: number;
+  total_payments: number;
+  credit_balance: number;
+  orders_count: number;
+  last_transaction_date: string | null;
+}
+
+// Interface for doctor payment information
+export interface DoctorPayment {
   id: string;
   doctor_id: string;
-  doctor_name?: string;
-  doctor_phone?: string;
-  doctor_email?: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  invoice_number?: string;
-  invoice_generated?: boolean;
-  invoice_url?: string;
+  amount: number;
+  payment_date: string;
+  notes: string | null;
   doctor?: {
     name: string;
     phone: string;
     email?: string;
   };
-};
+}
 
-// Synchronize orders from external systems if any
-export const synchronizeOrders = async (): Promise<boolean> => {
+// Interface for credit transaction
+export interface CreditTransaction {
+  id: string;
+  doctor_id: string;
+  type: string;
+  amount: number;
+  description: string | null;
+  status: string;
+  created_at: string;
+  doctor?: {
+    name: string;
+    phone: string;
+    email?: string;
+  };
+}
+
+// Fetch all pending doctor approvals
+export const fetchPendingApprovals = async (): Promise<DoctorApproval[]> => {
   try {
-    console.log("Synchronizing orders from external systems...");
-    
-    // In a real application, this might call an external API or sync with another database
-    // For now, we'll just return success
-    toast.success("Orders synchronized successfully");
-    return true;
-  } catch (error: any) {
-    console.error("Error synchronizing orders:", error);
-    toast.error("Failed to synchronize orders");
-    return false;
-  }
-};
-
-// Fetch pending doctor registrations
-export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
-  try {
-    console.log("Fetching pending doctors...");
-
     const { data, error } = await supabase
       .from("doctors")
       .select("*")
-      .eq("is_approved", false);
+      .eq("is_approved", false)
+      .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching pending doctors:", error);
-      throw error;
-    }
-
-    console.log(`Found ${data?.length || 0} pending doctors`);
-
-    // Enhance doctor data with email from auth or generate placeholder
-    const enhancedData = await Promise.all(
-      (data || []).map(async (doctor) => {
-        try {
-          // Get user email from auth
-          const { data: userData } = await supabase.auth.admin.getUserById(doctor.id);
-          const email = userData?.user?.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`;
-
-          return {
-            ...doctor,
-            email
-          };
-        } catch (err) {
-          console.error(`Error fetching email for doctor ${doctor.id}:`, err);
-          return {
-            ...doctor,
-            email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`
-          };
-        }
-      })
-    );
-
-    return enhancedData || [];
+    if (error) throw error;
+    return data;
   } catch (error: any) {
-    console.error("Error fetching pending doctors:", error);
-    toast.error("Failed to load pending doctors");
-    throw error;
-  }
-};
-
-// Fetch approved doctors
-export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
-  try {
-    console.log("Fetching approved doctors...");
-
-    const { data, error } = await supabase
-      .from("doctors")
-      .select("*")
-      .eq("is_approved", true);
-
-    if (error) {
-      console.error("Error fetching approved doctors:", error);
-      throw error;
-    }
-
-    console.log(`Found ${data?.length || 0} approved doctors`);
-
-    // Enhance doctor data with email from auth or generate placeholder
-    const enhancedData = await Promise.all(
-      (data || []).map(async (doctor) => {
-        try {
-          // Get user email from auth
-          const { data: userData } = await supabase.auth.admin.getUserById(doctor.id);
-          const email = userData?.user?.email || `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`;
-
-          return {
-            ...doctor,
-            email
-          };
-        } catch (err) {
-          console.error(`Error fetching email for doctor ${doctor.id}:`, err);
-          return {
-            ...doctor,
-            email: `${doctor.name?.toLowerCase().replace(/\s+/g, '.') || doctor.id.substring(0, 8)}@example.com`
-          };
-        }
-      })
-    );
-
-    return enhancedData || [];
-  } catch (error: any) {
-    console.error("Error fetching approved doctors:", error);
-    toast.error("Failed to load approved doctors");
+    console.error("Error fetching pending approvals:", error);
+    toast.error("Failed to load pending approvals");
     throw error;
   }
 };
@@ -147,115 +95,23 @@ export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
 // Approve a doctor
 export const approveDoctor = async (doctorId: string): Promise<boolean> => {
   try {
-    console.log(`Approving doctor with ID: ${doctorId}`);
-
-    // First, check if the doctor exists
-    const { data: doctorData, error: fetchError } = await supabase
+    console.log(`Approving doctor ${doctorId}`);
+    
+    // Update the doctor's approval status
+    const { error } = await supabase
       .from("doctors")
-      .select("*")
-      .eq("id", doctorId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error fetching doctor:", fetchError);
-      throw fetchError;
-    }
-
-    if (!doctorData) {
-      console.error("Doctor not found with ID:", doctorId);
-      throw new Error("Doctor not found");
-    }
-
-    console.log("Current doctor data:", doctorData);
-
-    // Update the approval status directly
-    const { data: updateData, error } = await supabase
-      .from("doctors")
-      .update({
-        is_approved: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", doctorId)
-      .select();
+      .update({ is_approved: true })
+      .eq("id", doctorId);
 
     if (error) {
       console.error("Error approving doctor:", error);
       throw error;
     }
 
-    console.log("Doctor approval update result:", updateData);
-
-    // Double-check that the update was successful
-    const { data: verifyData, error: verifyError } = await supabase
-      .from("doctors")
-      .select("is_approved, phone, name")
-      .eq("id", doctorId)
-      .single();
-
-    if (verifyError) {
-      console.error("Error verifying doctor approval:", verifyError);
-      throw verifyError;
-    }
-
-    console.log("Verification result:", verifyData);
-    if (!verifyData.is_approved) {
-      console.warn("Doctor approval may not have been saved correctly!");
-      throw new Error("Doctor approval failed to save");
-    }
-
-    // Get doctor information for notification
-    try {
-      // Get user email from auth
-      const { data: userData } = await supabase.auth.admin.getUserById(doctorId);
-      
-      // Get or generate email
-      const doctorEmail = userData?.user?.email || 
-        `${doctorData.name?.toLowerCase().replace(/\s+/g, '.') || doctorId.substring(0, 8)}@example.com`;
-      
-      // Attempt to send approval notifications
-      try {
-        // Send email notification
-        await supabase.functions.invoke('send-invoice-email', {
-          body: {
-            to: doctorEmail,
-            subject: "Your Upkar Pharma account is now active",
-            doctorName: doctorData.name || "Doctor",
-            content: "Your account has been approved. You can now login and place orders.",
-            orderId: "",
-            orderDate: new Date().toLocaleDateString(),
-            totalAmount: 0
-          }
-        });
-        
-        console.log("Approval email sent to doctor");
-        
-        // Send WhatsApp notification if phone is available
-        if (doctorData.phone) {
-          const formattedPhone = doctorData.phone.startsWith('+') ? 
-            doctorData.phone : `+91${doctorData.phone.replace(/\D/g, '')}`;
-            
-          await supabase.functions.invoke('send-whatsapp-notification', {
-            body: {
-              to: formattedPhone,
-              doctorName: doctorData.name || "Doctor",
-              message: "Your Upkar Pharma account is now active. You can now login and place orders."
-            }
-          });
-          
-          console.log("Approval WhatsApp notification sent to doctor");
-        }
-      } catch (notifyError) {
-        console.error("Error sending approval notifications:", notifyError);
-        // Continue even if notification fails - don't throw error
-      }
-    } catch (userError) {
-      console.error("Error getting doctor user data for notification:", userError);
-      // Continue even if getting user data fails - don't throw error
-    }
-
     return true;
   } catch (error: any) {
     console.error("Error in approveDoctor:", error);
+    toast.error("Failed to approve doctor");
     throw error;
   }
 };
@@ -263,89 +119,260 @@ export const approveDoctor = async (doctorId: string): Promise<boolean> => {
 // Reject a doctor
 export const rejectDoctor = async (doctorId: string): Promise<boolean> => {
   try {
-    console.log(`Rejecting doctor with ID: ${doctorId}`);
-
-    // First, check if the doctor exists
-    const { data: doctorData, error: fetchError } = await supabase
-      .from("doctors")
-      .select("*")
-      .eq("id", doctorId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error fetching doctor:", fetchError);
-      throw fetchError;
-    }
-
-    if (!doctorData) {
-      console.error("Doctor not found with ID:", doctorId);
-      throw new Error("Doctor not found");
-    }
-
-    // Delete the doctor record
+    // For now, we'll simply delete the doctor record
+    // In a real application, you might want to keep the record but mark it as rejected
     const { error } = await supabase
       .from("doctors")
       .delete()
       .eq("id", doctorId);
 
-    if (error) {
-      console.error("Error rejecting doctor:", error);
-      throw error;
-    }
-
-    // Get doctor information for notification
-    try {
-      // Get user email from auth
-      const { data: userData } = await supabase.auth.admin.getUserById(doctorId);
-      
-      // Get or generate email
-      const doctorEmail = userData?.user?.email || 
-        `${doctorData.name?.toLowerCase().replace(/\s+/g, '.') || doctorId.substring(0, 8)}@example.com`;
-      
-      // Attempt to send rejection notifications
-      try {
-        // Send email notification
-        await supabase.functions.invoke('send-invoice-email', {
-          body: {
-            to: doctorEmail,
-            subject: "Upkar Pharma Registration Update",
-            doctorName: doctorData.name || "Doctor",
-            content: "We regret to inform you that your application has been declined at this time. Please contact our support team for more information.",
-            orderId: "",
-            orderDate: new Date().toLocaleDateString(),
-            totalAmount: 0
-          }
-        });
-        
-        console.log("Rejection email sent to doctor");
-        
-        // Send WhatsApp notification if phone is available
-        if (doctorData.phone) {
-          const formattedPhone = doctorData.phone.startsWith('+') ? 
-            doctorData.phone : `+91${doctorData.phone.replace(/\D/g, '')}`;
-            
-          await supabase.functions.invoke('send-whatsapp-notification', {
-            body: {
-              to: formattedPhone,
-              doctorName: doctorData.name || "Doctor",
-              message: "We regret to inform you that your Upkar Pharma application has been declined at this time. Please contact our support team for more information."
-            }
-          });
-          
-          console.log("Rejection WhatsApp notification sent to doctor");
-        }
-      } catch (notifyError) {
-        console.error("Error sending rejection notifications:", notifyError);
-        // Continue even if notification fails - don't throw error
-      }
-    } catch (userError) {
-      console.error("Error getting doctor user data for notification:", userError);
-      // Continue even if getting user data fails - don't throw error
-    }
-
+    if (error) throw error;
     return true;
   } catch (error: any) {
-    console.error("Error in rejectDoctor:", error);
+    console.error("Error rejecting doctor:", error);
+    toast.error("Failed to reject doctor");
+    throw error;
+  }
+};
+
+// Get credit summaries for all doctors
+export const fetchDoctorCreditSummaries = async (): Promise<DoctorCreditSummary[]> => {
+  try {
+    // Call the stored procedure that calculates credit summaries
+    const { data, error } = await supabase.rpc(
+      'get_doctor_credit_summaries'
+    );
+
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching doctor credit summaries:", error);
+    toast.error("Failed to load credit summaries");
+    throw error;
+  }
+};
+
+// Get detailed credit information for a specific doctor
+export const fetchDoctorCreditDetails = async (doctorId: string): Promise<DoctorCredit | null> => {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_doctor_credits',
+      { p_doctor_id: doctorId }
+    );
+
+    if (error) throw error;
+    return data[0] || null;
+  } catch (error: any) {
+    console.error("Error fetching doctor credit details:", error);
+    toast.error("Failed to load credit details");
+    throw error;
+  }
+};
+
+// Get credit transactions for a specific doctor
+export const fetchDoctorCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("credit_transactions")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone,
+          email
+        )
+      `)
+      .eq("doctor_id", doctorId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Process data to ensure consistent structure
+    const processedTransactions = data.map(transaction => {
+      // Extract doctor info to standardize format
+      const doctorData = transaction.doctor || {};
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        `unknown-doctor@example.com`;
+      
+      return {
+        ...transaction,
+        doctor: {
+          name: doctorName,
+          phone: doctorPhone,
+          email: doctorEmail
+        }
+      };
+    });
+
+    return processedTransactions;
+  } catch (error: any) {
+    console.error("Error fetching doctor credit transactions:", error);
+    toast.error("Failed to load credit transactions");
+    throw error;
+  }
+};
+
+// Add a payment for a doctor
+export const addDoctorPayment = async (
+  doctorId: string,
+  amount: number,
+  notes?: string
+): Promise<string | null> => {
+  try {
+    // First, create the payment record
+    const { data: paymentData, error: paymentError } = await supabase
+      .from("payments")
+      .insert({
+        doctor_id: doctorId,
+        amount,
+        notes
+      })
+      .select()
+      .single();
+
+    if (paymentError) throw paymentError;
+
+    // Then, create a credit transaction record
+    const { data: transactionData, error: transactionError } = await supabase
+      .from("credit_transactions")
+      .insert({
+        doctor_id: doctorId,
+        type: 'payment',
+        amount,
+        description: notes || 'Payment received',
+      })
+      .select()
+      .single();
+
+    if (transactionError) throw transactionError;
+
+    return paymentData.id;
+  } catch (error: any) {
+    console.error("Error adding doctor payment:", error);
+    toast.error("Failed to add payment");
+    throw error;
+  }
+};
+
+// Get all payments
+export const fetchAllPayments = async (): Promise<DoctorPayment[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("payments")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone,
+          email
+        )
+      `)
+      .order("payment_date", { ascending: false });
+
+    if (error) throw error;
+
+    // Process data to ensure consistent structure
+    const processedPayments = data.map(payment => {
+      // Extract doctor info to standardize format
+      const doctorData = payment.doctor || {};
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        `unknown-doctor@example.com`;
+      
+      return {
+        ...payment,
+        doctor: {
+          name: doctorName,
+          phone: doctorPhone,
+          email: doctorEmail
+        }
+      };
+    });
+
+    return processedPayments;
+  } catch (error: any) {
+    console.error("Error fetching payments:", error);
+    toast.error("Failed to load payments");
+    throw error;
+  }
+};
+
+// Get all credit transactions
+export const fetchAllCreditTransactions = async (): Promise<CreditTransaction[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("credit_transactions")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone,
+          email
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Process data to ensure consistent structure
+    const processedTransactions = data.map(transaction => {
+      // Extract doctor info to standardize format
+      const doctorData = transaction.doctor || {};
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        `unknown-doctor@example.com`;
+      
+      return {
+        ...transaction,
+        doctor: {
+          name: doctorName,
+          phone: doctorPhone,
+          email: doctorEmail
+        }
+      };
+    });
+
+    return processedTransactions;
+  } catch (error: any) {
+    console.error("Error fetching credit transactions:", error);
+    toast.error("Failed to load credit transactions");
+    throw error;
+  }
+};
+
+// Fetch order counts by status for admin dashboard
+export const fetchOrderCounts = async (): Promise<Record<string, number>> => {
+  try {
+    const { data, error } = await supabase.rpc('get_order_counts');
+
+    if (error) throw error;
+    return data || { pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, total: 0 };
+  } catch (error: any) {
+    console.error("Error fetching order counts:", error);
+    toast.error("Failed to load order statistics");
+    throw error;
+  }
+};
+
+// Synchronize orders from external system (optional implementation)
+export const synchronizeOrders = async (): Promise<boolean> => {
+  try {
+    // This would typically call an API endpoint or edge function
+    // that synchronizes orders from an external system
+    
+    // For now, we'll just simulate success
+    toast.success("Orders synchronized successfully");
+    return true;
+  } catch (error: any) {
+    console.error("Error synchronizing orders:", error);
+    toast.error("Failed to synchronize orders");
     throw error;
   }
 };
@@ -455,10 +482,7 @@ export const updateOrderStatus = async (orderId: string, newStatus: string, note
     const doctorData = orderData.doctor || {};
     const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Valued Doctor" : "Valued Doctor";
     const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "" : "";
-    const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-      doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
-      `unknown-${orderData.doctor_id.substring(0, 8)}@example.com`;
-
+    
     // Generate invoice if status is approved/processing
     if (newStatus === 'approved' || newStatus === 'processing') {
       try {

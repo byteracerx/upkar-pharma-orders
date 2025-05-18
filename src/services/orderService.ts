@@ -46,6 +46,19 @@ export interface ShippingInfo {
   actual_delivery_date?: string;
 }
 
+export interface Return {
+  id: string;
+  order_id: string;
+  doctor_id: string;
+  reason: string;
+  status: string;
+  amount: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  processed_by?: string;
+}
+
 export interface OrderReturn {
   id: string;
   order_id: string;
@@ -71,6 +84,14 @@ export interface OrderDetails {
     invoice_number?: string;
     invoice_generated?: boolean;
     invoice_url?: string;
+    shipping_address?: string;
+    billing_address?: string;
+    payment_method?: string;
+    notes?: string;
+    tracking_number?: string;
+    shipping_carrier?: string;
+    estimated_delivery_date?: string;
+    actual_delivery_date?: string;
     doctor?: {
       name: string;
       phone: string;
@@ -94,6 +115,14 @@ export interface Order {
   invoice_number?: string;
   invoice_generated?: boolean;
   invoice_url?: string;
+  tracking_number?: string;
+  shipping_carrier?: string;
+  estimated_delivery_date?: string;
+  actual_delivery_date?: string;
+  shipping_address?: string;
+  billing_address?: string;
+  payment_method?: string;
+  notes?: string;
   doctor?: {
     name: string;
     phone: string;
@@ -142,6 +171,51 @@ export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
     return processedOrders;
   } catch (error: any) {
     console.error("Error fetching doctor orders:", error);
+    toast.error("Failed to load orders");
+    throw error;
+  }
+};
+
+// Fetch all orders (for admin)
+export const fetchAllOrders = async (): Promise<Order[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        doctor:doctor_id (
+          name,
+          phone,
+          email
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Process data to ensure consistent structure
+    const processedOrders = data.map(order => {
+      // Extract doctor info to standardize format
+      const doctorData = order.doctor || {};
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
+        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        `unknown-${order.doctor_id.substring(0, 8)}@example.com`;
+      
+      return {
+        ...order,
+        doctor: {
+          name: doctorName,
+          phone: doctorPhone,
+          email: doctorEmail
+        }
+      };
+    });
+
+    return processedOrders;
+  } catch (error: any) {
+    console.error("Error fetching all orders:", error);
     toast.error("Failed to load orders");
     throw error;
   }
@@ -292,6 +366,25 @@ export const updateOrderStatus = async (orderId: string, newStatus: string, note
   } catch (error: any) {
     console.error("Error in updateOrderStatus:", error);
     toast.error("Failed to update order status");
+    throw error;
+  }
+};
+
+// Generate invoice for an order
+export const generateInvoice = async (orderId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .functions
+      .invoke('generate-invoice', {
+        body: { orderId }
+      });
+
+    if (error) throw error;
+    
+    return data?.invoiceUrl || null;
+  } catch (error: any) {
+    console.error("Error generating invoice:", error);
+    toast.error("Failed to generate invoice");
     throw error;
   }
 };
@@ -454,3 +547,83 @@ export const initiateReturn = async (
   }
 };
 
+// Process a return request (this is the missing function)
+export const processReturn = async (
+  orderId: string,
+  doctorId: string,
+  reason: string,
+  items: { productId: string, quantity: number, price: number }[]
+): Promise<string | null> => {
+  try {
+    // Reuse the initiateReturn function as they perform the same operation
+    return initiateReturn(orderId, doctorId, reason, items);
+  } catch (error: any) {
+    console.error("Error processing return:", error);
+    toast.error("Failed to process return");
+    throw error;
+  }
+};
+
+// Reorder a previous order
+export const reorderPreviousOrder = async (
+  orderId: string,
+  doctorId: string
+): Promise<string | null> => {
+  try {
+    // Fetch the items from the previous order
+    const { data: items, error: itemsError } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", orderId);
+
+    if (itemsError) throw itemsError;
+    
+    if (!items || items.length === 0) {
+      throw new Error("No items found in the original order");
+    }
+
+    // Create a new order
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        doctor_id: doctorId,
+        total_amount: items.reduce((sum, item) => sum + item.total_price, 0),
+        status: 'pending',
+        payment_status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    // Create new order items based on the previous order
+    const newItems = items.map(item => ({
+      order_id: orderData.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price_per_unit: item.price_per_unit,
+      total_price: item.total_price
+    }));
+
+    const { error: newItemsError } = await supabase
+      .from("order_items")
+      .insert(newItems);
+
+    if (newItemsError) throw newItemsError;
+
+    // Add initial status history
+    await supabase
+      .from("order_status_history")
+      .insert({
+        order_id: orderData.id,
+        status: 'pending',
+        notes: `New order created based on order ${orderId}`
+      });
+
+    return orderData.id;
+  } catch (error: any) {
+    console.error("Error reordering:", error);
+    toast.error("Failed to reorder");
+    throw error;
+  }
+};

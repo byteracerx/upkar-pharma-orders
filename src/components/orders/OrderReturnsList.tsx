@@ -1,137 +1,120 @@
 
-import { Return } from "@/services/orderService";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { 
-  Table, 
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow 
-} from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useState } from 'react';
+import { OrderReturn } from '@/services/orderService';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface OrderReturnsListProps {
-  returns: Return[];
-  isAdmin?: boolean;
-  onUpdateReturnStatus?: (returnId: string, status: string) => void;
+  returns: OrderReturn[];
 }
 
-const OrderReturnsList = ({ returns, isAdmin = false, onUpdateReturnStatus }: OrderReturnsListProps) => {
-  const getStatusBadgeColor = (status: string) => {
-    switch (status.toLowerCase()) {
+const OrderReturnsList = ({ returns }: OrderReturnsListProps) => {
+  const [expandedReturnId, setExpandedReturnId] = useState<string | null>(null);
+  
+  if (!returns.length) {
+    return (
+      <div className="text-center py-6 border rounded-md bg-gray-50">
+        <p className="text-gray-500">No return requests for this order</p>
+      </div>
+    );
+  }
+  
+  const toggleExpand = (returnId: string) => {
+    setExpandedReturnId(expandedReturnId === returnId ? null : returnId);
+  };
+  
+  const getStatusBadge = (status: string) => {
+    switch (status) {
       case 'pending':
-        return "bg-yellow-100 text-yellow-800";
+        return <Badge className="bg-blue-100 text-blue-800">Pending</Badge>;
       case 'approved':
-        return "bg-green-100 text-green-800";
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
       case 'rejected':
-        return "bg-red-100 text-red-800";
-      case 'processing':
-        return "bg-blue-100 text-blue-800";
+        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
       case 'completed':
-        return "bg-purple-100 text-purple-800";
+        return <Badge className="bg-purple-100 text-purple-800">Completed</Badge>;
       default:
-        return "bg-gray-100 text-gray-800";
+        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
     }
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Return Requests</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {returns.length === 0 ? (
-            <p className="text-center text-gray-500 py-4">No returns found for this order</p>
-          ) : (
-            returns.map((returnItem) => (
-              <div key={returnItem.id} className="border rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Return ID</p>
-                    <p className="font-medium">{returnItem.id.substring(0, 8)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Date</p>
-                    <p className="text-sm">{formatDate(returnItem.created_at)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Amount</p>
-                    <p className="font-medium">{formatCurrency(returnItem.amount)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Status</p>
-                    <Badge className={getStatusBadgeColor(returnItem.status)}>
-                      {returnItem.status.charAt(0).toUpperCase() + returnItem.status.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium mb-1">Reason for Return</p>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                    {returnItem.reason}
-                  </p>
-                </div>
-                
-                {returnItem.items && returnItem.items.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Items</p>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {returnItem.items.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.product?.name || 'Unknown Product'}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(item.total_price)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                
-                {isAdmin && onUpdateReturnStatus && returnItem.status === 'pending' && (
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      variant="outline" 
-                      className="text-green-600 border-green-200 hover:bg-green-50" 
-                      onClick={() => onUpdateReturnStatus(returnItem.id, 'approved')}
-                    >
-                      Approve Return
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="text-red-600 border-red-200 hover:bg-red-50" 
-                      onClick={() => onUpdateReturnStatus(returnItem.id, 'rejected')}
-                    >
-                      Reject Return
-                    </Button>
-                  </div>
-                )}
+    <div className="space-y-4">
+      {returns.map((returnItem) => (
+        <Card key={returnItem.id} className="overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Return #{returnItem.id.substring(0, 8)}</p>
+                <p className="text-sm text-gray-500">
+                  Initiated on {formatDate(returnItem.created_at)}
+                </p>
               </div>
-            ))
-          )}
-        </div>
-      </CardContent>
-    </Card>
+              <div className="flex items-center space-x-2">
+                {getStatusBadge(returnItem.status)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleExpand(returnItem.id)}
+                >
+                  {expandedReturnId === returnItem.id ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            {expandedReturnId === returnItem.id && (
+              <div className="mt-4 border-t pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Return Reason</p>
+                    <p className="text-sm">{returnItem.reason}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Refund Amount</p>
+                    <p className="text-sm font-medium">₹{returnItem.amount.toFixed(2)}</p>
+                  </div>
+                  
+                  {returnItem.notes && (
+                    <div className="col-span-1 md:col-span-2">
+                      <p className="text-sm text-gray-500 mb-1">Notes</p>
+                      <p className="text-sm">{returnItem.notes}</p>
+                    </div>
+                  )}
+                  
+                  {returnItem.processed_by && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Processed By</p>
+                      <p className="text-sm">{returnItem.processed_by}</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Last Updated</p>
+                    <p className="text-sm">{formatDate(returnItem.updated_at)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 };
 

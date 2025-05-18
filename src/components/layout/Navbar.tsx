@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getUserDisplayName } from "@/utils/user-helpers";
 
 const Navbar = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();

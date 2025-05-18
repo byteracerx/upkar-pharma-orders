@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,7 @@ const Profile = () => {
           
         if (error) throw error;
         
-        // Transform data to match DoctorProfile interface
+        // Transform data to match DoctorProfile interface with defaults for potentially missing fields
         const profileData: DoctorProfile = {
           id: data.id,
           name: data.name || '',

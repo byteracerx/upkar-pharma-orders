@@ -12,6 +12,12 @@ export interface Doctor {
   is_approved: boolean;
   created_at: string;
   updated_at: string;
+  clinic_name?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  license_number?: string;
+  specialization?: string;
 }
 
 // Shipping info interface

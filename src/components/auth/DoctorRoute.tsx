@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 const DoctorRoute = () => {
-  const { user, isAuthenticated, isAdmin, loading } = useAuth();
+  const { user, isAuthenticated, isAdmin, isApproved, loading } = useAuth();
 
   // If auth is still initializing, show a loading spinner
   if (loading) {
@@ -25,7 +25,12 @@ const DoctorRoute = () => {
     return <Navigate to="/admin" replace />;
   }
 
-  // If user is authenticated and is a doctor, render the children
+  // If doctor is not approved, redirect to pending approval page
+  if (!isApproved) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  // If user is authenticated and is an approved doctor, render the children
   return <Outlet />;
 };
 

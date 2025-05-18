@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -62,7 +63,7 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
       .from('doctors')
       .update({ 
         is_approved: true, 
-        updated_at: new Date().toISOString() // Fixed: Convert Date to string
+        updated_at: new Date().toISOString() 
       })
       .eq('id', doctorId);
 
@@ -85,7 +86,7 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
       .from('doctors')
       .update({ 
         is_approved: false, 
-        updated_at: new Date().toISOString() // Fixed: Convert Date to string
+        updated_at: new Date().toISOString() 
       })
       .eq('id', doctorId);
 
@@ -190,7 +191,7 @@ export const updateShippingInfo = async (
 };
 
 // Function to generate invoice
-export const generateInvoice = async (orderId: string): Promise<boolean> => {
+export const generateInvoice = async (orderId: string): Promise<string | boolean> => {
   try {
     const { error } = await supabase
       .rpc('generate_invoice', {
@@ -201,7 +202,19 @@ export const generateInvoice = async (orderId: string): Promise<boolean> => {
       throw error;
     }
 
-    return true;
+    // Fetch the updated order to get the invoice URL
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('invoice_url')
+      .eq('id', orderId)
+      .single();
+      
+    if (orderError) {
+      console.error('Error fetching invoice URL:', orderError);
+      return true; // Return true to indicate success even without URL
+    }
+    
+    return order.invoice_url || true;
   } catch (error) {
     console.error('Error generating invoice:', error);
     toast.error('Failed to generate invoice');
@@ -334,16 +347,7 @@ export const fetchReturnDetails = async (returnId: string) => {
   }
 };
 
-// Export these functions for EnhancedOrders.tsx
-export const {
-  fetchAllOrders,
-  updateOrderStatus,
-  updateShippingInfo,
-  generateInvoice,
-  synchronizeOrders
-} = require('./orderService');
-
-// Export type for EnhancedOrders.tsx
+// Export ShippingInfo interface for EnhancedOrders.tsx
 export interface ShippingInfo {
   tracking_number: string;
   shipping_carrier: string;

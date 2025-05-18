@@ -23,12 +23,12 @@ const OrderReturnsList = ({ returns, isAdmin = false, onUpdateReturnStatus }: Or
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
 
   // Function to get badge color based on status
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case "approved":
-        return "default"; // Changed from "success" to "default"
+        return "default"; 
       case "pending":
-        return "secondary"; // Changed from "warning" to "secondary"
+        return "secondary"; 
       case "rejected":
         return "destructive";
       default:

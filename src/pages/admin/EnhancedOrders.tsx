@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Order } from "@/services/orderService";
 import { 
-  Order,
-  ShippingInfo
-} from "@/services/orderService";
-import {
+  ShippingInfo,
   fetchAllOrders,
   updateOrderStatus,
   updateShippingInfo,
@@ -85,15 +83,15 @@ const EnhancedOrders = () => {
   
   // Fetch orders data
   useEffect(() => {
-    fetchOrders();
+    fetchOrdersData();
   }, []);
   
-  const fetchOrders = async () => {
+  const fetchOrdersData = async () => {
     setLoading(true);
     try {
       const data = await fetchAllOrders();
       console.log(`Fetched ${data.length} orders`);
-      setOrders(data);
+      setOrders(data as Order[]);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       toast.error("Failed to load orders");
@@ -136,9 +134,11 @@ const EnhancedOrders = () => {
   const handleGenerateInvoice = async (orderId: string) => {
     setIsActionInProgress(true);
     try {
-      const invoiceUrl = await generateInvoice(orderId);
+      const result = await generateInvoice(orderId);
       
-      if (invoiceUrl) {
+      const invoiceUrl = typeof result === 'string' ? result : undefined;
+      
+      if (result) {
         toast.success("Invoice Generated", {
           description: "Invoice has been generated successfully"
         });
@@ -149,16 +149,18 @@ const EnhancedOrders = () => {
             return { 
               ...order, 
               invoice_generated: true,
-              invoice_url: invoiceUrl 
+              invoice_url: invoiceUrl || order.invoice_url
             };
           }
           return order;
         }));
         
-        // Open the invoice in a new tab
-        window.open(invoiceUrl, '_blank');
+        // Open the invoice in a new tab if URL is available
+        if (invoiceUrl) {
+          window.open(invoiceUrl, '_blank');
+        }
       } else {
-        throw new Error("No invoice URL returned");
+        throw new Error("Invoice generation failed");
       }
     } catch (error: any) {
       console.error("Error generating invoice:", error);
@@ -179,15 +181,19 @@ const EnhancedOrders = () => {
   // Handle shipping info update
   const handleShippingInfoUpdate = async (
     orderId: string, 
-    shippingInfo: ShippingInfo
+    shippingInfo: {
+      trackingNumber?: string;
+      shippingCarrier?: string;
+      estimatedDeliveryDate?: string;
+    }
   ) => {
     setIsActionInProgress(true);
     try {
       const success = await updateShippingInfo(
         orderId,
-        shippingInfo.tracking_number || "",
-        shippingInfo.shipping_carrier || "",
-        shippingInfo.estimated_delivery_date
+        shippingInfo.trackingNumber || "",
+        shippingInfo.shippingCarrier || "",
+        shippingInfo.estimatedDeliveryDate
       );
       
       if (success) {
@@ -201,9 +207,9 @@ const EnhancedOrders = () => {
             return { 
               ...order, 
               status: 'shipped',
-              tracking_number: shippingInfo.tracking_number,
-              shipping_carrier: shippingInfo.shipping_carrier,
-              estimated_delivery_date: shippingInfo.estimated_delivery_date
+              tracking_number: shippingInfo.trackingNumber,
+              shipping_carrier: shippingInfo.shippingCarrier,
+              estimated_delivery_date: shippingInfo.estimatedDeliveryDate
             };
           }
           return order;
@@ -230,7 +236,7 @@ const EnhancedOrders = () => {
     try {
       await synchronizeOrders();
       // Refresh orders after sync
-      fetchOrders();
+      fetchOrdersData();
     } catch (error) {
       console.error("Error syncing orders:", error);
     } finally {
@@ -542,11 +548,11 @@ const EnhancedOrders = () => {
                             
                             <DropdownMenuItem
                               onClick={() => handleGenerateInvoice(order.id)}
-                              disabled={order.invoice_generated || isActionInProgress}
+                              disabled={isActionInProgress}
                               className="cursor-pointer"
                             >
                               <FileText className="h-4 w-4 mr-2" />
-                              {order.invoice_generated ? 'Invoice Generated' : 'Generate Invoice'}
+                              {order.invoice_generated ? 'Regenerate Invoice' : 'Generate Invoice'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DoctorProfile {
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -24,6 +25,9 @@ interface DoctorProfile {
   license_number: string;
   gst_number?: string;
   specialization?: string;
+  is_approved?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const Profile = () => {
@@ -48,8 +52,27 @@ const Profile = () => {
           
         if (error) throw error;
         
-        setDoctorProfile(data);
-        setFormData(data);
+        // Transform data to match DoctorProfile interface
+        const profileData: DoctorProfile = {
+          id: data.id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          clinic_name: data.clinic_name || '',
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || '',
+          pincode: data.pincode || '',
+          license_number: data.license_number || '',
+          gst_number: data.gst_number || '',
+          specialization: data.specialization || '',
+          is_approved: data.is_approved,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+        
+        setDoctorProfile(profileData);
+        setFormData(profileData);
       } catch (error: any) {
         console.error("Error fetching doctor profile:", error);
         toast.error("Failed to load profile", {
@@ -98,7 +121,22 @@ const Profile = () => {
         
       if (error) throw error;
       
-      setDoctorProfile(data[0]);
+      if (data && data[0]) {
+        // Transform the response data to match our DoctorProfile interface
+        const updatedProfile: DoctorProfile = {
+          ...doctorProfile!,
+          phone: data[0].phone || '',
+          clinic_name: data[0].clinic_name || '',
+          address: data[0].address || '',
+          city: data[0].city || '',
+          state: data[0].state || '',
+          pincode: data[0].pincode || '',
+          specialization: data[0].specialization || '',
+        };
+        
+        setDoctorProfile(updatedProfile);
+      }
+      
       toast.success("Profile Updated", {
         description: "Your profile has been successfully updated"
       });

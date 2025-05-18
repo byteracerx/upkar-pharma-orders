@@ -1,5 +1,5 @@
 
-import { OrderItem } from "@/services/orderService";
+import { OrderItem } from "@/services/order/types";
 import {
   Table,
   TableBody,
@@ -8,14 +8,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface OrderItemsListProps {
   items: OrderItem[];
+  returnOptions?: boolean;
 }
 
-const OrderItemsList = ({ items }: OrderItemsListProps) => {
+const OrderItemsList = ({ items, returnOptions }: OrderItemsListProps) => {
   // Calculate order summary
   const subtotal = items.reduce((sum, item) => sum + item.total_price, 0);
   
@@ -58,9 +58,9 @@ const OrderItemsList = ({ items }: OrderItemsListProps) => {
                     </div>
                   </div>
                 </TableCell>
-                <TableCell>{formatCurrency(item.price_per_unit)}</TableCell>
+                <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.price_per_unit)}</TableCell>
                 <TableCell>{item.quantity}</TableCell>
-                <TableCell className="text-right">{formatCurrency(item.total_price)}</TableCell>
+                <TableCell className="text-right">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(item.total_price)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -70,12 +70,12 @@ const OrderItemsList = ({ items }: OrderItemsListProps) => {
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span>Subtotal</span>
-          <span>{formatCurrency(subtotal)}</span>
+          <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(subtotal)}</span>
         </div>
         
         <div className="flex justify-between font-medium">
           <span>Total</span>
-          <span>{formatCurrency(subtotal)}</span>
+          <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(subtotal)}</span>
         </div>
       </div>
     </div>

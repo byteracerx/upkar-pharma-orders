@@ -4,16 +4,7 @@ import ProductCard from './ProductCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image_url: string;
-  category: string;
-  stock_quantity: number;
-}
+import { Product } from '@/services/productService';
 
 interface ProductListProps {
   categoryFilter?: string;
@@ -44,7 +35,18 @@ const ProductList = ({ categoryFilter }: ProductListProps) => {
           throw error;
         }
         
-        setProducts(data);
+        // Transform data to match the Product interface
+        const transformedProducts: Product[] = data.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          image_url: item.image_url || '',
+          category: item.category || '',
+          stock: item.stock
+        }));
+        
+        setProducts(transformedProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
         toast.error('Failed to load products');

@@ -9,12 +9,10 @@ import { Loader2, FileText, ArrowUpRight, AlertCircle, ShoppingBag } from "lucid
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchDoctorOrdersReliable } from "@/services/doctorOrderService";
+import { Order as OrderType } from "@/services/order/types";
 
-interface Order {
-  id: string;
-  created_at: string;
-  total_amount: number;
-  status: string;
+// Extend the Order type to include items_count which is needed in this component
+interface Order extends OrderType {
   items_count: number;
 }
 
@@ -32,8 +30,15 @@ const Orders = () => {
       try {
         setIsLoading(true);
         const ordersData = await fetchDoctorOrdersReliable(user.id);
-        setOrders(ordersData);
-        setFilteredOrders(ordersData);
+        
+        // Transform orders data to include items_count
+        const ordersWithItemCount = ordersData.map(order => ({
+          ...order,
+          items_count: 0 // Default value since we don't have this info from the API
+        }));
+        
+        setOrders(ordersWithItemCount);
+        setFilteredOrders(ordersWithItemCount);
       } catch (error: any) {
         console.error("Error fetching orders:", error);
         toast.error("Failed to load orders", {

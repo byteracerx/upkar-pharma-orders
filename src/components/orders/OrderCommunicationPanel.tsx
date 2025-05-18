@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { OrderCommunication } from "@/services/orderService";
+import { OrderCommunication } from "@/services/order/types";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Card,
@@ -12,25 +12,24 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDate } from "@/lib/utils";
 import { Send, User, UserCog } from "lucide-react";
 
 interface OrderCommunicationPanelProps {
   orderId: string;
   communications: OrderCommunication[];
-  isAdmin: boolean;
+  isAdmin?: boolean;
   onSendMessage?: (orderId: string, message: string) => void;
-  doctorId: string;
-  doctorName: string;
+  doctorId?: string;
+  doctorName?: string;
 }
 
 const OrderCommunicationPanel = ({
   orderId,
   communications,
-  isAdmin,
+  isAdmin = false,
   onSendMessage,
-  doctorId,
-  doctorName
+  doctorId = "",
+  doctorName = "Doctor"
 }: OrderCommunicationPanelProps) => {
   const { user } = useAuth();
   const [message, setMessage] = useState("");
@@ -104,7 +103,7 @@ const OrderCommunicationPanel = ({
                         </>
                       )}
                       <span className="text-xs opacity-70 ml-auto">
-                        {formatDate(comm.created_at, true)}
+                        {new Date(comm.created_at).toLocaleString()}
                       </span>
                     </div>
                     <p className="whitespace-pre-line">{comm.message}</p>

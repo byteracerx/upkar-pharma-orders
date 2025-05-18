@@ -7,6 +7,7 @@ import OrderTrackingInfo from './OrderTrackingInfo';
 import OrderCommunicationPanel from './OrderCommunicationPanel';
 import OrderReturnsList from './OrderReturnsList';
 import { OrderDetails } from '@/services/order/types';
+import { useAuth } from "@/contexts/AuthContext";
 
 interface OrderDetailsViewProps {
   orderDetails: OrderDetails;
@@ -15,6 +16,7 @@ interface OrderDetailsViewProps {
 const OrderDetailsView = ({ orderDetails }: OrderDetailsViewProps) => {
   const [activeTab, setActiveTab] = useState('items');
   const { order, items, statusHistory, communications, returns } = orderDetails;
+  const { user } = useAuth();
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -86,7 +88,7 @@ const OrderDetailsView = ({ orderDetails }: OrderDetailsViewProps) => {
         </TabsList>
         
         <TabsContent value="items">
-          <OrderItemsList items={items} returnOptions />
+          <OrderItemsList items={items} returnOptions={true} />
         </TabsContent>
         
         <TabsContent value="tracking">
@@ -101,6 +103,9 @@ const OrderDetailsView = ({ orderDetails }: OrderDetailsViewProps) => {
           <OrderCommunicationPanel 
             orderId={order.id} 
             communications={communications || []} 
+            isAdmin={false}
+            doctorId={user?.id || ''}
+            doctorName={order.doctor?.name || 'Doctor'}
           />
         </TabsContent>
       </Tabs>

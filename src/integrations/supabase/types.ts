@@ -45,35 +45,53 @@ export type Database = {
       doctors: {
         Row: {
           address: string
+          city: string | null
+          clinic_name: string | null
           created_at: string | null
           email: string | null
           gst_number: string
           id: string
           is_approved: boolean
+          license_number: string | null
           name: string
           phone: string
+          pincode: string | null
+          specialization: string | null
+          state: string | null
           updated_at: string | null
         }
         Insert: {
           address: string
+          city?: string | null
+          clinic_name?: string | null
           created_at?: string | null
           email?: string | null
           gst_number: string
           id: string
           is_approved?: boolean
+          license_number?: string | null
           name: string
           phone: string
+          pincode?: string | null
+          specialization?: string | null
+          state?: string | null
           updated_at?: string | null
         }
         Update: {
           address?: string
+          city?: string | null
+          clinic_name?: string | null
           created_at?: string | null
           email?: string | null
           gst_number?: string
           id?: string
           is_approved?: boolean
+          license_number?: string | null
           name?: string
           phone?: string
+          pincode?: string | null
+          specialization?: string | null
+          state?: string | null
           updated_at?: string | null
         }
         Relationships: []

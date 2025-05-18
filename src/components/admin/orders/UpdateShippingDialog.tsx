@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,124 +8,139 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Truck } from "lucide-react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Order } from "@/services/orderService";
 
-interface UpdateShippingDialogProps {
+const formSchema = z.object({
+  trackingNumber: z.string().min(3, "Tracking number is required"),
+  shippingCarrier: z.string().min(2, "Shipping carrier is required"),
+  estimatedDeliveryDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || !isNaN(Date.parse(val)),
+      "Please enter a valid date"
+    ),
+});
+
+export type ShippingInfo = z.infer<typeof formSchema>;
+
+export interface UpdateShippingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    trackingNumber: string;
-    shippingCarrier: string;
-    estimatedDeliveryDate?: string;
-  }) => void;
-  initialData?: {
-    tracking_number?: string;
-    shipping_carrier?: string;
-    estimated_delivery_date?: string;
-  };
+  order?: Order;
+  onSubmit: (shippingInfo: ShippingInfo) => Promise<void>;
 }
 
-const UpdateShippingDialog = ({
+export default function UpdateShippingDialog({
   open,
   onOpenChange,
+  order,
   onSubmit,
-  initialData = {}
-}: UpdateShippingDialogProps) => {
-  const [trackingNumber, setTrackingNumber] = useState(initialData.tracking_number || "");
-  const [shippingCarrier, setShippingCarrier] = useState(initialData.shipping_carrier || "");
-  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState(
-    initialData.estimated_delivery_date 
-      ? new Date(initialData.estimated_delivery_date).toISOString().split('T')[0]
-      : ""
-  );
-  const [submitting, setSubmitting] = useState(false);
-  
-  const handleSubmit = () => {
-    if (!trackingNumber || !shippingCarrier) {
-      return;
-    }
-    
-    setSubmitting(true);
-    
-    onSubmit({
-      trackingNumber,
-      shippingCarrier,
-      estimatedDeliveryDate: estimatedDeliveryDate || undefined
-    });
-    
-    setSubmitting(false);
+}: UpdateShippingDialogProps) {
+  const form = useForm<ShippingInfo>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      trackingNumber: order?.tracking_number || "",
+      shippingCarrier: order?.shipping_carrier || "",
+      estimatedDeliveryDate: order?.estimated_delivery_date
+        ? new Date(order.estimated_delivery_date).toISOString().split("T")[0]
+        : "",
+    },
+  });
+
+  const handleSubmit = async (values: ShippingInfo) => {
+    await onSubmit(values);
+    onOpenChange(false);
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Update Shipping Information</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            Update Shipping Information
+          </DialogTitle>
           <DialogDescription>
-            Enter tracking details for this order
+            Add or update tracking details for order #
+            {order?.id.substring(0, 8) || ""}
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="tracking-number">Tracking Number</Label>
-            <Input
-              id="tracking-number"
-              value={trackingNumber}
-              onChange={(e) => setTrackingNumber(e.target.value)}
-              placeholder="Enter tracking number"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="shipping-carrier">Shipping Carrier</Label>
-            <Input
-              id="shipping-carrier"
-              value={shippingCarrier}
-              onChange={(e) => setShippingCarrier(e.target.value)}
-              placeholder="Enter shipping carrier (e.g., DHL, FedEx)"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="estimated-delivery">Estimated Delivery Date</Label>
-            <Input
-              id="estimated-delivery"
-              type="date"
-              value={estimatedDeliveryDate}
-              onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
-            />
-          </div>
-        </div>
-        
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-4 pt-4"
           >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !trackingNumber || !shippingCarrier}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Shipping Info"
-            )}
-          </Button>
-        </DialogFooter>
+            <FormField
+              control={form.control}
+              name="trackingNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tracking Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="123456789" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shippingCarrier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Shipping Carrier</FormLabel>
+                  <FormControl>
+                    <Input placeholder="FedEx, DTDC, etc." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="estimatedDeliveryDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estimated Delivery Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    When the order is expected to be delivered
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter className="pt-4">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                {order?.tracking_number ? "Update" : "Add"} Tracking
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
-};
-
-export default UpdateShippingDialog;
+}

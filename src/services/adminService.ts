@@ -162,7 +162,7 @@ export const fetchDoctorCreditSummaries = async (): Promise<DoctorCreditSummary[
     );
 
     if (error) throw error;
-    return data;
+    return data || [];
   } catch (error: any) {
     console.error("Error fetching doctor credit summaries:", error);
     toast.error("Failed to load credit summaries");
@@ -179,7 +179,7 @@ export const fetchDoctorCreditDetails = async (doctorId: string): Promise<Doctor
     );
 
     if (error) throw error;
-    return data[0] || null;
+    return data && data.length > 0 ? data[0] : null;
   } catch (error: any) {
     console.error("Error fetching doctor credit details:", error);
     toast.error("Failed to load credit details");
@@ -209,10 +209,10 @@ export const fetchDoctorCreditTransactions = async (doctorId: string): Promise<C
     const processedTransactions = data.map(transaction => {
       // Extract doctor info to standardize format
       const doctorData = transaction.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "N/A" : "N/A";
       const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        (doctorData as any).email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
         `unknown-doctor@example.com`;
       
       return {
@@ -296,10 +296,10 @@ export const fetchAllPayments = async (): Promise<DoctorPayment[]> => {
     const processedPayments = data.map(payment => {
       // Extract doctor info to standardize format
       const doctorData = payment.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "N/A" : "N/A";
       const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        (doctorData as any).email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
         `unknown-doctor@example.com`;
       
       return {
@@ -341,10 +341,10 @@ export const fetchAllCreditTransactions = async (): Promise<CreditTransaction[]>
     const processedTransactions = data.map(transaction => {
       // Extract doctor info to standardize format
       const doctorData = transaction.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Unknown" : "Unknown";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "N/A" : "N/A";
       const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
+        (doctorData as any).email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
         `unknown-doctor@example.com`;
       
       return {
@@ -430,10 +430,10 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
       const processedOrders = fallbackData.map(order => {
         // Extract doctor info
         const doctorData = order.doctor || {};
-        const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-        const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
+        const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Unknown" : "Unknown";
+        const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "N/A" : "N/A";
         const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-          doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.') || order.doctor_id.substring(0, 8)}@example.com` : 
+          (doctorData as any).email || `${doctorName.toLowerCase().replace(/\s+/g, '.') || order.doctor_id.substring(0, 8)}@example.com` : 
           `unknown-${order.doctor_id.substring(0, 8)}@example.com`;
         
         return {
@@ -454,6 +454,51 @@ export const fetchAllOrders = async (): Promise<Order[]> => {
     console.error("Error in fetchAllOrders:", error);
     toast.error("Failed to load orders");
     throw error;
+  }
+};
+
+// Helper function to generate PDF invoice
+const generatePDFInvoice = async (orderId: string): Promise<string> => {
+  try {
+    // Call the invoice generation function
+    const { data, error } = await supabase.rpc('generate_invoice', { p_order_id: orderId });
+    
+    if (error) throw error;
+    
+    // Return the invoice URL
+    return `/invoices/${orderId}.pdf`;
+  } catch (error: any) {
+    console.error("Error generating PDF invoice:", error);
+    throw error;
+  }
+};
+
+// Helper function to send invoice email
+const sendInvoiceEmail = async (orderId: string): Promise<boolean> => {
+  try {
+    // In a real implementation, this would call an Edge Function to send the email
+    // For now, just simulate success
+    await supabase.functions.invoke('send-invoice-email', {
+      body: { orderId }
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Error sending invoice email:", error);
+    return false;
+  }
+};
+
+// Helper function to send WhatsApp notification
+const sendWhatsAppNotification = async (orderId: string): Promise<boolean> => {
+  try {
+    // Call the WhatsApp notification edge function
+    await supabase.functions.invoke('send-whatsapp-notification', {
+      body: { orderId }
+    });
+    return true;
+  } catch (error: any) {
+    console.error("Error sending WhatsApp notification:", error);
+    return false;
   }
 };
 
@@ -498,8 +543,9 @@ export const updateOrderStatus = async (orderId: string, newStatus: string, note
 
     // Prepare for notifications
     const doctorData = orderData.doctor || {};
-    const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Valued Doctor" : "Valued Doctor";
-    const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "" : "";
+    const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Valued Doctor" : "Valued Doctor";
+    const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "" : "";
+    const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).email || "" : "";
     
     // Generate invoice if status is approved/processing
     if (newStatus === 'approved' || newStatus === 'processing') {
@@ -580,8 +626,8 @@ export const updateShippingInfo = async (orderId: string, trackingNumber: string
     if (orderData) {
       // Prepare doctor data for notification
       const doctorData = orderData.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Valued Doctor" : "Valued Doctor";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "" : "";
+      const doctorName = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).name || "Valued Doctor" : "Valued Doctor";
+      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? (doctorData as any).phone || "" : "";
       
       // Send notification if phone available
       if (doctorPhone) {

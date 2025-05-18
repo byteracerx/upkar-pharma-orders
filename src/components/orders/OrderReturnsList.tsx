@@ -1,117 +1,176 @@
 
-import { useState } from 'react';
-import { OrderReturn } from '@/services/orderService';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { format } from "date-fns";
+import { ArrowLeft, BoxOpen, Check, Package } from "lucide-react";
 
-interface OrderReturnsListProps {
-  returns: OrderReturn[];
+export interface OrderReturn {
+  id: string;
+  order_id: string;
+  doctor_id: string;
+  reason: string;
+  status: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+  processed_by?: string;
+  notes?: string;
+  items?: {
+    id: string;
+    product_id: string;
+    quantity: number;
+    price_per_unit: number;
+    total_price: number;
+    reason?: string;
+    condition?: string;
+    product?: {
+      name: string;
+      price: number;
+      category?: string;
+    };
+  }[];
 }
 
-const OrderReturnsList = ({ returns }: OrderReturnsListProps) => {
-  const [expandedReturnId, setExpandedReturnId] = useState<string | null>(null);
-  
-  if (!returns.length) {
-    return (
-      <div className="text-center py-6 border rounded-md bg-gray-50">
-        <p className="text-gray-500">No return requests for this order</p>
-      </div>
-    );
+export interface OrderReturnsListProps {
+  returns: OrderReturn[];
+  isAdmin?: boolean;
+  onUpdateReturnStatus?: (returnId: string, status: string) => void;
+}
+
+const OrderReturnsList = ({ returns, isAdmin, onUpdateReturnStatus }: OrderReturnsListProps) => {
+  if (!returns || returns.length === 0) {
+    return null;
   }
-  
-  const toggleExpand = (returnId: string) => {
-    setExpandedReturnId(expandedReturnId === returnId ? null : returnId);
-  };
-  
-  const getStatusBadge = (status: string) => {
+
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-        return <Badge className="bg-blue-100 text-blue-800">Pending</Badge>;
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
-      case 'completed':
-        return <Badge className="bg-purple-100 text-purple-800">Completed</Badge>;
+      case "approved":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "processing":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-purple-100 text-purple-800";
       default:
-        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
+      return format(new Date(dateString), "PPP");
     } catch (e) {
       return dateString;
     }
   };
-  
+
   return (
     <div className="space-y-4">
+      <h3 className="text-lg font-medium flex items-center gap-2">
+        <BoxOpen className="h-5 w-5" />
+        Returns ({returns.length})
+      </h3>
+
       {returns.map((returnItem) => (
         <Card key={returnItem.id} className="overflow-hidden">
-          <div className="p-4">
+          <CardHeader className="bg-gray-50 pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">Return #{returnItem.id.substring(0, 8)}</p>
-                <p className="text-sm text-gray-500">
-                  Initiated on {formatDate(returnItem.created_at)}
-                </p>
+                <CardTitle className="text-base">
+                  Return #{returnItem.id.substring(0, 8)}
+                </CardTitle>
+                <CardDescription>
+                  Created on {formatDate(returnItem.created_at)}
+                </CardDescription>
               </div>
-              <div className="flex items-center space-x-2">
-                {getStatusBadge(returnItem.status)}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleExpand(returnItem.id)}
-                >
-                  {expandedReturnId === returnItem.id ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+              <Badge className={getStatusColor(returnItem.status)}>
+                {returnItem.status.charAt(0).toUpperCase() +
+                  returnItem.status.slice(1)}
+              </Badge>
             </div>
-            
-            {expandedReturnId === returnItem.id && (
-              <div className="mt-4 border-t pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Return Reason</p>
-                    <p className="text-sm">{returnItem.reason}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Refund Amount</p>
-                    <p className="text-sm font-medium">₹{returnItem.amount.toFixed(2)}</p>
-                  </div>
-                  
-                  {returnItem.notes && (
-                    <div className="col-span-1 md:col-span-2">
-                      <p className="text-sm text-gray-500 mb-1">Notes</p>
-                      <p className="text-sm">{returnItem.notes}</p>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Return Reason:</h4>
+                <p className="text-sm text-gray-600">{returnItem.reason}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-2">Items:</h4>
+                <div className="space-y-2">
+                  {returnItem.items && returnItem.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-center text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-gray-500" />
+                        <span>
+                          {item.product?.name || "Product"} x {item.quantity}
+                        </span>
+                      </div>
+                      <span className="font-medium">
+                        ${item.total_price.toFixed(2)}
+                      </span>
                     </div>
-                  )}
-                  
-                  {returnItem.processed_by && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Processed By</p>
-                      <p className="text-sm">{returnItem.processed_by}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Last Updated</p>
-                    <p className="text-sm">{formatDate(returnItem.updated_at)}</p>
-                  </div>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
+
+              <Separator />
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Refund:</span>
+                <span className="text-lg font-bold">
+                  ${returnItem.amount.toFixed(2)}
+                </span>
+              </div>
+
+              {isAdmin && onUpdateReturnStatus && returnItem.status === "pending" && (
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    className="w-1/2"
+                    onClick={() =>
+                      onUpdateReturnStatus(returnItem.id, "rejected")
+                    }
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Reject
+                  </Button>
+                  <Button
+                    className="w-1/2"
+                    onClick={() =>
+                      onUpdateReturnStatus(returnItem.id, "approved")
+                    }
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Approve
+                  </Button>
+                </div>
+              )}
+
+              {returnItem.notes && (
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Notes:</span> {returnItem.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
         </Card>
       ))}
     </div>

@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from 'sonner';
@@ -5,26 +6,32 @@ import AdminRoute from '@/components/auth/AdminRoute';
 import DoctorRoute from '@/components/auth/DoctorRoute';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
-import PendingApproval from '@/pages/PendingApproval'; // New import
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminProducts from '@/pages/admin/AdminProducts';
-import AdminOrders from '@/pages/admin/AdminOrders';
-import AdminDoctors from '@/pages/admin/AdminDoctors';
-import DoctorApprovals from '@/pages/admin/DoctorApprovals';
-import AdminOrderDetails from '@/pages/admin/AdminOrderDetails';
-import AdminSettings from '@/pages/admin/AdminSettings';
+import PendingApproval from '@/pages/PendingApproval';
+import RegistrationConfirmation from '@/pages/RegistrationConfirmation';
 import Home from '@/pages/Home';
 import NotFound from '@/pages/NotFound';
-import Cart from '@/pages/Cart';
-import Orders from '@/pages/Orders';
-import OrderDetails from '@/pages/OrderDetails';
-import Profile from '@/pages/Profile';
 import Products from '@/pages/Products';
-import ProductCategory from '@/pages/ProductCategory';
-import ForgotPassword from '@/pages/ForgotPassword';
-import ResetPassword from '@/pages/ResetPassword';
-import RegistrationConfirmation from '@/pages/RegistrationConfirmation';
+import Cart from '@/pages/Cart';
+
+// Create new Dashboard page
+import Dashboard from '@/pages/doctor/Dashboard';
+
+// Create new pages
+import Orders from '@/pages/doctor/Orders';
+import OrderDetails from '@/pages/doctor/OrderDetails';
+import Profile from '@/pages/doctor/Profile';
+import ProductCategory from '@/pages/doctor/ProductCategory';
+import ForgotPassword from '@/pages/auth/ForgotPassword';
+import ResetPassword from '@/pages/auth/ResetPassword';
+
+// Add admin pages
+import AdminDashboard from '@/pages/admin/Home';
+import AdminProducts from '@/pages/admin/Products';
+import AdminOrders from '@/pages/admin/Orders';
+import AdminDoctors from '@/pages/admin/DoctorApprovals';
+import DoctorApprovals from '@/pages/admin/DoctorApprovals';
+import AdminOrderDetails from '@/pages/admin/EnhancedOrders';
+import AdminSettings from '@/pages/admin/Credits';
 
 function App() {
   return (
@@ -55,7 +62,7 @@ function App() {
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/orders" element={<AdminOrderDetails />} />
             <Route path="/admin/doctors" element={<AdminDoctors />} />
             <Route path="/admin/doctor-approvals" element={<DoctorApprovals />} />
             <Route path="/admin/orders/:id" element={<AdminOrderDetails />} />

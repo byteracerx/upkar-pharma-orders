@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { ArrowLeft, BoxOpen, Check, Package } from "lucide-react";
+import { ArrowLeft, Box, Check, Package } from "lucide-react";
 
 export interface OrderReturn {
   id: string;
@@ -78,7 +78,7 @@ const OrderReturnsList = ({ returns, isAdmin, onUpdateReturnStatus }: OrderRetur
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium flex items-center gap-2">
-        <BoxOpen className="h-5 w-5" />
+        <Box className="h-5 w-5" />
         Returns ({returns.length})
       </h3>
 

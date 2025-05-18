@@ -1,20 +1,45 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+import { toast } from 'sonner';
 
-// Types
 export interface OrderItem {
   id: string;
-  order_id: string;
   product_id: string;
   quantity: number;
   price_per_unit: number;
   total_price: number;
   product: {
     name: string;
-    category: string | null;
-    price?: number;
+    price: number;
+    description?: string;
     image_url?: string;
+    category?: string;
+  };
+}
+
+export interface Order {
+  id: string;
+  doctor_id: string;
+  status: string;
+  total_amount: number;
+  created_at: string;
+  updated_at: string;
+  payment_method?: string;
+  payment_status?: string;
+  shipping_address?: string;
+  billing_address?: string;
+  tracking_number?: string | null;
+  shipping_carrier?: string | null;
+  estimated_delivery_date?: string | null;
+  actual_delivery_date?: string | null;
+  notes?: string;
+  invoice_number?: string;
+  invoice_generated?: boolean;
+  doctor?: {
+    name: string;
+    email: string;
+    phone: string;
   };
 }
 
@@ -22,41 +47,19 @@ export interface OrderStatusHistory {
   id: string;
   order_id: string;
   status: string;
-  notes?: string;
   created_at: string;
-  created_by?: string;
-  admin_name?: string;
+  created_by: string;
+  notes?: string;
 }
 
 export interface OrderCommunication {
   id: string;
   order_id: string;
   sender_id: string;
-  recipient_id: string;
   message: string;
   created_at: string;
   read: boolean;
-  read_at?: string;
-}
-
-export interface ShippingInfo {
-  tracking_number?: string;
-  shipping_carrier?: string;
-  estimated_delivery_date?: string;
-  actual_delivery_date?: string;
-}
-
-export interface Return {
-  id: string;
-  order_id: string;
-  doctor_id: string;
-  reason: string;
-  status: string;
-  amount: number;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  processed_by?: string;
+  sender_type: 'admin' | 'doctor';
 }
 
 export interface OrderReturn {
@@ -66,564 +69,292 @@ export interface OrderReturn {
   reason: string;
   status: string;
   amount: number;
-  notes?: string;
   created_at: string;
   updated_at: string;
   processed_by?: string;
+  notes?: string;
+  items?: {
+    id: string;
+    product_id: string;
+    quantity: number;
+    price_per_unit: number;
+    total_price: number;
+    reason?: string;
+    condition?: string;
+    product?: {
+      name: string;
+      price: number;
+      category?: string;
+    };
+  }[];
 }
 
 export interface OrderDetails {
-  order: {
-    id: string;
-    doctor_id: string;
-    total_amount: number;
-    status: string;
-    payment_status: string;
-    created_at: string;
-    updated_at: string;
-    invoice_number?: string;
-    invoice_generated?: boolean;
-    invoice_url?: string;
-    shipping_address?: string;
-    billing_address?: string;
-    payment_method?: string;
-    notes?: string;
-    tracking_number?: string;
-    shipping_carrier?: string;
-    estimated_delivery_date?: string;
-    actual_delivery_date?: string;
-    doctor?: {
-      name: string;
-      phone: string;
-      email?: string;
-    };
-  };
+  order: Order;
   items: OrderItem[];
-  statusHistory: OrderStatusHistory[];
-  communications: OrderCommunication[];
-  shippingInfo: ShippingInfo;
-  returns: OrderReturn[];
+  statusHistory?: OrderStatusHistory[];
+  communications?: OrderCommunication[];
+  returns?: OrderReturn[];
 }
 
-export interface Order {
-  id: string;
-  doctor_id: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  invoice_number?: string;
-  invoice_generated?: boolean;
-  invoice_url?: string;
-  tracking_number?: string;
-  shipping_carrier?: string;
-  estimated_delivery_date?: string;
-  actual_delivery_date?: string;
-  shipping_address?: string;
-  billing_address?: string;
-  payment_method?: string;
-  notes?: string;
-  doctor?: {
-    name: string;
-    phone: string;
-    email?: string;
-  };
-}
-
-// Fetch all orders for a doctor
-export const fetchDoctorOrders = async (doctorId: string): Promise<Order[]> => {
+// Function to get orders for a doctor
+export const getDoctorOrders = async (doctorId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          name,
-          phone,
-          email
-        )
-      `)
-      .eq("doctor_id", doctorId)
-      .order("created_at", { ascending: false });
+      .from('orders')
+      .select('*, doctor:doctor_id(name, email, phone)')
+      .eq('doctor_id', doctorId)
+      .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    // Process data to ensure consistent structure
-    const processedOrders = data.map(order => {
-      // Extract doctor info to standardize format
-      const doctorData = order.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
-      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
-        `unknown-${order.doctor_id.substring(0, 8)}@example.com`;
-      
-      return {
-        ...order,
-        doctor: {
-          name: doctorName,
-          phone: doctorPhone,
-          email: doctorEmail
-        }
-      };
-    });
-
-    return processedOrders;
-  } catch (error: any) {
-    console.error("Error fetching doctor orders:", error);
-    toast.error("Failed to load orders");
-    throw error;
+    return data.map(order => ({
+      ...order,
+      doctor: order.doctor as { name: string; email: string; phone: string },
+    }));
+  } catch (error) {
+    console.error('Error getting doctor orders:', error);
+    toast.error('Failed to load orders');
+    return [];
   }
 };
 
-// Fetch all orders (for admin)
-export const fetchAllOrders = async (): Promise<Order[]> => {
+// Function to get specific order details including items
+export const getOrderDetails = async (orderId: string): Promise<OrderDetails | null> => {
   try {
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          name,
-          phone,
-          email
-        )
-      `)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    // Process data to ensure consistent structure
-    const processedOrders = data.map(order => {
-      // Extract doctor info to standardize format
-      const doctorData = order.doctor || {};
-      const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-      const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
-      const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-        doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
-        `unknown-${order.doctor_id.substring(0, 8)}@example.com`;
-      
-      return {
-        ...order,
-        doctor: {
-          name: doctorName,
-          phone: doctorPhone,
-          email: doctorEmail
-        }
-      };
-    });
-
-    return processedOrders;
-  } catch (error: any) {
-    console.error("Error fetching all orders:", error);
-    toast.error("Failed to load orders");
-    throw error;
-  }
-};
-
-// Fetch details for a specific order
-export const fetchOrderDetails = async (orderId: string): Promise<OrderDetails> => {
-  try {
-    // Fetch order data
+    // Get order details
     const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          name,
-          phone,
-          email
-        )
-      `)
-      .eq("id", orderId)
+      .from('orders')
+      .select('*, doctor:doctor_id(name, email, phone)')
+      .eq('id', orderId)
       .single();
 
-    if (orderError) throw orderError;
+    if (orderError) {
+      throw orderError;
+    }
 
-    // Fetch order items
+    // Get order items
     const { data: itemsData, error: itemsError } = await supabase
-      .from("order_items")
-      .select(`
-        *,
-        product:product_id (
-          name,
-          price,
-          category,
-          image_url
-        )
-      `)
-      .eq("order_id", orderId);
+      .from('order_items')
+      .select('*, product:product_id(*)')
+      .eq('order_id', orderId);
 
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      throw itemsError;
+    }
 
-    // Fetch status history
-    const { data: statusData, error: statusError } = await supabase
-      .from("order_status_history")
-      .select("*")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: false });
+    // Get status history
+    const { data: statusHistoryData, error: statusHistoryError } = await supabase
+      .from('order_status_history')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false });
 
-    if (statusError) throw statusError;
-
-    // Fetch order communications
+    // Get communications
     const { data: communicationsData, error: communicationsError } = await supabase
-      .from("order_communications")
-      .select("*")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: true });
+      .from('order_communications')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false });
 
-    if (communicationsError) throw communicationsError;
-
-    // Fetch return requests
+    // Get returns
     const { data: returnsData, error: returnsError } = await supabase
-      .from("returns")
-      .select("*")
-      .eq("order_id", orderId);
+      .from('order_returns')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false });
 
-    if (returnsError) throw returnsError;
+    // Get return items if there are returns
+    let returnsWithItems: OrderReturn[] = [];
+    if (returnsData && returnsData.length > 0) {
+      const returnPromises = returnsData.map(async (returnItem) => {
+        const { data: returnItemsData } = await supabase
+          .from('order_return_items')
+          .select('*, product:product_id(*)')
+          .eq('return_id', returnItem.id);
+        
+        return {
+          ...returnItem,
+          items: returnItemsData || []
+        };
+      });
+      
+      returnsWithItems = await Promise.all(returnPromises);
+    }
 
-    // Extract doctor info to standardize format
-    const doctorData = orderData.doctor || {};
-    const doctorName = typeof doctorData === 'object' && doctorData !== null ? doctorData.name || "Unknown" : "Unknown";
-    const doctorPhone = typeof doctorData === 'object' && doctorData !== null ? doctorData.phone || "N/A" : "N/A";
-    const doctorEmail = typeof doctorData === 'object' && doctorData !== null ? 
-      doctorData.email || `${doctorName.toLowerCase().replace(/\s+/g, '.')}@example.com` : 
-      `unknown-${orderData.doctor_id.substring(0, 8)}@example.com`;
-
-    // Build the shipping info
-    const shippingInfo: ShippingInfo = {
-      tracking_number: orderData.tracking_number,
-      shipping_carrier: orderData.shipping_carrier,
-      estimated_delivery_date: orderData.estimated_delivery_date,
-      actual_delivery_date: orderData.actual_delivery_date
+    const order = {
+      ...orderData,
+      doctor: orderData.doctor as { name: string; email: string; phone: string },
     };
 
     return {
-      order: {
-        ...orderData,
-        doctor: {
-          name: doctorName,
-          phone: doctorPhone,
-          email: doctorEmail
-        }
-      },
-      items: itemsData || [],
-      statusHistory: statusData || [],
+      order,
+      items: itemsData,
+      statusHistory: statusHistoryData || [],
       communications: communicationsData || [],
-      shippingInfo,
-      returns: returnsData || []
+      returns: returnsWithItems
     };
-  } catch (error: any) {
-    console.error("Error fetching order details:", error);
-    toast.error("Failed to load order details");
-    throw error;
+  } catch (error) {
+    console.error('Error getting order details:', error);
+    toast.error('Failed to load order details');
+    return null;
   }
 };
 
-// Fetch order items
-export const fetchOrderItems = async (orderId: string): Promise<OrderItem[]> => {
+// Function to add a new communication message
+export const addOrderCommunication = async (
+  orderId: string, 
+  message: string, 
+  senderId: string,
+  senderType: 'admin' | 'doctor'
+): Promise<boolean> => {
   try {
-    const { data, error } = await supabase
-      .from("order_items")
-      .select(`
-        *,
-        product:product_id (
-          name,
-          price,
-          category,
-          image_url
-        )
-      `)
-      .eq("order_id", orderId);
-
-    if (error) throw error;
-    return data;
-  } catch (error: any) {
-    console.error("Error fetching order items:", error);
-    throw error;
-  }
-};
-
-// Update order status
-export const updateOrderStatus = async (orderId: string, newStatus: string, notes?: string, userId?: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase.rpc(
-      'update_order_status',
-      { 
-        p_order_id: orderId, 
-        p_status: newStatus,
-        p_notes: notes || `Status changed to ${newStatus}`,
-        p_user_id: userId
-      }
-    );
+    // Add the new communication
+    const { error } = await supabase
+      .from('order_communications')
+      .insert({
+        order_id: orderId,
+        sender_id: senderId,
+        message,
+        sender_type: senderType,
+        read: false
+      });
 
     if (error) {
-      console.error("Error updating order status:", error);
+      throw error;
+    }
+
+    toast.success('Message sent');
+    return true;
+  } catch (error) {
+    console.error('Error adding order communication:', error);
+    toast.error('Failed to send message');
+    return false;
+  }
+};
+
+// Function to mark communications as read
+export const markOrderCommunicationsAsRead = async (
+  orderId: string,
+  senderId: string
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('order_communications')
+      .update({ read: true })
+      .eq('order_id', orderId)
+      .neq('sender_id', senderId);
+
+    if (error) {
       throw error;
     }
 
     return true;
-  } catch (error: any) {
-    console.error("Error in updateOrderStatus:", error);
-    toast.error("Failed to update order status");
-    throw error;
+  } catch (error) {
+    console.error('Error marking communications as read:', error);
+    return false;
   }
 };
 
-// Generate invoice for an order
-export const generateInvoice = async (orderId: string): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase
-      .functions
-      .invoke('generate-invoice', {
-        body: { orderId }
-      });
-
-    if (error) throw error;
-    
-    return data?.invoiceUrl || null;
-  } catch (error: any) {
-    console.error("Error generating invoice:", error);
-    toast.error("Failed to generate invoice");
-    throw error;
-  }
-};
-
-// Add communication message to an order
-export const addOrderCommunication = async (
-  orderId: string,
-  senderId: string,
-  recipientId: string,
-  message: string
-): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase
-      .from("order_communications")
-      .insert({
-        order_id: orderId,
-        sender_id: senderId,
-        recipient_id: recipientId,
-        message,
-        read: false
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data.id;
-  } catch (error: any) {
-    console.error("Error adding communication:", error);
-    toast.error("Failed to send message");
-    throw error;
-  }
-};
-
-// Update shipping information
-export const updateShippingInfo = async (
-  orderId: string,
-  trackingNumber: string,
-  shippingCarrier: string,
-  estimatedDeliveryDate?: string
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        tracking_number: trackingNumber,
-        shipping_carrier: shippingCarrier,
-        estimated_delivery_date: estimatedDeliveryDate,
-        status: 'shipped',
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", orderId);
-
-    if (error) throw error;
-
-    // Add status update to history
-    const { error: historyError } = await supabase
-      .from("order_status_history")
-      .insert({
-        order_id: orderId,
-        status: 'shipped',
-        notes: `Order shipped via ${shippingCarrier}, tracking: ${trackingNumber}`
-      });
-
-    if (historyError) {
-      console.error("Error adding shipping status to history:", historyError);
-      // Continue anyway
-    }
-
-    return true;
-  } catch (error: any) {
-    console.error("Error updating shipping info:", error);
-    toast.error("Failed to update shipping information");
-    throw error;
-  }
-};
-
-// Update return status
-export const updateReturnStatus = async (
-  returnId: string,
-  status: string,
-  processedBy: string,
-  notes?: string
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from("returns")
-      .update({
-        status,
-        processed_by: processedBy,
-        notes: notes || `Return marked as ${status}`,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", returnId);
-
-    if (error) throw error;
-    return true;
-  } catch (error: any) {
-    console.error("Error updating return status:", error);
-    toast.error("Failed to update return status");
-    throw error;
-  }
-};
-
-// Initiate a return request
-export const initiateReturn = async (
-  orderId: string,
-  doctorId: string,
-  reason: string,
-  items: { productId: string, quantity: number, price: number }[]
-): Promise<string | null> => {
-  try {
-    // Calculate total refund amount
-    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-    // Create the return record
-    const { data: returnData, error: returnError } = await supabase
-      .from("returns")
-      .insert({
-        order_id: orderId,
-        doctor_id: doctorId,
-        reason,
-        amount: totalAmount,
-        status: 'pending'
-      })
-      .select()
-      .single();
-
-    if (returnError) throw returnError;
-
-    // Create return items
-    const returnItems = items.map(item => ({
-      return_id: returnData.id,
-      product_id: item.productId,
-      quantity: item.quantity,
-      price_per_unit: item.price,
-      total_price: item.price * item.quantity,
-      reason
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("return_items")
-      .insert(returnItems);
-
-    if (itemsError) throw itemsError;
-
-    // Update order status
-    await supabase
-      .from("order_status_history")
-      .insert({
-        order_id: orderId,
-        status: 'return_initiated',
-        notes: `Return initiated: ${reason}`
-      });
-
-    return returnData.id;
-  } catch (error: any) {
-    console.error("Error initiating return:", error);
-    toast.error("Failed to initiate return");
-    throw error;
-  }
-};
-
-// Process a return request (this is the missing function)
+// Function to process a return
 export const processReturn = async (
   orderId: string,
   doctorId: string,
   reason: string,
-  items: { productId: string, quantity: number, price: number }[]
-): Promise<string | null> => {
+  items: { id: string; quantity: number; reason?: string }[]
+): Promise<boolean> => {
   try {
-    // Reuse the initiateReturn function as they perform the same operation
-    return initiateReturn(orderId, doctorId, reason, items);
-  } catch (error: any) {
-    console.error("Error processing return:", error);
-    toast.error("Failed to process return");
-    throw error;
-  }
-};
-
-// Reorder a previous order
-export const reorderPreviousOrder = async (
-  orderId: string,
-  doctorId: string
-): Promise<string | null> => {
-  try {
-    // Fetch the items from the previous order
-    const { data: items, error: itemsError } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", orderId);
-
-    if (itemsError) throw itemsError;
+    // First, get the order details to calculate the return amount
+    const orderDetails = await getOrderDetails(orderId);
     
-    if (!items || items.length === 0) {
-      throw new Error("No items found in the original order");
+    if (!orderDetails) {
+      throw new Error('Order not found');
     }
-
-    // Create a new order
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
+    
+    // Calculate the total return amount based on the items being returned
+    let totalReturnAmount = 0;
+    const returnItems = [];
+    
+    for (const item of items) {
+      const orderItem = orderDetails.items.find(oi => oi.id === item.id);
+      if (orderItem) {
+        const returnAmount = orderItem.price_per_unit * item.quantity;
+        totalReturnAmount += returnAmount;
+        
+        returnItems.push({
+          product_id: orderItem.product_id,
+          quantity: item.quantity,
+          price_per_unit: orderItem.price_per_unit,
+          total_price: returnAmount,
+          reason: item.reason || 'No reason provided'
+        });
+      }
+    }
+    
+    // Create the return record
+    const { data: returnData, error: returnError } = await supabase
+      .from('order_returns')
       .insert({
+        order_id: orderId,
         doctor_id: doctorId,
-        total_amount: items.reduce((sum, item) => sum + item.total_price, 0),
+        reason,
         status: 'pending',
-        payment_status: 'pending'
+        amount: totalReturnAmount
       })
-      .select()
+      .select('id')
       .single();
-
-    if (orderError) throw orderError;
-
-    // Create new order items based on the previous order
-    const newItems = items.map(item => ({
-      order_id: orderData.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price_per_unit: item.price_per_unit,
-      total_price: item.total_price
-    }));
-
-    const { error: newItemsError } = await supabase
-      .from("order_items")
-      .insert(newItems);
-
-    if (newItemsError) throw newItemsError;
-
-    // Add initial status history
-    await supabase
-      .from("order_status_history")
+      
+    if (returnError) {
+      throw returnError;
+    }
+    
+    // Add the return items
+    if (returnData && returnItems.length > 0) {
+      const returnItemsWithReturnId = returnItems.map(item => ({
+        ...item,
+        return_id: returnData.id
+      }));
+      
+      const { error: itemsError } = await supabase
+        .from('order_return_items')
+        .insert(returnItemsWithReturnId);
+        
+      if (itemsError) {
+        throw itemsError;
+      }
+    }
+    
+    // Update order status to return_initiated
+    const { error: orderError } = await supabase
+      .from('orders')
+      .update({ status: 'return_initiated' })
+      .eq('id', orderId);
+      
+    if (orderError) {
+      throw orderError;
+    }
+    
+    // Add status history entry
+    const { error: historyError } = await supabase
+      .from('order_status_history')
       .insert({
-        order_id: orderData.id,
-        status: 'pending',
-        notes: `New order created based on order ${orderId}`
+        order_id: orderId,
+        status: 'return_initiated',
+        created_by: doctorId,
+        notes: 'Return initiated by doctor'
       });
-
-    return orderData.id;
-  } catch (error: any) {
-    console.error("Error reordering:", error);
-    toast.error("Failed to reorder");
-    throw error;
+      
+    if (historyError) {
+      throw historyError;
+    }
+    
+    toast.success('Return request submitted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error processing return:', error);
+    toast.error('Failed to process return');
+    return false;
   }
 };

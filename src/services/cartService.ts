@@ -16,6 +16,9 @@ export interface CartItem {
 // Local storage key for cart items
 const CART_STORAGE_KEY = 'upkar_cart_items';
 
+// Custom event for cart updates
+const cartUpdateEvent = new Event('cart-updated');
+
 // Helper function to get cart items from localStorage
 export const getCartItems = (): CartItem[] => {
   try {
@@ -32,6 +35,8 @@ export const getCartItems = (): CartItem[] => {
 const saveCartItems = (items: CartItem[]): void => {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    // Dispatch cart updated event
+    window.dispatchEvent(cartUpdateEvent);
   } catch (error) {
     console.error("Error saving cart items to localStorage:", error);
   }
@@ -114,6 +119,19 @@ export const removeFromCart = (itemId: string): boolean => {
 // Clear cart
 export const clearCart = (): void => {
   localStorage.removeItem(CART_STORAGE_KEY);
+  window.dispatchEvent(cartUpdateEvent);
+};
+
+// Get total cart items count
+export const getCartItemsCount = (): number => {
+  const cartItems = getCartItems();
+  return cartItems.reduce((total, item) => total + item.quantity, 0);
+};
+
+// Get total cart value
+export const getCartTotal = (): number => {
+  const cartItems = getCartItems();
+  return cartItems.reduce((total, item) => total + (item.product.price * item.quantity), 0);
 };
 
 // Place order

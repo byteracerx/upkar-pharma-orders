@@ -1,38 +1,61 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString: string, includeTime: boolean = false): string {
-  if (!dateString) return '';
+/**
+ * Format a date string into a readable format
+ * @param dateString The date string to format
+ * @returns Formatted date string
+ */
+export function formatDate(dateString?: string): string {
+  if (!dateString) return 'N/A';
   
-  const date = new Date(dateString);
-  
-  if (isNaN(date.getTime())) {
-    return '';
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return dateString;
   }
-  
-  const options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    ...(includeTime ? { hour: '2-digit', minute: '2-digit' } : {})
-  };
-  
-  return new Intl.DateTimeFormat('en-IN', options).format(date);
 }
 
+/**
+ * Format a number as Indian currency (₹)
+ * @param amount The amount to format
+ * @returns Formatted currency string
+ */
 export function formatCurrency(amount: number): string {
-  if (amount === undefined || amount === null) return '';
+  if (typeof amount !== 'number') return '₹0.00';
   
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+    }).format(amount);
+  } catch (error) {
+    console.error("Error formatting currency:", error);
+    return `₹${amount.toFixed(2)}`;
+  }
 }
+
+/**
+ * Add dependencies for jsPDF and other libraries
+ */
+export const addDependencies = () => {
+  // This is a placeholder function to remind us to install these dependencies
+  // jspdf
+  // jspdf-autotable
+};
 
 export function truncateText(text: string, maxLength: number): string {
   if (!text) return '';

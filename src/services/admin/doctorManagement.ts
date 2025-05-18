@@ -127,7 +127,7 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
           doctorEmail: doctorData.email,
           doctorPhone: doctorData.phone,
           approved: false,
-          reason: reason
+          reason: reason || "Your application did not meet our requirements."
         }
       });
       

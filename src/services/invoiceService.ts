@@ -1,7 +1,9 @@
+
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { supabase } from "@/integrations/supabase/client";
 import { fetchOrderItems } from "./orderService";
+import { toast } from "sonner";
 
 // Define types for invoice data
 interface InvoiceData {
@@ -244,178 +246,108 @@ const createInvoicePDF = (invoiceData: InvoiceData): Promise<Blob> => {
  */
 export const sendInvoiceEmail = async (orderId: string): Promise<boolean> => {
   try {
-    // Fetch order details with doctor information
+    // Check if an invoice has been generated
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          name,
-          email
-        )
-      `)
+      .select("invoice_url, invoice_number, doctor_id")
       .eq("id", orderId)
       .single();
-
+    
     if (orderError) {
-      console.error("Error fetching order for email:", orderError);
       throw orderError;
     }
-
+    
+    // If no invoice URL, generate one first
     if (!order.invoice_url) {
-      // Generate invoice if not already generated
-      const invoiceUrl = await generatePDFInvoice(orderId);
-      order.invoice_url = invoiceUrl;
-    }
-
-    // Get user email from auth if not available in doctor record
-    let doctorEmail = '';
-    let doctorName = 'Valued Customer';
-
-    // Get doctor info safely
-    const doctor = order.doctor as any;
-    if (doctor && typeof doctor === 'object') {
-      doctorEmail = doctor.email || '';
-      doctorName = doctor.name || 'Valued Customer';
-    }
-
-    if (!doctorEmail) {
-      try {
-        const { data: userData } = await supabase.auth.admin.getUserById(order.doctor_id);
-        doctorEmail = userData?.user?.email || '';
-      } catch (err) {
-        console.error(`Error fetching email for doctor ${order.doctor_id}:`, err);
+      toast.info("Generating invoice first...");
+      await generatePDFInvoice(orderId);
+      
+      // Fetch the updated order info
+      const { data: updatedOrder, error: fetchError } = await supabase
+        .from("orders")
+        .select("invoice_url, invoice_number, doctor_id")
+        .eq("id", orderId)
+        .single();
+        
+      if (fetchError) {
+        throw fetchError;
       }
+      
+      // Use the updated order data
+      order.invoice_url = updatedOrder.invoice_url;
+      order.invoice_number = updatedOrder.invoice_number;
     }
-
-    if (!doctorEmail) {
-      // Generate a placeholder email if still not available
-      doctorEmail = `${doctorName.toLowerCase().replace(/\s+/g, '.') || order.doctor_id.substring(0, 8)}@example.com`;
+    
+    // Get doctor details
+    const { data: doctor, error: doctorError } = await supabase
+      .from("doctors")
+      .select("name, email")
+      .eq("id", order.doctor_id)
+      .single();
+      
+    if (doctorError || !doctor?.email) {
+      throw new Error("Could not find doctor's email address");
     }
-
-    // Call Supabase Edge Function to send email
+    
+    // Send email via edge function
     const { error: emailError } = await supabase.functions.invoke('send-invoice-email', {
       body: {
-        to: doctorEmail,
-        subject: `Your Upkar Pharma Invoice #${order.invoice_number}`,
-        doctorName: doctorName,
+        doctorEmail: doctor.email,
+        doctorName: doctor.name,
+        invoiceNumber: order.invoice_number,
         invoiceUrl: order.invoice_url,
-        orderId: order.id,
-        orderDate: new Date(order.created_at).toLocaleDateString(),
-        totalAmount: order.total_amount
+        orderId: orderId
       }
     });
-
+    
     if (emailError) {
-      console.error("Error sending invoice email:", emailError);
       throw emailError;
     }
-
-    // Create a notification record instead of updating the order
-    try {
-      await supabase
-        .from("order_notifications")
-        .insert({
-          order_id: orderId,
-          notification_type: 'invoice_email',
-          status: 'sent',
-          recipient: doctorEmail
-        });
-    } catch (notificationError) {
-      console.warn("Error creating notification record:", notificationError);
-      // Continue even if notification record creation fails
-    }
-
+    
+    // Record the notification in our database
+    await supabase
+      .from("order_notifications")
+      .insert({
+        order_id: orderId,
+        notification_type: 'invoice_email',
+        recipient: doctor.email,
+        status: 'sent',
+        content: `Invoice ${order.invoice_number} sent by email`
+      });
+    
     return true;
   } catch (error) {
-    console.error("Error in sendInvoiceEmail:", error);
+    console.error("Error sending invoice email:", error);
+    toast.error("Failed to send invoice email");
     return false;
   }
 };
 
 /**
- * Send a WhatsApp notification to a doctor about their order
- * @param orderId The ID of the order to send a notification for
- * @returns A promise that resolves to a boolean indicating success
+ * Download an invoice PDF
+ * @param invoiceUrl The URL of the invoice to download
+ * @param fileName Optional filename for the downloaded file
  */
-export const sendWhatsAppNotification = async (orderId: string): Promise<boolean> => {
+export const downloadInvoice = async (invoiceUrl: string, fileName?: string): Promise<void> => {
   try {
-    // Fetch order details with doctor information
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        doctor:doctor_id (
-          name,
-          phone
-        )
-      `)
-      .eq("id", orderId)
-      .single();
-
-    if (orderError) {
-      console.error("Error fetching order for WhatsApp:", orderError);
-      throw orderError;
-    }
-
-    // Get doctor info safely
-    let phoneNumber = '';
-    let doctorName = 'Valued Customer';
-
-    // Get doctor info safely
-    const doctor = order.doctor as any;
-    if (doctor && typeof doctor === 'object') {
-      doctorName = doctor.name || 'Valued Customer';
-
-      // Ensure phone number is in international format if available
-      if (doctor.phone) {
-        phoneNumber = doctor.phone.startsWith('+')
-          ? doctor.phone
-          : `+91${doctor.phone.replace(/\D/g, '')}`;
-      }
-    }
-
-    // If no phone number is available, we can't send a WhatsApp
-    if (!phoneNumber) {
-      console.warn(`No phone number available for doctor ${order.doctor_id}, skipping WhatsApp notification`);
-      return false;
-    }
-
-    // Call Supabase Edge Function to send WhatsApp
-    const { error: whatsappError } = await supabase.functions.invoke('send-whatsapp-notification', {
-      body: {
-        to: phoneNumber,
-        doctorName: doctorName,
-        orderId: order.id,
-        orderStatus: order.status,
-        invoiceNumber: order.invoice_number,
-        totalAmount: order.total_amount
-      }
-    });
-
-    if (whatsappError) {
-      console.error("Error sending WhatsApp notification:", whatsappError);
-      throw whatsappError;
-    }
-
-    // Create a notification record instead of updating the order
-    try {
-      await supabase
-        .from("order_notifications")
-        .insert({
-          order_id: orderId,
-          notification_type: 'whatsapp',
-          status: 'sent',
-          recipient: phoneNumber
-        });
-    } catch (notificationError) {
-      console.warn("Error creating notification record:", notificationError);
-      // Continue even if notification record creation fails
-    }
-
-    return true;
+    const response = await fetch(invoiceUrl);
+    const blob = await response.blob();
+    
+    // Create a temporary link and trigger download
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'invoice.pdf';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    }, 100);
   } catch (error) {
-    console.error("Error in sendWhatsAppNotification:", error);
-    return false;
+    console.error("Error downloading invoice:", error);
+    toast.error("Failed to download invoice");
   }
 };

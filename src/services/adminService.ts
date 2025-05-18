@@ -74,8 +74,8 @@ export interface CreditTransaction {
   };
 }
 
-// Fetch all pending doctor approvals
-export const fetchPendingApprovals = async (): Promise<DoctorApproval[]> => {
+// Fetch all pending doctors
+export const fetchPendingDoctors = async (): Promise<DoctorApproval[]> => {
   try {
     const { data, error } = await supabase
       .from("doctors")
@@ -86,8 +86,26 @@ export const fetchPendingApprovals = async (): Promise<DoctorApproval[]> => {
     if (error) throw error;
     return data;
   } catch (error: any) {
-    console.error("Error fetching pending approvals:", error);
-    toast.error("Failed to load pending approvals");
+    console.error("Error fetching pending doctors:", error);
+    toast.error("Failed to load pending doctors");
+    throw error;
+  }
+};
+
+// Fetch all approved doctors
+export const fetchApprovedDoctors = async (): Promise<DoctorApproval[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("*")
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching approved doctors:", error);
+    toast.error("Failed to load approved doctors");
     throw error;
   }
 };

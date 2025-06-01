@@ -687,6 +687,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      setup_admin_user: {
+        Args: { p_user_id: string; p_email: string; p_name?: string }
+        Returns: boolean
+      }
       update_order_status: {
         Args: {
           p_order_id: string

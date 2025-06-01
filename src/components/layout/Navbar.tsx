@@ -142,9 +142,6 @@ const Navbar = () => {
               <>
                 <Link to="/cart" className="relative">
                   <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkem-green transition-colors" />
-                  <span className="absolute -top-2 -right-2 bg-upkem-green text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    0
-                  </span>
                 </Link>
                 
                 <DropdownMenu>
@@ -235,16 +232,11 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/cart"
-                    className="px-4 py-2 flex items-center justify-between text-gray-600 hover:bg-gray-100 rounded-md"
+                    className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
                     onClick={() => setIsMenuOpen(false)}
                   >
+                    <ShoppingCart className="mr-2 h-5 w-5" />
                     <span>Cart</span>
-                    <div className="relative">
-                      <ShoppingCart className="h-5 w-5" />
-                      <span className="absolute -top-2 -right-2 bg-upkem-green text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                        0
-                      </span>
-                    </div>
                   </Link>
                   
                   <Link

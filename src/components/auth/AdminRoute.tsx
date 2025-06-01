@@ -15,9 +15,9 @@ const AdminRoute = () => {
     );
   }
 
-  // If user is not authenticated, redirect to admin login
+  // If user is not authenticated, redirect to secure admin login
   if (!isAuthenticated) {
-    return <Navigate to="/admin-login" replace />;
+    return <Navigate to="/secure-admin-access" replace />;
   }
 
   // If user is authenticated but not an admin, redirect to doctor dashboard

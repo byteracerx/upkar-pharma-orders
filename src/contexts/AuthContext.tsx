@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
@@ -17,7 +18,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        // Convert Supabase User to our extended User type
         const extendedUser = {
           ...session.user,
           name: session.user.user_metadata?.name || null,
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
       }
-      checkUserStatus(session?.user?.id);
+      checkUserStatus(session?.user?.id, session?.user?.email);
     });
 
     // Listen for auth changes
@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (_event, session) => {
         setSession(session);
         if (session?.user) {
-          // Convert Supabase User to our extended User type
           const extendedUser = {
             ...session.user,
             name: session.user.user_metadata?.name || null,
@@ -46,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             gstNumber: session.user.user_metadata?.gstNumber || null,
           } as User;
           setUser(extendedUser);
-          checkUserStatus(session.user.id);
+          checkUserStatus(session.user.id, session.user.email);
         } else {
           setUser(null);
           setIsAdmin(false);
@@ -61,15 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Check if user is admin and if doctor is approved
-  const checkUserStatus = async (userId?: string) => {
-    if (!userId) {
+  const checkUserStatus = async (userId?: string, email?: string) => {
+    if (!userId || !email) {
       setLoading(false);
       return;
     }
 
     try {
-      // Check if user has admin role (simplified for demo)
-      const isUserAdmin = user?.email?.endsWith('@admin.upkarpharma.com') || false;
+      // Check if user is admin based on email
+      const isUserAdmin = email === 'admin1@upkar.com';
       setIsAdmin(isUserAdmin);
 
       if (!isUserAdmin) {
@@ -106,27 +105,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Check if the user is a doctor and is approved
-      if (!email.endsWith('@admin.upkarpharma.com')) {
-        const { data: doctorData, error: doctorError } = await supabase
-          .from('doctors')
-          .select('is_approved')
-          .eq('id', data.user?.id)
-          .single();
+      // Check if the user is admin
+      if (email === 'admin1@upkar.com') {
+        return { success: true, message: "Admin login successful", error: null };
+      }
 
-        if (doctorError) {
-          console.error("Error fetching doctor approval status:", doctorError);
-          throw new Error("Could not verify your account status.");
-        }
+      // Check if doctor is approved for non-admin users
+      const { data: doctorData, error: doctorError } = await supabase
+        .from('doctors')
+        .select('is_approved')
+        .eq('id', data.user?.id)
+        .single();
 
-        // If doctor is not approved, sign them out
-        if (!doctorData.is_approved) {
-          await supabase.auth.signOut();
-          return { 
-            success: false, 
-            message: "Your account is pending approval by an administrator. You'll be notified once approved." 
-          };
-        }
+      if (doctorError) {
+        console.error("Error fetching doctor approval status:", doctorError);
+        throw new Error("Could not verify your account status.");
+      }
+
+      // If doctor is not approved, sign them out
+      if (!doctorData.is_approved) {
+        await supabase.auth.signOut();
+        return { 
+          success: false, 
+          message: "Your account is pending approval by an administrator. You'll be notified once approved." 
+        };
       }
 
       return { success: true, message: "Login successful", error: null };
@@ -169,7 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (doctorError) {
         console.error("Error creating doctor record:", doctorError);
-        // If we can't create a doctor record, sign the user out
         await supabase.auth.signOut();
         throw new Error("Failed to create your doctor profile. Please contact support.");
       }
@@ -181,7 +182,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Include both signup and signUp methods for backward compatibility
   const signup = async (email: string, password: string, userData: any) => {
     try {
       const { error } = await signUp(email, password, userData);

@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2, ChevronLeft, Download } from "lucide-react";
@@ -56,39 +55,37 @@ const OrderDetails = () => {
   };
 
   return (
-    <Layout>
-      <div className="container-custom py-8">
-        <Button variant="ghost" onClick={() => navigate("/orders")} className="mb-6 flex items-center text-gray-600 hover:text-upkar-blue">
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back to Orders
-        </Button>
+    <div className="container-custom py-8">
+      <Button variant="ghost" onClick={() => navigate("/orders")} className="mb-6 flex items-center text-gray-600 hover:text-upkar-blue">
+        <ChevronLeft className="h-4 w-4 mr-1" />
+        Back to Orders
+      </Button>
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h1 className="text-3xl font-bold">Order Details</h1>
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold">Order Details</h1>
-          
-          {orderDetails && (
-            <Button onClick={handleDownloadInvoice} className="flex items-center">
-              <Download className="h-4 w-4 mr-2" />
-              Download Invoice
-            </Button>
-          )}
-        </div>
-        
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-          </div>
-        ) : orderDetails ? (
-          <OrderDetailsView 
-            orderDetails={orderDetails}
-          />
-        ) : (
-          <Card className="p-8 text-center">
-            <p className="text-gray-500">Order not found or you don't have permission to view it.</p>
-          </Card>
+        {orderDetails && (
+          <Button onClick={handleDownloadInvoice} className="flex items-center">
+            <Download className="h-4 w-4 mr-2" />
+            Download Invoice
+          </Button>
         )}
       </div>
-    </Layout>
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+        </div>
+      ) : orderDetails ? (
+        <OrderDetailsView 
+          orderDetails={orderDetails}
+        />
+      ) : (
+        <Card className="p-8 text-center">
+          <p className="text-gray-500">Order not found or you don't have permission to view it.</p>
+        </Card>
+      )}
+    </div>
   );
 };
 

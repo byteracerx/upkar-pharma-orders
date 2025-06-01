@@ -1,5 +1,4 @@
 
-import Layout from "@/components/layout/Layout";
 import HeroSection from "@/components/home/HeroSection";
 import FeaturesSection from "@/components/home/FeaturesSection";
 import TestimonialsSection from "@/components/home/TestimonialsSection";
@@ -12,7 +11,7 @@ const Home = () => {
   const { isAuthenticated } = useAuth();
   
   return (
-    <Layout>
+    <>
       {!isAuthenticated && (
         <>
           <HeroSection />
@@ -30,7 +29,7 @@ const Home = () => {
       )}
       
       {!isAuthenticated && <CtaSection />}
-    </Layout>
+    </>
   );
 };
 

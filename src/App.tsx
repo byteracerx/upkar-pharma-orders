@@ -65,7 +65,7 @@ function App() {
                 <Route path="cart" element={<Cart />} />
               </Route>
 
-              {/* Auth Routes */}
+              {/* Auth Routes (without Layout) */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
@@ -77,22 +77,24 @@ function App() {
               <Route path="/secure-admin-access" element={<AdminSecureLogin />} />
               <Route path="/setup-admin" element={<SetupAdmin />} />
 
-              {/* Doctor Protected Routes */}
-              <Route path="/dashboard" element={<DoctorRoute />}>
-                <Route index element={<Dashboard />} />
-              </Route>
-              <Route path="/orders" element={<DoctorRoute />}>
-                <Route index element={<Orders />} />
-                <Route path=":id" element={<OrderDetails />} />
-              </Route>
-              <Route path="/category/:category" element={<DoctorRoute />}>
-                <Route index element={<ProductCategory />} />
-              </Route>
-              <Route path="/profile" element={<DoctorRoute />}>
-                <Route index element={<Profile />} />
-              </Route>
-              <Route path="/credit-history" element={<DoctorRoute />}>
-                <Route index element={<CreditHistory />} />
+              {/* Doctor Protected Routes (with Layout) */}
+              <Route path="/" element={<Layout />}>
+                <Route path="dashboard" element={<DoctorRoute />}>
+                  <Route index element={<Dashboard />} />
+                </Route>
+                <Route path="orders" element={<DoctorRoute />}>
+                  <Route index element={<Orders />} />
+                  <Route path=":id" element={<OrderDetails />} />
+                </Route>
+                <Route path="category/:category" element={<DoctorRoute />}>
+                  <Route index element={<ProductCategory />} />
+                </Route>
+                <Route path="profile" element={<DoctorRoute />}>
+                  <Route index element={<Profile />} />
+                </Route>
+                <Route path="credit-history" element={<DoctorRoute />}>
+                  <Route index element={<CreditHistory />} />
+                </Route>
               </Route>
 
               {/* Admin Protected Routes */}

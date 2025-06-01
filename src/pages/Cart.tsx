@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { ShoppingCart, ChevronLeft, Loader2 } from "lucide-react";
@@ -111,76 +110,72 @@ const Cart = () => {
   
   if (isLoading) {
     return (
-      <Layout>
-        <div className="container-custom py-8 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-        </div>
-      </Layout>
+      <div className="container-custom py-8 flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+      </div>
     );
   }
   
   return (
-    <Layout>
-      <div className="container-custom py-8">
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="flex items-center text-gray-600 hover:text-upkar-blue">
-            <Link to="/products">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Continue Shopping
-            </Link>
-          </Button>
-        </div>
-        
-        <div className="flex items-center mb-8">
-          <ShoppingCart className="h-6 w-6 mr-2 text-upkar-blue" />
-          <h1 className="text-3xl font-bold">Your Cart</h1>
-        </div>
-        
-        {cartItems.length === 0 ? (
-          <EmptyCart />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <CartTable 
-                cartItems={cartItems}
-                updateQuantity={updateQuantity}
-                handleRemoveItem={handleRemoveItem}
-              />
-            </div>
-            
-            <OrderSummary 
-              subtotal={subtotal}
-              shipping={shipping}
-              total={total}
-              user={user}
-              isPlacingOrder={isPlacingOrder}
-              onPlaceOrder={handlePlaceOrder}
+    <div className="container-custom py-8">
+      <div className="mb-6">
+        <Button variant="ghost" asChild className="flex items-center text-gray-600 hover:text-upkar-blue">
+          <Link to="/products">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Continue Shopping
+          </Link>
+        </Button>
+      </div>
+      
+      <div className="flex items-center mb-8">
+        <ShoppingCart className="h-6 w-6 mr-2 text-upkar-blue" />
+        <h1 className="text-3xl font-bold">Your Cart</h1>
+      </div>
+      
+      {cartItems.length === 0 ? (
+        <EmptyCart />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <CartTable 
+              cartItems={cartItems}
+              updateQuantity={updateQuantity}
+              handleRemoveItem={handleRemoveItem}
             />
           </div>
-        )}
+          
+          <OrderSummary 
+            subtotal={subtotal}
+            shipping={shipping}
+            total={total}
+            user={user}
+            isPlacingOrder={isPlacingOrder}
+            onPlaceOrder={handlePlaceOrder}
+          />
+        </div>
+      )}
 
-        {/* Order Success Dialog */}
-        <Dialog open={orderSuccessOpen} onOpenChange={setOrderSuccessOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Order Placed Successfully!</DialogTitle>
-              <DialogDescription>
-                Your order has been placed and will be processed shortly.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <p className="font-medium">Order ID: {orderId}</p>
-              <p className="text-gray-600 mt-2">
-                You can check the status of your order in your dashboard.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button onClick={viewOrderDetails}>View Order Details</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </Layout>
+      {/* Order Success Dialog */}
+      <Dialog open={orderSuccessOpen} onOpenChange={setOrderSuccessOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Order Placed Successfully!</DialogTitle>
+            <DialogDescription>
+              Your order has been placed and will be processed shortly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="font-medium">Order ID: {orderId}</p>
+            <p className="text-gray-600 mt-2">
+              You can check the status of your order in your dashboard.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={viewOrderDetails}>View Order Details</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

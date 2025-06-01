@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from "react";
-import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -152,55 +150,50 @@ const Profile = () => {
   
   if (isLoading) {
     return (
-      <Layout>
-        <div className="container-custom py-8 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
-        </div>
-      </Layout>
+      <div className="container-custom py-8 flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-upkar-blue" />
+      </div>
     );
   }
   
   if (!doctorProfile) {
     return (
-      <Layout>
-        <div className="container-custom py-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-red-600">Profile not found. Please contact support.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </Layout>
+      <div className="container-custom py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-red-600">Profile not found. Please contact support.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="container-custom py-8">
-        <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+    <div className="container-custom py-8">
+      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+      
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="profile">Personal Information</TabsTrigger>
+          <TabsTrigger value="address">Address & Contact</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+        </TabsList>
         
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="profile">Personal Information</TabsTrigger>
-            <TabsTrigger value="address">Address & Contact</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2 text-upkar-blue" />
-                  Personal Information
-                </CardTitle>
-                <CardDescription>
-                  Manage your personal information
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleProfileUpdate}>
-                <CardContent className="space-y-4">
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2 text-upkar-blue" />
+                Personal Information
+              </CardTitle>
+              <CardDescription>
+                Manage your personal information
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleProfileUpdate}>
+              <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
@@ -247,24 +240,24 @@ const Profile = () => {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="address">
-            <Card>
+              <CardFooter>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="address">
+          <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <MapPin className="h-5 w-5 mr-2 text-upkar-blue" />
@@ -342,10 +335,10 @@ const Profile = () => {
                 </CardFooter>
               </form>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="documents">
-            <Card>
+        </TabsContent>
+        
+        <TabsContent value="documents">
+          <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Shield className="h-5 w-5 mr-2 text-upkar-blue" />
@@ -387,10 +380,9 @@ const Profile = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </Layout>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
 

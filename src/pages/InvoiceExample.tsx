@@ -1,5 +1,4 @@
 
-import Layout from "@/components/layout/Layout";
 import Invoice from "@/components/invoice/Invoice";
 import { InvoiceItem } from "@/components/invoice/InvoiceTable";
 
@@ -78,48 +77,46 @@ const sampleItems: InvoiceItem[] = [
 
 const InvoiceExample = () => {
   return (
-    <Layout>
-      <div className="container-custom py-8">
-        <h1 className="text-2xl font-bold mb-6">Invoice Example</h1>
-        
-        <Invoice
-          invoiceNumber="*** 2051"
-          invoiceDate="04/03/2025"
-          customerCode="541"
-          customerName="VETRI MEDICALS"
-          customerAddress={{
-            street: "18/35, PERAMBUR BARRACKS ROSD",
-            city: "PATTALALAM",
-            pincode: "600012"
-          }}
-          customerContact={{
-            phone: "9884021527",
-            dl: "2390/MZ2/09B",
-            gst: "33AACV2123B1ZY"
-          }}
-          companyDetails={{
-            name: "UPKAR PHARMA DISTRIBUTORS",
-            address: [
-              "NO.47, GROUND FLOOR, 1ST STREET,",
-              "VAIDYNATHA MUDALI STREET, CHENNAI",
-              "CHENNAI - 600079"
-            ],
-            gst: "33BACPV0554A1ZB",
-            dlNumber: "TN-02-21B-00081",
-            contact: "9840895791"
-          }}
-          items={sampleItems}
-          paymentDetails={{
-            subtotal: 42535.00,
-            discount: 6389.25,
-            taxAmount: 4290.34,
-            freight: 0.00,
-            roundOff: -0.09,
-            netAmount: 40445.00
-          }}
-        />
-      </div>
-    </Layout>
+    <div className="container-custom py-8">
+      <h1 className="text-2xl font-bold mb-6">Invoice Example</h1>
+      
+      <Invoice
+        invoiceNumber="*** 2051"
+        invoiceDate="04/03/2025"
+        customerCode="541"
+        customerName="VETRI MEDICALS"
+        customerAddress={{
+          street: "18/35, PERAMBUR BARRACKS ROSD",
+          city: "PATTALALAM",
+          pincode: "600012"
+        }}
+        customerContact={{
+          phone: "9884021527",
+          dl: "2390/MZ2/09B",
+          gst: "33AACV2123B1ZY"
+        }}
+        companyDetails={{
+          name: "UPKAR PHARMA DISTRIBUTORS",
+          address: [
+            "NO.47, GROUND FLOOR, 1ST STREET,",
+            "VAIDYNATHA MUDALI STREET, CHENNAI",
+            "CHENNAI - 600079"
+          ],
+          gst: "33BACPV0554A1ZB",
+          dlNumber: "TN-02-21B-00081",
+          contact: "9840895791"
+        }}
+        items={sampleItems}
+        paymentDetails={{
+          subtotal: 42535.00,
+          discount: 6389.25,
+          taxAmount: 4290.34,
+          freight: 0.00,
+          roundOff: -0.09,
+          netAmount: 40445.00
+        }}
+      />
+    </div>
   );
 };
 

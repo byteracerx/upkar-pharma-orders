@@ -97,15 +97,13 @@ function App() {
 
               {/* Admin Protected Routes */}
               <Route path="/admin" element={<AdminRoute />}>
-                <Route index element={<AdminDashboard />}>
-                  <Route index element={<AdminHome />} />
-                  <Route path="doctors" element={<DoctorApprovals />} />
-                  <Route path="products" element={<AdminProducts />} />
-                  <Route path="orders" element={<AdminOrders />} />
-                  <Route path="enhanced-orders" element={<EnhancedOrders />} />
-                  <Route path="credits" element={<AdminCredits />} />
-                  <Route path="invoices" element={<AdminInvoices />} />
-                </Route>
+                <Route index element={<AdminHome />} />
+                <Route path="doctors" element={<DoctorApprovals />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="enhanced-orders" element={<EnhancedOrders />} />
+                <Route path="credits" element={<AdminCredits />} />
+                <Route path="invoices" element={<AdminInvoices />} />
               </Route>
 
               {/* 404 Route */}

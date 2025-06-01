@@ -140,6 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
+      // Prevent admin email from being used in regular signup
+      if (email === 'admin1@upkar.com') {
+        throw new Error("This email is reserved for administrative use.");
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

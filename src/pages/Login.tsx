@@ -46,13 +46,23 @@ const Login = () => {
             ? "Welcome to the Admin Dashboard" 
             : "Welcome back to Upkar Pharma"
         });
-      } else if (result.error) {
+        
+        // Redirect based on user type
+        if (email === 'admin1@upkar.com') {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
+      } else {
         toast.error("Login Failed", {
           description: result.message || "Please check your credentials and try again"
         });
       }
     } catch (error: any) {
       console.error("Unexpected login error:", error);
+      toast.error("Login Error", {
+        description: "An unexpected error occurred. Please try again."
+      });
     } finally {
       setIsLoading(false);
     }

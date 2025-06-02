@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Doctor } from './types';
@@ -18,9 +17,9 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
     }
 
     console.log('Fetched doctors:', data);
-    return data as Doctor[];
+    return data || [];
   } catch (error) {
-    console.error('Error fetching doctors:', error);
+    console.error('Error in fetchDoctors:', error);
     toast.error('Failed to load doctors');
     return [];
   }
@@ -42,20 +41,19 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
     }
 
     console.log('Fetched pending doctors:', data);
-    return data as Doctor[];
+    return data || [];
   } catch (error) {
-    console.error('Error fetching pending doctors:', error);
+    console.error('Error in fetchPendingDoctors:', error);
     toast.error('Failed to load pending doctors');
     return [];
   }
 };
 
 // Function to approve a doctor
-export const approveDoctor = async (doctorId: string, adminId: string): Promise<boolean> => {
+export const approveDoctor = async (doctorId: string): Promise<boolean> => {
   try {
     console.log('Approving doctor:', doctorId);
     
-    // Update doctor record
     const { data, error } = await supabase
       .from('doctors')
       .update({ 
@@ -72,26 +70,22 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
     }
 
     console.log('Doctor approved successfully:', data);
+    toast.success('Doctor approved successfully!');
 
-    // Get doctor details for notification
-    const doctor = data;
-    
-    // Send notification to doctor about approval
+    // Send notification if needed
     try {
       await supabase.functions.invoke('notify-doctor-approval', {
         body: {
-          doctorId: doctor.id,
-          doctorName: doctor.name,
-          doctorEmail: doctor.email,
-          doctorPhone: doctor.phone,
+          doctorId: data.id,
+          doctorName: data.name,
+          doctorEmail: data.email,
+          doctorPhone: data.phone,
           approved: true
         }
       });
-      
-      console.log(`Approval notification sent to doctor: ${doctor.name}`);
+      console.log(`Approval notification sent to doctor: ${data.name}`);
     } catch (notifyError) {
       console.error('Error sending approval notification:', notifyError);
-      // We don't fail the approval just because notification failed
     }
 
     return true;
@@ -103,11 +97,11 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
 };
 
 // Function to reject a doctor
-export const rejectDoctor = async (doctorId: string, adminId: string, reason: string): Promise<boolean> => {
+export const rejectDoctor = async (doctorId: string, reason: string = ''): Promise<boolean> => {
   try {
     console.log('Rejecting doctor:', doctorId, 'Reason:', reason);
     
-    // Get doctor details before rejection (for notification)
+    // Get doctor details before rejection
     const { data: doctorData, error: fetchError } = await supabase
       .from('doctors')
       .select('*')
@@ -119,7 +113,7 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
       throw fetchError;
     }
     
-    // Update the doctor record
+    // Keep the doctor record but mark as not approved
     const { error } = await supabase
       .from('doctors')
       .update({ 
@@ -134,8 +128,9 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
     }
 
     console.log('Doctor rejected successfully');
+    toast.success('Doctor rejected.');
 
-    // Send notification to doctor about rejection
+    // Send notification
     try {
       await supabase.functions.invoke('notify-doctor-approval', {
         body: {
@@ -147,11 +142,9 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
           reason: reason || "Your application did not meet our requirements."
         }
       });
-      
       console.log(`Rejection notification sent to doctor: ${doctorData.name}`);
     } catch (notifyError) {
       console.error('Error sending rejection notification:', notifyError);
-      // We don't fail the rejection just because notification failed
     }
 
     return true;

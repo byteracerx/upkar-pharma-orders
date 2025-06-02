@@ -186,7 +186,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (doctorError) {
           console.error("Error creating doctor record:", doctorError);
-          // Don't sign out here, just log the error
           console.log("Doctor record creation failed, but user auth was successful");
         } else {
           console.log("Doctor record created successfully");

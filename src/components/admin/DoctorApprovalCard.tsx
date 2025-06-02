@@ -19,9 +19,8 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, X, User } from "lucide-react";
+import { Check, X, User, Mail, Phone, Building, MapPin, FileText } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 interface DoctorApprovalCardProps {
   doctor: {
@@ -39,8 +38,8 @@ interface DoctorApprovalCardProps {
     license_number?: string;
     specialization?: string;
   };
-  onApprove: (id: string) => void;
-  onReject: (id: string, reason?: string) => void;
+  onApprove: () => void;
+  onReject: (reason?: string) => void;
   isProcessing?: boolean;
 }
 
@@ -50,96 +49,103 @@ const DoctorApprovalCard = ({
   onReject,
   isProcessing = false
 }: DoctorApprovalCardProps) => {
-  const [isLoading, setIsLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
-  const handleApprove = async () => {
-    setIsLoading(true);
-    try {
-      await onApprove(doctor.id);
-      toast.success(`Doctor ${doctor.name} has been approved`);
-    } catch (error: any) {
-      console.error("Error approving doctor:", error);
-      toast.error("Failed to approve doctor.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleApprove = () => {
+    onApprove();
   };
 
-  const handleReject = async () => {
-    setIsLoading(true);
-    try {
-      await onReject(doctor.id, rejectionReason);
-      setRejectionReason("");
-      setIsRejectDialogOpen(false);
-      toast.success(`Doctor ${doctor.name} has been rejected`);
-    } catch (error: any) {
-      console.error("Error rejecting doctor:", error);
-      toast.error("Failed to reject doctor.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleReject = () => {
+    onReject(rejectionReason);
+    setRejectionReason("");
+    setIsRejectDialogOpen(false);
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-gray-50">
-        <div className="flex items-center gap-2">
-          <div className="bg-upkar-light-blue/20 p-2 rounded-full">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+        <div className="flex items-center gap-3">
+          <div className="bg-upkar-blue/10 p-2 rounded-full">
             <User className="h-5 w-5 text-upkar-blue" />
           </div>
           <div>
-            <CardTitle>{doctor.name}</CardTitle>
-            <CardDescription>Registered on {doctor.registrationDate}</CardDescription>
+            <CardTitle className="text-lg">{doctor.name}</CardTitle>
+            <CardDescription className="flex items-center gap-1">
+              <span>Registered on {doctor.registrationDate}</span>
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Email:</span>
-            <span className="text-right">{doctor.email}</span>
+      
+      <CardContent className="pt-4 space-y-3">
+        <div className="grid gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">Email:</span>
+            <span className="text-gray-700 truncate">{doctor.email}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Phone:</span>
-            <span className="text-right">{doctor.phone}</span>
+          
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">Phone:</span>
+            <span className="text-gray-700">{doctor.phone}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">GST Number:</span>
-            <span className="text-right">{doctor.gstNumber}</span>
+          
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">GST:</span>
+            <span className="text-gray-700 font-mono text-xs">{doctor.gstNumber}</span>
           </div>
-          {doctor.address && (
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Address:</span>
-              <span className="text-right max-w-[200px] truncate" title={doctor.address}>
-                {doctor.address}
-              </span>
-            </div>
-          )}
+          
           {doctor.clinic_name && (
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">Clinic:</span>
-              <span className="text-right max-w-[200px] truncate" title={doctor.clinic_name}>
-                {doctor.clinic_name}
-              </span>
+            <div className="flex items-center gap-2">
+              <Building className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">Clinic:</span>
+              <span className="text-gray-700 truncate">{doctor.clinic_name}</span>
             </div>
           )}
+          
+          {doctor.address && (
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+              <div>
+                <span className="font-medium">Address:</span>
+                <p className="text-gray-700 text-xs mt-1">{doctor.address}</p>
+                {(doctor.city || doctor.state || doctor.pincode) && (
+                  <p className="text-gray-600 text-xs">
+                    {[doctor.city, doctor.state, doctor.pincode].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
           {doctor.license_number && (
-            <div className="flex justify-between">
-              <span className="font-medium text-gray-700">License:</span>
-              <span className="text-right">{doctor.license_number}</span>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">License:</span>
+              <span className="text-gray-700 font-mono text-xs">{doctor.license_number}</span>
+            </div>
+          )}
+          
+          {doctor.specialization && (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">Specialization:</span>
+              <span className="text-gray-700">{doctor.specialization}</span>
             </div>
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between bg-gray-50 border-t">
+      
+      <CardFooter className="flex justify-between bg-gray-50 border-t p-4">
         <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
           <DialogTrigger asChild>
             <Button
               variant="outline"
-              disabled={isLoading || isProcessing}
-              className="flex items-center gap-1"
+              disabled={isProcessing}
+              className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
             >
               <X className="h-4 w-4" />
               Reject
@@ -149,11 +155,11 @@ const DoctorApprovalCard = ({
             <DialogHeader>
               <DialogTitle>Reject Doctor Application</DialogTitle>
               <DialogDescription>
-                Please provide a reason for rejecting {doctor.name}'s application. This will be included in the notification.
+                Please provide a reason for rejecting {doctor.name}'s application. This will be included in the notification sent to the doctor.
               </DialogDescription>
             </DialogHeader>
             <Textarea
-              placeholder="Enter reason for rejection"
+              placeholder="Enter reason for rejection (optional)"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               className="min-h-[100px]"
@@ -164,9 +170,10 @@ const DoctorApprovalCard = ({
               </DialogClose>
               <Button 
                 onClick={handleReject} 
-                disabled={isLoading || isProcessing}
+                disabled={isProcessing}
+                variant="destructive"
               >
-                {isLoading ? "Rejecting..." : "Reject Application"}
+                {isProcessing ? "Rejecting..." : "Reject Application"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -174,11 +181,11 @@ const DoctorApprovalCard = ({
         
         <Button
           onClick={handleApprove}
-          disabled={isLoading || isProcessing}
-          className="flex items-center gap-1"
+          disabled={isProcessing}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
         >
           <Check className="h-4 w-4" />
-          Approve
+          {isProcessing ? "Processing..." : "Approve"}
         </Button>
       </CardFooter>
     </Card>

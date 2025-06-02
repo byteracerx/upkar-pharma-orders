@@ -28,8 +28,8 @@ const AdminSecureLogin = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Only allow admin email
-    if (email !== 'admin1@upkar.com') {
+    // Only allow admin emails (updated to include new admin email)
+    if (email !== 'admin1@upkar.com' && email !== 'admin1@upkarpharma.com') {
       toast.error("Access Denied", {
         description: "This login is restricted to authorized personnel only"
       });
@@ -92,7 +92,7 @@ const AdminSecureLogin = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin1@upkar.com"
+                placeholder="admin1@upkarpharma.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

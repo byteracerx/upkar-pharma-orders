@@ -42,13 +42,13 @@ const Login = () => {
 
       if (result.success) {
         toast.success("Login Successful", {
-          description: email === 'admin1@upkar.com' 
+          description: (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com')
             ? "Welcome to the Admin Dashboard" 
             : "Welcome back to Upkar Pharma"
         });
         
-        // Redirect based on user type
-        if (email === 'admin1@upkar.com') {
+        // Redirect based on user type (updated to include new admin email)
+        if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
           navigate("/admin");
         } else {
           navigate("/dashboard");

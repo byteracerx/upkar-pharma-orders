@@ -67,8 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Check if user is admin based on email
-      const isUserAdmin = email === 'admin1@upkar.com';
+      // Check if user is admin based on email (updated to include new admin email)
+      const isUserAdmin = email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com';
       setIsAdmin(isUserAdmin);
 
       if (!isUserAdmin) {
@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Check if the user is admin
-      if (email === 'admin1@upkar.com') {
+      // Check if the user is admin (updated to include new admin email)
+      if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
         return { success: true, message: "Admin login successful", error: null };
       }
 
@@ -140,8 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      // Prevent admin email from being used in regular signup
-      if (email === 'admin1@upkar.com') {
+      // Prevent admin emails from being used in regular signup
+      if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
         throw new Error("This email is reserved for administrative use.");
       }
 

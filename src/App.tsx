@@ -74,6 +74,7 @@ function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Secure Admin Routes */}
+              <Route path="/admin-login" element={<AdminSecureLogin />} />
               <Route path="/secure-admin-access" element={<AdminSecureLogin />} />
               <Route path="/setup-admin" element={<SetupAdmin />} />
 
@@ -97,8 +98,8 @@ function App() {
                 </Route>
               </Route>
 
-              {/* Admin Protected Routes */}
-              <Route path="/admin" element={<AdminRoute />}>
+              {/* Admin Protected Routes - Using AdminDashboard which includes AdminLayout */}
+              <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>}>
                 <Route index element={<AdminHome />} />
                 <Route path="doctors" element={<DoctorApprovals />} />
                 <Route path="products" element={<AdminProducts />} />

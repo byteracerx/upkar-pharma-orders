@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +41,7 @@ interface RegisterFormProps {
 
 export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   const { signUp } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<RegisterValues>({
@@ -67,17 +69,21 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       });
 
       if (error) {
+        console.error("Registration error:", error);
         toast.error("Registration Failed", {
           description: error.message || "Please try again with different credentials"
         });
       } else {
-        toast.success("Registration Submitted", {
-          description: "Your account is pending approval. We'll notify you once it's approved."
+        toast.success("Registration Successful!", {
+          description: "Your account has been created and is pending approval."
         });
-        onSuccess();
+        
+        // Navigate to pending approval page
+        navigate("/pending-approval");
       }
     } catch (error: any) {
-      toast.error("An unexpected error occurred", {
+      console.error("Unexpected registration error:", error);
+      toast.error("Registration Failed", {
         description: error.message || "Please try again later"
       });
     } finally {

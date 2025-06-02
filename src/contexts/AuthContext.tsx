@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Check if user is admin based on email (updated to include new admin email)
+      // Check if user is admin
       const isUserAdmin = email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com';
       setIsAdmin(isUserAdmin);
 
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Check if the user is admin (updated to include new admin email)
+      // Check if the user is admin
       if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
         return { success: true, message: "Admin login successful", error: null };
       }
@@ -140,6 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
+      console.log("Starting signUp process for:", email);
+      
       // Prevent admin emails from being used in regular signup
       if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
         throw new Error("This email is reserved for administrative use.");
@@ -153,31 +155,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Auth signup error:", error);
+        throw error;
+      }
 
-      // Automatically create a doctor record with pending approval
-      const { error: doctorError } = await supabase
-        .from('doctors')
-        .insert({
-          id: data.user?.id,
-          name: userData.name,
-          phone: userData.phone,
-          address: userData.address,
-          gst_number: userData.gstNumber,
-          email: email,
-          is_approved: false,
-          clinic_name: userData.clinicName || '',
-          city: userData.city || '',
-          state: userData.state || '',
-          pincode: userData.pincode || '',
-          license_number: userData.licenseNumber || '',
-          specialization: userData.specialization || ''
-        });
+      console.log("Auth signup successful:", data);
 
-      if (doctorError) {
-        console.error("Error creating doctor record:", doctorError);
-        await supabase.auth.signOut();
-        throw new Error("Failed to create your doctor profile. Please contact support.");
+      // Create doctor record
+      if (data.user) {
+        console.log("Creating doctor record for user:", data.user.id);
+        
+        const { error: doctorError } = await supabase
+          .from('doctors')
+          .insert({
+            id: data.user.id,
+            name: userData.name,
+            phone: userData.phone,
+            address: userData.address,
+            gst_number: userData.gstNumber,
+            email: email,
+            is_approved: false,
+            clinic_name: userData.clinicName || '',
+            city: userData.city || '',
+            state: userData.state || '',
+            pincode: userData.pincode || '',
+            license_number: userData.licenseNumber || '',
+            specialization: userData.specialization || ''
+          });
+
+        if (doctorError) {
+          console.error("Error creating doctor record:", doctorError);
+          // Don't sign out here, just log the error
+          console.log("Doctor record creation failed, but user auth was successful");
+        } else {
+          console.log("Doctor record created successfully");
+        }
       }
 
       return { error: null };

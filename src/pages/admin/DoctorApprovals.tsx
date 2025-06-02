@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchPendingDoctors, approveDoctor, rejectDoctor, Doctor } from '@/services/adminService';
+import { fetchPendingDoctors, approveDoctor, rejectDoctor } from '@/services/admin/doctorManagement';
+import { Doctor } from '@/services/admin/types';
 import DoctorApprovalCard from '@/components/admin/DoctorApprovalCard';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -12,17 +13,25 @@ const DoctorApprovals = () => {
   const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingDoctorId, setProcessingDoctorId] = useState<string | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
   
   useEffect(() => {
+    console.log('DoctorApprovals component mounted');
     fetchPendingDoctorsList();
   }, []);
   
   const fetchPendingDoctorsList = async () => {
+    console.log('Fetching pending doctors list...');
     setLoading(true);
-    const doctors = await fetchPendingDoctors();
-    setPendingDoctors(doctors);
-    setLoading(false);
+    try {
+      const doctors = await fetchPendingDoctors();
+      console.log('Received pending doctors:', doctors);
+      setPendingDoctors(doctors);
+    } catch (error) {
+      console.error('Error fetching pending doctors:', error);
+      toast.error('Failed to load pending doctors');
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleApprove = async (doctorId: string) => {
@@ -31,6 +40,7 @@ const DoctorApprovals = () => {
       return;
     }
     
+    console.log('Handling approval for doctor:', doctorId);
     setProcessingDoctorId(doctorId);
     
     try {
@@ -54,6 +64,7 @@ const DoctorApprovals = () => {
       return;
     }
     
+    console.log('Handling rejection for doctor:', doctorId, 'Reason:', reason);
     setProcessingDoctorId(doctorId);
     
     try {
@@ -81,26 +92,30 @@ const DoctorApprovals = () => {
   
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Doctor Approvals</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Doctor Approvals</h1>
+        <Button 
+          onClick={fetchPendingDoctorsList}
+          variant="outline"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Refreshing...
+            </>
+          ) : (
+            'Refresh'
+          )}
+        </Button>
+      </div>
       
       {pendingDoctors.length === 0 ? (
         <div className="text-center p-10 border rounded-lg bg-slate-50">
-          <p className="text-gray-500">No pending doctor approvals at this time.</p>
-          <Button 
-            onClick={fetchPendingDoctorsList}
-            className="mt-4"
-            variant="outline"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              'Refresh'
-            )}
-          </Button>
+          <p className="text-gray-500 mb-4">No pending doctor approvals at this time.</p>
+          <p className="text-sm text-gray-400">
+            New doctor registrations will appear here for approval.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -114,7 +129,7 @@ const DoctorApprovals = () => {
                 phone: doctor.phone,
                 address: doctor.address,
                 gstNumber: doctor.gst_number,
-                registrationDate: doctor.created_at
+                registrationDate: new Date(doctor.created_at || '').toLocaleDateString()
               }}
               onApprove={() => handleApprove(doctor.id)}
               onReject={(reason) => handleReject(doctor.id, reason)}

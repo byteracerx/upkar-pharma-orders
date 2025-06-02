@@ -6,15 +6,18 @@ import { Doctor } from './types';
 // Function to fetch all doctors
 export const fetchDoctors = async (): Promise<Doctor[]> => {
   try {
+    console.log('Fetching all doctors...');
     const { data, error } = await supabase
       .from('doctors')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching doctors:', error);
       throw error;
     }
 
+    console.log('Fetched doctors:', data);
     return data as Doctor[];
   } catch (error) {
     console.error('Error fetching doctors:', error);
@@ -26,6 +29,7 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
 // Function to fetch pending doctors
 export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   try {
+    console.log('Fetching pending doctors...');
     const { data, error } = await supabase
       .from('doctors')
       .select('*')
@@ -33,9 +37,11 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching pending doctors:', error);
       throw error;
     }
 
+    console.log('Fetched pending doctors:', data);
     return data as Doctor[];
   } catch (error) {
     console.error('Error fetching pending doctors:', error);
@@ -47,6 +53,8 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
 // Function to approve a doctor
 export const approveDoctor = async (doctorId: string, adminId: string): Promise<boolean> => {
   try {
+    console.log('Approving doctor:', doctorId);
+    
     // Update doctor record
     const { data, error } = await supabase
       .from('doctors')
@@ -59,8 +67,11 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
       .single();
 
     if (error) {
+      console.error('Error approving doctor:', error);
       throw error;
     }
+
+    console.log('Doctor approved successfully:', data);
 
     // Get doctor details for notification
     const doctor = data;
@@ -94,6 +105,8 @@ export const approveDoctor = async (doctorId: string, adminId: string): Promise<
 // Function to reject a doctor
 export const rejectDoctor = async (doctorId: string, adminId: string, reason: string): Promise<boolean> => {
   try {
+    console.log('Rejecting doctor:', doctorId, 'Reason:', reason);
+    
     // Get doctor details before rejection (for notification)
     const { data: doctorData, error: fetchError } = await supabase
       .from('doctors')
@@ -102,6 +115,7 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
       .single();
       
     if (fetchError) {
+      console.error('Error fetching doctor for rejection:', fetchError);
       throw fetchError;
     }
     
@@ -115,8 +129,11 @@ export const rejectDoctor = async (doctorId: string, adminId: string, reason: st
       .eq('id', doctorId);
 
     if (error) {
+      console.error('Error updating doctor record for rejection:', error);
       throw error;
     }
+
+    console.log('Doctor rejected successfully');
 
     // Send notification to doctor about rejection
     try {

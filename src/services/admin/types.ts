@@ -10,6 +10,7 @@ export interface Doctor {
   address: string;
   gst_number: string;
   is_approved: boolean;
+  rejection_reason?: string | null;
   created_at: string;
   updated_at: string;
   clinic_name?: string;

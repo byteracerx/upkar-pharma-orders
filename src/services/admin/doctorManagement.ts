@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Doctor } from './types';
@@ -25,7 +26,7 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
-// Function to fetch pending doctors
+// Function to fetch pending doctors (not approved and not rejected)
 export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   try {
     console.log('Fetching pending doctors...');
@@ -33,6 +34,7 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
       .from('doctors')
       .select('*')
       .eq('is_approved', false)
+      .is('rejection_reason', null) // Only get doctors who haven't been rejected
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -49,6 +51,55 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
+// Function to fetch approved doctors
+export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
+  try {
+    console.log('Fetching approved doctors...');
+    const { data, error } = await supabase
+      .from('doctors')
+      .select('*')
+      .eq('is_approved', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching approved doctors:', error);
+      throw error;
+    }
+
+    console.log('Fetched approved doctors:', data);
+    return data || [];
+  } catch (error) {
+    console.error('Error in fetchApprovedDoctors:', error);
+    toast.error('Failed to load approved doctors');
+    return [];
+  }
+};
+
+// Function to fetch rejected doctors
+export const fetchRejectedDoctors = async (): Promise<Doctor[]> => {
+  try {
+    console.log('Fetching rejected doctors...');
+    const { data, error } = await supabase
+      .from('doctors')
+      .select('*')
+      .eq('is_approved', false)
+      .not('rejection_reason', 'is', null) // Only get doctors who have been rejected
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching rejected doctors:', error);
+      throw error;
+    }
+
+    console.log('Fetched rejected doctors:', data);
+    return data || [];
+  } catch (error) {
+    console.error('Error in fetchRejectedDoctors:', error);
+    toast.error('Failed to load rejected doctors');
+    return [];
+  }
+};
+
 // Function to approve a doctor
 export const approveDoctor = async (doctorId: string): Promise<boolean> => {
   try {
@@ -58,6 +109,7 @@ export const approveDoctor = async (doctorId: string): Promise<boolean> => {
       .from('doctors')
       .update({ 
         is_approved: true, 
+        rejection_reason: null, // Clear any previous rejection reason
         updated_at: new Date().toISOString() 
       })
       .eq('id', doctorId)
@@ -113,11 +165,12 @@ export const rejectDoctor = async (doctorId: string, reason: string = ''): Promi
       throw fetchError;
     }
     
-    // Keep the doctor record but mark as not approved
+    // Update doctor record with rejection
     const { error } = await supabase
       .from('doctors')
       .update({ 
         is_approved: false, 
+        rejection_reason: reason || "Your application did not meet our requirements.",
         updated_at: new Date().toISOString() 
       })
       .eq('id', doctorId);

@@ -1,263 +1,280 @@
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Session } from "@supabase/supabase-js";
-import { User, AuthContextType } from "@/types/auth";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+import { toast } from 'sonner';
+
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isApproved: boolean;
+  isRejected: boolean;
+  rejectionReason: string | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string; error?: any }>;
+  signup: (email: string, password: string, userData: any) => Promise<{ success: boolean; message: string }>;
+  signUp: (email: string, password: string, userData: any) => Promise<{ error?: any }>;
+  logout: () => Promise<void>;
+  updateUserProfile: (data: any) => Promise<boolean>;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isRejected, setIsRejected] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        const extendedUser = {
-          ...session.user,
-          name: session.user.user_metadata?.name || null,
-          phone: session.user.user_metadata?.phone || null,
-          address: session.user.user_metadata?.address || null,
-          gstNumber: session.user.user_metadata?.gstNumber || null,
-        } as User;
-        setUser(extendedUser);
-      } else {
-        setUser(null);
-      }
-      checkUserStatus(session?.user?.id, session?.user?.email);
-    });
-
-    // Listen for auth changes
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
+        setUser(session?.user ?? null);
+        
         if (session?.user) {
-          const extendedUser = {
-            ...session.user,
-            name: session.user.user_metadata?.name || null,
-            phone: session.user.user_metadata?.phone || null,
-            address: session.user.user_metadata?.address || null,
-            gstNumber: session.user.user_metadata?.gstNumber || null,
-          } as User;
-          setUser(extendedUser);
-          checkUserStatus(session.user.id, session.user.email);
+          // Check user's role and approval status
+          await checkUserStatus(session.user);
         } else {
-          setUser(null);
           setIsAdmin(false);
           setIsApproved(false);
+          setIsRejected(false);
+          setRejectionReason(null);
         }
+        
+        setLoading(false);
       }
     );
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        checkUserStatus(session.user);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Check if user is admin and if doctor is approved
-  const checkUserStatus = async (userId?: string, email?: string) => {
-    if (!userId || !email) {
-      setLoading(false);
-      return;
-    }
-
+  const checkUserStatus = async (user: User) => {
     try {
-      // Check if user is admin
-      const isUserAdmin = email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com';
-      setIsAdmin(isUserAdmin);
-
-      if (!isUserAdmin) {
-        // Check if doctor is approved
-        const { data, error } = await supabase
-          .from('doctors')
-          .select('is_approved')
-          .eq('id', userId)
-          .single();
-
-        if (error) {
-          console.error("Error checking doctor approval status:", error);
-          setIsApproved(false);
-        } else {
-          setIsApproved(data?.is_approved || false);
-        }
-      } else {
-        // Admins are always "approved"
+      console.log('Checking user status for:', user.id);
+      
+      // Check if user is admin (has admin metadata or is in admin list)
+      const adminEmails = ['admin@upkarpharma.com', 'admin@upkar.com'];
+      const userIsAdmin = adminEmails.includes(user.email || '') || 
+                         user.user_metadata?.isAdmin === true ||
+                         user.app_metadata?.role === 'admin';
+      
+      setIsAdmin(userIsAdmin);
+      
+      if (userIsAdmin) {
+        console.log('User is admin, skipping doctor status check');
         setIsApproved(true);
+        setIsRejected(false);
+        setRejectionReason(null);
+        return;
+      }
+      
+      // For non-admin users, check doctor approval status
+      const { data: doctorData, error } = await supabase
+        .from('doctors')
+        .select('is_approved, rejection_reason')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error checking doctor status:', error);
+        if (error.code === 'PGRST116') {
+          // No doctor record found - user might be pending
+          console.log('No doctor record found for user');
+          setIsApproved(false);
+          setIsRejected(false);
+          setRejectionReason(null);
+        }
+        return;
+      }
+      
+      console.log('Doctor data:', doctorData);
+      
+      if (doctorData) {
+        const approved = doctorData.is_approved === true;
+        const rejected = doctorData.is_approved === false && doctorData.rejection_reason !== null;
+        
+        setIsApproved(approved);
+        setIsRejected(rejected);
+        setRejectionReason(doctorData.rejection_reason);
+        
+        console.log('Doctor status:', { approved, rejected, reason: doctorData.rejection_reason });
       }
     } catch (error) {
-      console.error("Error checking user status:", error);
-    } finally {
-      setLoading(false);
+      console.error('Error in checkUserStatus:', error);
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
-
-      // Check if the user is admin
-      if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
-        return { success: true, message: "Admin login successful", error: null };
-      }
-
-      // Check if doctor is approved for non-admin users
-      const { data: doctorData, error: doctorError } = await supabase
-        .from('doctors')
-        .select('is_approved')
-        .eq('id', data.user?.id)
-        .single();
-
-      if (doctorError) {
-        console.error("Error fetching doctor approval status:", doctorError);
-        throw new Error("Could not verify your account status.");
-      }
-
-      // If doctor is not approved, sign them out
-      if (!doctorData.is_approved) {
-        await supabase.auth.signOut();
+      if (error) {
+        console.error('Login error:', error);
         return { 
           success: false, 
-          message: "Your account is pending approval by an administrator. You'll be notified once approved." 
+          message: error.message || 'Login failed',
+          error 
         };
       }
 
-      return { success: true, message: "Login successful", error: null };
-    } catch (error: any) {
-      console.error("Login error:", error);
-      return { success: false, message: error.message || "Failed to login", error };
-    }
-  };
-
-  const signUp = async (email: string, password: string, userData: any) => {
-    try {
-      console.log("Starting signUp process for:", email);
-      
-      // Prevent admin emails from being used in regular signup
-      if (email === 'admin1@upkar.com' || email === 'admin1@upkarpharma.com') {
-        throw new Error("This email is reserved for administrative use.");
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: userData,
-        },
-      });
-
-      if (error) {
-        console.error("Auth signup error:", error);
-        throw error;
-      }
-
-      console.log("Auth signup successful:", data);
-
-      // Create doctor record
       if (data.user) {
-        console.log("Creating doctor record for user:", data.user.id);
-        
-        const { error: doctorError } = await supabase
-          .from('doctors')
-          .insert({
-            id: data.user.id,
-            name: userData.name,
-            phone: userData.phone,
-            address: userData.address,
-            gst_number: userData.gstNumber,
-            email: email,
-            is_approved: false,
-            clinic_name: userData.clinicName || '',
-            city: userData.city || '',
-            state: userData.state || '',
-            pincode: userData.pincode || '',
-            license_number: userData.licenseNumber || '',
-            specialization: userData.specialization || ''
-          });
-
-        if (doctorError) {
-          console.error("Error creating doctor record:", doctorError);
-          console.log("Doctor record creation failed, but user auth was successful");
-        } else {
-          console.log("Doctor record created successfully");
-        }
+        await checkUserStatus(data.user);
       }
 
-      return { error: null };
+      return { success: true, message: 'Login successful' };
     } catch (error: any) {
-      console.error("Signup error:", error);
-      return { error };
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        message: error.message || 'An unexpected error occurred',
+        error 
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signup = async (email: string, password: string, userData: any) => {
     try {
-      const { error } = await signUp(email, password, userData);
+      setLoading(true);
       
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData,
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
       if (error) {
+        console.error('Signup error:', error);
         return { 
           success: false, 
-          message: error.message || "Failed to register" 
+          message: error.message || 'Registration failed' 
         };
       }
-      
+
+      if (data.user) {
+        // Insert doctor record
+        const { error: doctorError } = await supabase
+          .from('doctors')
+          .insert({
+            id: data.user.id,
+            name: userData.name,
+            email: userData.email || email,
+            phone: userData.phone,
+            address: userData.address,
+            gst_number: userData.gstNumber,
+            clinic_name: userData.clinicName || '',
+            city: userData.city || '',
+            state: userData.state || '',
+            pincode: userData.pincode || '',
+            license_number: userData.licenseNumber || '',
+            specialization: userData.specialization || '',
+            is_approved: false,
+            rejection_reason: null
+          });
+
+        if (doctorError) {
+          console.error('Error creating doctor record:', doctorError);
+          return { 
+            success: false, 
+            message: 'Registration failed: Could not create doctor profile' 
+          };
+        }
+
+        await checkUserStatus(data.user);
+      }
+
       return { 
         success: true, 
-        message: "Registration successful! Your account is pending approval by an administrator." 
+        message: 'Registration successful! Please wait for admin approval.' 
       };
     } catch (error: any) {
-      console.error("Signup error:", error);
-      return { success: false, message: error.message || "Failed to register" };
+      console.error('Signup error:', error);
+      return { 
+        success: false, 
+        message: error.message || 'An unexpected error occurred' 
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  // Legacy signUp method for backward compatibility
+  const signUp = async (email: string, password: string, userData: any) => {
+    const result = await signup(email, password, userData);
+    return { error: result.success ? null : new Error(result.message) };
   };
 
-  const updateUserProfile = async (data: any) => {
+  const logout = async () => {
     try {
-      // Update auth metadata
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        toast.error('Error logging out');
+      } else {
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+        setIsApproved(false);
+        setIsRejected(false);
+        setRejectionReason(null);
+        toast.success('Logged out successfully');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Error logging out');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (data: any): Promise<boolean> => {
+    try {
+      if (!user) return false;
+
       const { error } = await supabase.auth.updateUser({
-        data: data
+        data
       });
 
-      if (error) throw error;
-
-      // If user is a doctor, update doctor record
-      if (!isAdmin && user) {
-        const { error: doctorError } = await supabase
-          .from('doctors')
-          .update({
-            name: data.name,
-            phone: data.phone,
-            address: data.address,
-            gst_number: data.gstNumber,
-            clinic_name: data.clinicName || '',
-            city: data.city || '',
-            state: data.state || '',
-            pincode: data.pincode || '',
-            license_number: data.licenseNumber || '',
-            specialization: data.specialization || '',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id);
-
-        if (doctorError) throw doctorError;
+      if (error) {
+        console.error('Error updating profile:', error);
+        toast.error('Failed to update profile');
+        return false;
       }
 
+      toast.success('Profile updated successfully');
       return true;
-    } catch (error: any) {
-      console.error("Error updating user profile:", error);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
       return false;
     }
   };
@@ -268,6 +285,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isAdmin,
     isApproved,
+    isRejected,
+    rejectionReason,
     loading,
     login,
     signup,
@@ -276,13 +295,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUserProfile,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

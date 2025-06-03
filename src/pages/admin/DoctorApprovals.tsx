@@ -49,9 +49,11 @@ const DoctorApprovals = () => {
         // Remove approved doctor from pending list
         setPendingDoctors(current => current.filter(d => d.id !== doctorId));
         console.log('Doctor approved and removed from pending list');
+        toast.success('Doctor approved successfully!');
       }
     } catch (error) {
       console.error('Error in handleApprove:', error);
+      toast.error('Failed to approve doctor');
     } finally {
       setProcessingDoctorId(null);
     }
@@ -67,9 +69,11 @@ const DoctorApprovals = () => {
         // Remove rejected doctor from pending list
         setPendingDoctors(current => current.filter(d => d.id !== doctorId));
         console.log('Doctor rejected and removed from pending list');
+        toast.success('Doctor rejected successfully');
       }
     } catch (error) {
       console.error('Error in handleReject:', error);
+      toast.error('Failed to reject doctor');
     } finally {
       setProcessingDoctorId(null);
     }

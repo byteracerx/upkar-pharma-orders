@@ -1,121 +1,152 @@
-
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import Layout from "@/components/layout/Layout";
-import Index from "./pages/Index";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import Products from "./pages/Products";
-import ProductDetail from "./pages/ProductDetail";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import RegistrationConfirmation from "./pages/RegistrationConfirmation";
-import PendingApproval from "./pages/PendingApproval";
-import Cart from "./pages/Cart";
-import NotFound from "./pages/NotFound";
-import AdminSecureLogin from "./pages/AdminSecureLogin";
-import SetupAdmin from "./pages/SetupAdmin";
-
-// Doctor Routes
-import DoctorRoute from "./components/auth/DoctorRoute";
-import Dashboard from "./pages/doctor/Dashboard";
-import Orders from "./pages/doctor/Orders";
-import OrderDetails from "./pages/doctor/OrderDetails";
-import ProductCategory from "./pages/doctor/ProductCategory";
-import Profile from "./pages/doctor/Profile";
-import CreditHistory from "./pages/doctor/CreditHistory";
-
-// Admin Routes
-import AdminRoute from "./components/auth/AdminRoute";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminHome from "./pages/admin/Home";
-import DoctorApprovals from "./pages/admin/DoctorApprovals";
-import AdminProducts from "./pages/admin/Products";
-import AdminOrders from "./pages/admin/Orders";
-import EnhancedOrders from "./pages/admin/EnhancedOrders";
-import AdminCredits from "./pages/admin/Credits";
-import AdminInvoices from "./pages/admin/Invoices";
-
-// Auth Routes
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-
-const queryClient = new QueryClient();
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import Home from '@/pages/Home';
+import About from '@/pages/About';
+import Contact from '@/pages/Contact';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import AdminSecureLogin from '@/pages/AdminSecureLogin';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import PendingApproval from '@/pages/PendingApproval';
+import RegistrationConfirmation from '@/pages/RegistrationConfirmation';
+import DoctorDashboard from '@/pages/doctor/Dashboard';
+import ProductsPage from '@/pages/doctor/ProductsPage';
+import ProductDetail from '@/pages/doctor/ProductDetail';
+import Cart from '@/pages/doctor/Cart';
+import Orders from '@/pages/doctor/Orders';
+import OrderDetails from '@/pages/doctor/OrderDetails';
+import Profile from '@/pages/doctor/Profile';
+import CreditHistory from '@/pages/doctor/CreditHistory';
+import InvoiceExample from '@/pages/doctor/InvoiceExample';
+import ProductCategory from '@/pages/doctor/ProductCategory';
+import Dashboard from '@/pages/admin/Dashboard';
+import Products from '@/pages/admin/Products';
+import EnhancedOrders from '@/pages/admin/Orders';
+import Credits from '@/pages/admin/Credits';
+import Invoices from '@/pages/admin/Invoices';
+import DoctorApprovals from '@/pages/admin/DoctorApprovals';
+import AdminLayout from '@/components/admin/AdminLayout';
+import NotFound from '@/pages/NotFound';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { Toaster } from 'sonner';
+import { QueryClient } from 'react-query';
+import RejectedApproval from '@/pages/RejectedApproval';
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
+    <Router>
+      <AuthProvider>
+        <QueryClient>
           <Toaster />
-          <BrowserRouter>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Index />} />
-                <Route path="home" element={<Home />} />
-                <Route path="about" element={<About />} />
-                <Route path="contact" element={<Contact />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/:id" element={<ProductDetail />} />
-                <Route path="cart" element={<Cart />} />
-              </Route>
+          <AppContent />
+        </QueryClient>
+      </AuthProvider>
+    </Router>
+  );
+}
 
-              {/* Auth Routes (without Layout) */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
-              <Route path="/pending-approval" element={<PendingApproval />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              
-              {/* Secure Admin Routes */}
-              <Route path="/admin-login" element={<AdminSecureLogin />} />
-              <Route path="/secure-admin-access" element={<AdminSecureLogin />} />
-              <Route path="/setup-admin" element={<SetupAdmin />} />
+function AppContent() {
+  const { isAuthenticated, isAdmin, isApproved, isRejected, loading } = useAuth();
 
-              {/* Doctor Protected Routes (with Layout) */}
-              <Route path="/" element={<Layout />}>
-                <Route path="dashboard" element={<DoctorRoute />}>
-                  <Route index element={<Dashboard />} />
-                </Route>
-                <Route path="orders" element={<DoctorRoute />}>
-                  <Route index element={<Orders />} />
-                  <Route path=":id" element={<OrderDetails />} />
-                </Route>
-                <Route path="category/:category" element={<DoctorRoute />}>
-                  <Route index element={<ProductCategory />} />
-                </Route>
-                <Route path="profile" element={<DoctorRoute />}>
-                  <Route index element={<Profile />} />
-                </Route>
-                <Route path="credit-history" element={<DoctorRoute />}>
-                  <Route index element={<CreditHistory />} />
-                </Route>
-              </Route>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-upkar-blue"></div>
+      </div>
+    );
+  }
 
-              {/* Admin Protected Routes - Using AdminDashboard which includes AdminLayout */}
-              <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>}>
-                <Route index element={<AdminHome />} />
-                <Route path="doctors" element={<DoctorApprovals />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="enhanced-orders" element={<EnhancedOrders />} />
-                <Route path="credits" element={<AdminCredits />} />
-                <Route path="invoices" element={<AdminInvoices />} />
-              </Route>
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Home />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/admin-login" element={<AdminSecureLogin />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/pending-approval" element={<PendingApproval />} />
+      <Route path="/rejected-approval" element={<RejectedApproval />} />
+      <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
 
-              {/* 404 Route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+      {/* Protected routes for authenticated users */}
+      {isAuthenticated && (
+        <>
+          {/* Handle rejected doctors */}
+          {isRejected && (
+            <Route path="*" element={<Navigate to="/rejected-approval" replace />} />
+          )}
+          
+          {/* Admin routes */}
+          {isAdmin && (
+            <>
+              <Route path="/admin" element={
+                <AdminLayout>
+                  <Dashboard />
+                </AdminLayout>
+              } />
+              <Route path="/admin/doctors" element={
+                <AdminLayout>
+                  <DoctorApprovals />
+                </AdminLayout>
+              } />
+              <Route path="/admin/products" element={
+                <AdminLayout>
+                  <Products />
+                </AdminLayout>
+              } />
+              <Route path="/admin/orders" element={
+                <AdminLayout>
+                  <EnhancedOrders />
+                </AdminLayout>
+              } />
+              <Route path="/admin/credits" element={
+                <AdminLayout>
+                  <Credits />
+                </AdminLayout>
+              } />
+              <Route path="/admin/invoices" element={
+                <AdminLayout>
+                  <Invoices />
+                </AdminLayout>
+              } />
+            </>
+          )}
+          
+          {/* Doctor routes (only if approved and not rejected) */}
+          {!isAdmin && isApproved && !isRejected && (
+            <>
+              <Route path="/dashboard" element={<DoctorDashboard />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/orders/:id" element={<OrderDetails />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/credit-history" element={<CreditHistory />} />
+              <Route path="/invoice-example" element={<InvoiceExample />} />
+              <Route path="/products/category/:category" element={<ProductCategory />} />
+            </>
+          )}
+          
+          {/* Redirect unapproved (but not rejected) doctors to pending approval */}
+          {!isAdmin && !isApproved && !isRejected && (
+            <Route path="*" element={<Navigate to="/pending-approval" replace />} />
+          )}
+        </>
+      )}
+
+      {/* Redirect unauthenticated users to login */}
+      {!isAuthenticated && (
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      )}
+      
+      {/* 404 for any other routes */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

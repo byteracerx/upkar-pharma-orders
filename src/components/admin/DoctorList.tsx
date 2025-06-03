@@ -11,6 +11,13 @@ interface Doctor {
   gstNumber: string;
   registrationDate: string;
   status: "pending" | "approved" | "rejected";
+  clinic_name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  license_number?: string;
+  specialization?: string;
 }
 
 interface DoctorListProps {
@@ -35,7 +42,21 @@ const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) =
         doctors.map((doctor) => (
           <DoctorApprovalCard
             key={doctor.id}
-            doctor={doctor}
+            doctor={{
+              id: doctor.id,
+              name: doctor.name,
+              email: doctor.email,
+              phone: doctor.phone,
+              gstNumber: doctor.gstNumber,
+              registrationDate: doctor.registrationDate,
+              address: doctor.address,
+              clinic_name: doctor.clinic_name,
+              city: doctor.city,
+              state: doctor.state,
+              pincode: doctor.pincode,
+              license_number: doctor.license_number,
+              specialization: doctor.specialization
+            }}
             onApprove={() => onApprove?.(doctor.id)}
             onReject={(reason) => onReject?.(doctor.id, reason)}
           />
@@ -55,6 +76,9 @@ const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) =
             <div className="space-y-1 text-sm">
               <p><span className="font-medium">Phone:</span> {doctor.phone}</p>
               <p><span className="font-medium">GST Number:</span> {doctor.gstNumber}</p>
+              {doctor.clinic_name && (
+                <p><span className="font-medium">Clinic:</span> {doctor.clinic_name}</p>
+              )}
               <p><span className="font-medium">Registered:</span> {doctor.registrationDate}</p>
               <p className={`font-medium ${status === "approved" ? "text-green-600" : "text-red-600"}`}>
                 {status === "approved" ? "Approved" : "Rejected"}

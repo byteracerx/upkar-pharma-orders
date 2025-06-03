@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -92,13 +93,16 @@ const AdminHome = () => {
     try {
       setLoading(true);
       
-      // Get pending doctors count
+      // Get pending doctors count - doctors who are not approved and not rejected
       const { count: pendingDoctors, error: doctorsError } = await supabase
         .from('doctors')
         .select('*', { count: 'exact', head: true })
-        .eq('is_approved', false);
+        .eq('is_approved', false)
+        .is('rejection_reason', null);
         
-      if (doctorsError) throw doctorsError;
+      if (doctorsError) {
+        console.error('Error fetching pending doctors:', doctorsError);
+      }
       
       // Get pending orders count
       const { count: pendingOrders, error: ordersError } = await supabase
@@ -106,14 +110,18 @@ const AdminHome = () => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
         
-      if (ordersError) throw ordersError;
+      if (ordersError) {
+        console.error('Error fetching pending orders:', ordersError);
+      }
       
       // Get total products count
       const { count: totalProducts, error: productsError } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
         
-      if (productsError) throw productsError;
+      if (productsError) {
+        console.error('Error fetching products:', productsError);
+      }
       
       // Get total outstanding credit
       let totalCredit = 0;
@@ -141,14 +149,16 @@ const AdminHome = () => {
         .order('created_at', { ascending: false })
         .limit(4);
         
-      if (recentOrdersError) throw recentOrdersError;
+      if (recentOrdersError) {
+        console.error('Error fetching recent orders:', recentOrdersError);
+      }
       
-      const formattedRecentOrders = recentOrdersData.map(order => ({
+      const formattedRecentOrders = recentOrdersData?.map(order => ({
         id: order.invoice_number || `ORD-${order.id.substring(0, 4)}`,
         doctor: order.doctor?.name || "Unknown",
         amount: `₹${order.total_amount.toFixed(2)}`,
         status: order.status.charAt(0).toUpperCase() + order.status.slice(1)
-      }));
+      })) || [];
       
       setStats({
         pendingDoctors: pendingDoctors || 0,

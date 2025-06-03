@@ -10,25 +10,22 @@ import ProductList from "@/components/products/ProductList";
 const Home = () => {
   const { isAuthenticated } = useAuth();
   
+  if (isAuthenticated) {
+    return (
+      <div className="container-custom py-8">
+        <h1 className="text-3xl font-bold mb-8">Browse Products</h1>
+        <ProductList />
+      </div>
+    );
+  }
+  
   return (
     <>
-      {!isAuthenticated && (
-        <>
-          <HeroSection />
-          <FeaturesSection />
-          <PhotoGallery />
-          <TestimonialsSection />
-        </>
-      )}
-      
-      {isAuthenticated && (
-        <div className="container-custom py-8">
-          <h1 className="text-3xl font-bold mb-8">Browse Products</h1>
-          <ProductList />
-        </div>
-      )}
-      
-      {!isAuthenticated && <CtaSection />}
+      <HeroSection />
+      <FeaturesSection />
+      <PhotoGallery />
+      <TestimonialsSection />
+      <CtaSection />
     </>
   );
 };

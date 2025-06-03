@@ -38,7 +38,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const displayName = getUserDisplayName(user);
   
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen w-full">
       <AdminSidebar />
       <div className="flex flex-col flex-grow overflow-hidden bg-gray-50">
         <header className="bg-white border-b px-6 py-3 flex justify-between items-center">

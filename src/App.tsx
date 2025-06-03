@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import Layout from '@/components/layout/Layout';
 import Home from '@/pages/Home';
 import About from '@/pages/About';
 import Contact from '@/pages/Contact';
@@ -21,13 +22,13 @@ import Profile from '@/pages/doctor/Profile';
 import CreditHistory from '@/pages/doctor/CreditHistory';
 import InvoiceExample from '@/pages/InvoiceExample';
 import ProductCategory from '@/pages/doctor/ProductCategory';
-import Dashboard from '@/pages/admin/Dashboard';
+import AdminDashboard from '@/pages/admin/Dashboard';
+import AdminHome from '@/pages/admin/Home';
+import DoctorsPage from '@/pages/admin/Doctors';
 import Products from '@/pages/admin/Products';
 import EnhancedOrders from '@/pages/admin/Orders';
 import Credits from '@/pages/admin/Credits';
 import Invoices from '@/pages/admin/Invoices';
-import DoctorApprovals from '@/pages/admin/DoctorApprovals';
-import AdminLayout from '@/components/admin/AdminLayout';
 import NotFound from '@/pages/NotFound';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from 'sonner';
@@ -62,10 +63,30 @@ function AppContent() {
 
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/about" element={<About />} />
-      <Route path="/contact" element={<Contact />} />
+      {/* Public routes with layout */}
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="about" element={<About />} />
+        <Route path="contact" element={<Contact />} />
+        
+        {/* Doctor routes (only if approved and not rejected) */}
+        {isAuthenticated && !isAdmin && isApproved && !isRejected && (
+          <>
+            <Route path="dashboard" element={<DoctorDashboard />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="products/:id" element={<ProductDetail />} />
+            <Route path="cart" element={<Cart />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="orders/:id" element={<OrderDetails />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="credit-history" element={<CreditHistory />} />
+            <Route path="invoice-example" element={<InvoiceExample />} />
+            <Route path="products/category/:category" element={<ProductCategory />} />
+          </>
+        )}
+      </Route>
+
+      {/* Auth routes without layout */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/admin-login" element={<AdminSecureLogin />} />
@@ -75,79 +96,33 @@ function AppContent() {
       <Route path="/rejected-approval" element={<RejectedApproval />} />
       <Route path="/registration-confirmation" element={<RegistrationConfirmation />} />
 
-      {/* Protected routes for authenticated users */}
-      {isAuthenticated && (
+      {/* Admin routes without main layout */}
+      {isAuthenticated && isAdmin && (
         <>
-          {/* Handle rejected doctors */}
-          {isRejected && (
-            <Route path="*" element={<Navigate to="/rejected-approval" replace />} />
-          )}
-          
-          {/* Admin routes */}
-          {isAdmin && (
-            <>
-              <Route path="/admin" element={
-                <AdminLayout>
-                  <Dashboard />
-                </AdminLayout>
-              } />
-              <Route path="/admin/doctors" element={
-                <AdminLayout>
-                  <DoctorApprovals />
-                </AdminLayout>
-              } />
-              <Route path="/admin/products" element={
-                <AdminLayout>
-                  <Products />
-                </AdminLayout>
-              } />
-              <Route path="/admin/orders" element={
-                <AdminLayout>
-                  <EnhancedOrders />
-                </AdminLayout>
-              } />
-              <Route path="/admin/credits" element={
-                <AdminLayout>
-                  <Credits />
-                </AdminLayout>
-              } />
-              <Route path="/admin/invoices" element={
-                <AdminLayout>
-                  <Invoices />
-                </AdminLayout>
-              } />
-            </>
-          )}
-          
-          {/* Doctor routes (only if approved and not rejected) */}
-          {!isAdmin && isApproved && !isRejected && (
-            <>
-              <Route path="/dashboard" element={<DoctorDashboard />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/orders/:id" element={<OrderDetails />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/credit-history" element={<CreditHistory />} />
-              <Route path="/invoice-example" element={<InvoiceExample />} />
-              <Route path="/products/category/:category" element={<ProductCategory />} />
-            </>
-          )}
-          
-          {/* Redirect unapproved (but not rejected) doctors to pending approval */}
-          {!isAdmin && !isApproved && !isRejected && (
-            <Route path="*" element={<Navigate to="/pending-approval" replace />} />
-          )}
+          <Route path="/admin" element={<AdminDashboard />}>
+            <Route index element={<AdminHome />} />
+            <Route path="doctors" element={<DoctorsPage />} />
+            <Route path="products" element={<Products />} />
+            <Route path="orders" element={<EnhancedOrders />} />
+            <Route path="credits" element={<Credits />} />
+            <Route path="invoices" element={<Invoices />} />
+          </Route>
         </>
       )}
 
-      {/* Redirect unauthenticated users to login */}
+      {/* Redirect logic */}
+      {isAuthenticated && isRejected && (
+        <Route path="*" element={<Navigate to="/rejected-approval" replace />} />
+      )}
+      
+      {isAuthenticated && !isAdmin && !isApproved && !isRejected && (
+        <Route path="*" element={<Navigate to="/pending-approval" replace />} />
+      )}
+
       {!isAuthenticated && (
         <Route path="*" element={<Navigate to="/login" replace />} />
       )}
       
-      {/* 404 for any other routes */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

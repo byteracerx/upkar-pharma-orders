@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,54 +96,63 @@ const Navbar = () => {
             </div>
           </Link>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex relative" ref={searchRef}>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Search medicines..."
-                className="w-64 pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery.trim() && setShowResults(true)}
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-            
-            {/* Search Results Dropdown */}
-            {showResults && searchResults.length > 0 && (
-              <div className="absolute top-full mt-1 w-full bg-white shadow-lg rounded-md z-50 max-h-80 overflow-y-auto">
-                {searchResults.map((product) => (
-                  <div
-                    key={product.id}
-                    className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
-                    onClick={() => handleSearchSelect(product.id)}
-                  >
-                    <div className="font-medium">{product.name}</div>
-                    <div className="text-sm text-gray-500">₹{product.price.toFixed(2)}</div>
-                  </div>
-                ))}
+          {/* Search Bar - Only show for authenticated users */}
+          {isAuthenticated && !isAdmin && (
+            <div className="hidden md:flex relative" ref={searchRef}>
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search medicines..."
+                  className="w-64 pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery.trim() && setShowResults(true)}
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>
-            )}
-          </div>
+              
+              {/* Search Results Dropdown */}
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute top-full mt-1 w-full bg-white shadow-lg rounded-md z-50 max-h-80 overflow-y-auto">
+                  {searchResults.map((product) => (
+                    <div
+                      key={product.id}
+                      className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
+                      onClick={() => handleSearchSelect(product.id)}
+                    >
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-sm text-gray-500">₹{product.price.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/products" className="text-gray-600 hover:text-upkem-green transition-colors">
-              Products
-            </Link>
-            <Link to="/about" className="text-gray-600 hover:text-upkem-green transition-colors">
-              About Us
-            </Link>
-            <Link to="/contact" className="text-gray-600 hover:text-upkem-green transition-colors">
-              Contact
-            </Link>
+            {/* Only show these links for non-authenticated or non-admin users */}
+            {(!isAuthenticated || !isAdmin) && (
+              <>
+                <Link to="/products" className="text-gray-600 hover:text-upkem-green transition-colors">
+                  Products
+                </Link>
+                <Link to="/about" className="text-gray-600 hover:text-upkem-green transition-colors">
+                  About Us
+                </Link>
+                <Link to="/contact" className="text-gray-600 hover:text-upkem-green transition-colors">
+                  Contact
+                </Link>
+              </>
+            )}
             
             {isAuthenticated ? (
               <>
-                <Link to="/cart" className="relative">
-                  <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkem-green transition-colors" />
-                </Link>
+                {!isAdmin && (
+                  <Link to="/cart" className="relative">
+                    <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkem-green transition-colors" />
+                  </Link>
+                )}
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -206,38 +216,44 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-200 animate-fade-in">
             <div className="flex flex-col space-y-4">
-              <Link
-                to="/products"
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Products
-              </Link>
-              <Link
-                to="/about"
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                About Us
-              </Link>
-              <Link
-                to="/contact"
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Contact
-              </Link>
+              {(!isAuthenticated || !isAdmin) && (
+                <>
+                  <Link
+                    to="/products"
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Products
+                  </Link>
+                  <Link
+                    to="/about"
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    About Us
+                  </Link>
+                  <Link
+                    to="/contact"
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Contact
+                  </Link>
+                </>
+              )}
               
               {isAuthenticated ? (
                 <>
-                  <Link
-                    to="/cart"
-                    className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    <span>Cart</span>
-                  </Link>
+                  {!isAdmin && (
+                    <Link
+                      to="/cart"
+                      className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <ShoppingCart className="mr-2 h-5 w-5" />
+                      <span>Cart</span>
+                    </Link>
+                  )}
                   
                   <Link
                     to={isAdmin ? "/admin" : "/dashboard"}

@@ -17,7 +17,7 @@ interface DoctorListProps {
   doctors: Doctor[];
   status: "pending" | "approved" | "rejected";
   onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
+  onReject?: (id: string, reason?: string) => void;
 }
 
 const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) => {
@@ -36,8 +36,8 @@ const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) =
           <DoctorApprovalCard
             key={doctor.id}
             doctor={doctor}
-            onApprove={onApprove}
-            onReject={onReject}
+            onApprove={() => onApprove?.(doctor.id)}
+            onReject={(reason) => onReject?.(doctor.id, reason)}
           />
         ))
       ) : (

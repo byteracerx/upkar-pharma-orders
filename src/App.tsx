@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Home from '@/pages/Home';
@@ -6,19 +7,19 @@ import Contact from '@/pages/Contact';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import AdminSecureLogin from '@/pages/AdminSecureLogin';
-import ForgotPassword from '@/pages/ForgotPassword';
-import ResetPassword from '@/pages/ResetPassword';
+import ForgotPassword from '@/pages/auth/ForgotPassword';
+import ResetPassword from '@/pages/auth/ResetPassword';
 import PendingApproval from '@/pages/PendingApproval';
 import RegistrationConfirmation from '@/pages/RegistrationConfirmation';
 import DoctorDashboard from '@/pages/doctor/Dashboard';
-import ProductsPage from '@/pages/doctor/ProductsPage';
-import ProductDetail from '@/pages/doctor/ProductDetail';
-import Cart from '@/pages/doctor/Cart';
+import ProductsPage from '@/pages/Products';
+import ProductDetail from '@/pages/ProductDetail';
+import Cart from '@/pages/Cart';
 import Orders from '@/pages/doctor/Orders';
 import OrderDetails from '@/pages/doctor/OrderDetails';
 import Profile from '@/pages/doctor/Profile';
 import CreditHistory from '@/pages/doctor/CreditHistory';
-import InvoiceExample from '@/pages/doctor/InvoiceExample';
+import InvoiceExample from '@/pages/InvoiceExample';
 import ProductCategory from '@/pages/doctor/ProductCategory';
 import Dashboard from '@/pages/admin/Dashboard';
 import Products from '@/pages/admin/Products';
@@ -28,19 +29,21 @@ import Invoices from '@/pages/admin/Invoices';
 import DoctorApprovals from '@/pages/admin/DoctorApprovals';
 import AdminLayout from '@/components/admin/AdminLayout';
 import NotFound from '@/pages/NotFound';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { Toaster } from 'sonner';
-import { QueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RejectedApproval from '@/pages/RejectedApproval';
+
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <QueryClient>
+        <QueryClientProvider client={queryClient}>
           <Toaster />
           <AppContent />
-        </QueryClient>
+        </QueryClientProvider>
       </AuthProvider>
     </Router>
   );

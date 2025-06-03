@@ -14,8 +14,8 @@ const PendingApproval = () => {
     navigate("/login");
   };
 
-  // Get user name with fallback
-  const userName = user?.name || user?.user_metadata?.name || 'Doctor';
+  // Get user name with fallback - check user metadata first
+  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Doctor';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

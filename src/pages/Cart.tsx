@@ -24,7 +24,7 @@ const Cart = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orderSuccessOpen, setOrderSuccessOpen] = useState(false);
   const [orderId, setOrderId] = useState<string | undefined>(undefined);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -72,7 +72,7 @@ const Cart = () => {
     }
     
     // Prevent admins from placing orders
-    if (user.isAdmin) {
+    if (isAdmin) {
       toast.error("Admin Cannot Place Orders", {
         description: "As an admin, you cannot place orders. This functionality is only for doctors."
       });

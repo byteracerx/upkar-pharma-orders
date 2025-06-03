@@ -56,6 +56,7 @@ export type Database = {
           name: string
           phone: string
           pincode: string | null
+          rejection_reason: string | null
           specialization: string | null
           state: string | null
           updated_at: string | null
@@ -73,6 +74,7 @@ export type Database = {
           name: string
           phone: string
           pincode?: string | null
+          rejection_reason?: string | null
           specialization?: string | null
           state?: string | null
           updated_at?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           name?: string
           phone?: string
           pincode?: string | null
+          rejection_reason?: string | null
           specialization?: string | null
           state?: string | null
           updated_at?: string | null

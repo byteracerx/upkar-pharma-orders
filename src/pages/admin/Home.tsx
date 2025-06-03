@@ -91,6 +91,7 @@ const AdminHome = () => {
 
   const fetchAdminStats = async () => {
     try {
+      console.log('Fetching admin stats...');
       setLoading(true);
       
       // Get pending doctors count - doctors who are not approved and not rejected
@@ -102,6 +103,8 @@ const AdminHome = () => {
         
       if (doctorsError) {
         console.error('Error fetching pending doctors:', doctorsError);
+      } else {
+        console.log('Pending doctors count:', pendingDoctors);
       }
       
       // Get pending orders count
@@ -112,6 +115,8 @@ const AdminHome = () => {
         
       if (ordersError) {
         console.error('Error fetching pending orders:', ordersError);
+      } else {
+        console.log('Pending orders count:', pendingOrders);
       }
       
       // Get total products count
@@ -121,6 +126,8 @@ const AdminHome = () => {
         
       if (productsError) {
         console.error('Error fetching products:', productsError);
+      } else {
+        console.log('Total products count:', totalProducts);
       }
       
       // Get total outstanding credit
@@ -131,6 +138,7 @@ const AdminHome = () => {
         if (creditData && Array.isArray(creditData)) {
           totalCredit = creditData.reduce((sum, item) => sum + Number(item.total_credit), 0);
         }
+        console.log('Total credit:', totalCredit);
       } catch (creditError) {
         console.error("Error fetching credits:", creditError);
         // Continue with totalCredit as 0
@@ -159,6 +167,14 @@ const AdminHome = () => {
         amount: `₹${order.total_amount.toFixed(2)}`,
         status: order.status.charAt(0).toUpperCase() + order.status.slice(1)
       })) || [];
+      
+      console.log('Final stats:', {
+        pendingDoctors: pendingDoctors || 0,
+        pendingOrders: pendingOrders || 0,
+        totalProducts: totalProducts || 0,
+        totalCredit: totalCredit,
+        recentOrders: formattedRecentOrders
+      });
       
       setStats({
         pendingDoctors: pendingDoctors || 0,

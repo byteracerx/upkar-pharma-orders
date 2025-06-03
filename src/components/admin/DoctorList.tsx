@@ -28,6 +28,26 @@ interface DoctorListProps {
 }
 
 const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) => {
+  const [processingDoctorId, setProcessingDoctorId] = useState<string | null>(null);
+
+  const handleApprove = async (doctorId: string) => {
+    setProcessingDoctorId(doctorId);
+    try {
+      await onApprove?.(doctorId);
+    } finally {
+      setProcessingDoctorId(null);
+    }
+  };
+
+  const handleReject = async (doctorId: string, reason?: string) => {
+    setProcessingDoctorId(doctorId);
+    try {
+      await onReject?.(doctorId, reason);
+    } finally {
+      setProcessingDoctorId(null);
+    }
+  };
+
   if (doctors.length === 0) {
     return (
       <div className="text-center p-8 bg-white rounded-lg shadow">
@@ -57,8 +77,9 @@ const DoctorList = ({ doctors, status, onApprove, onReject }: DoctorListProps) =
               license_number: doctor.license_number,
               specialization: doctor.specialization
             }}
-            onApprove={() => onApprove?.(doctor.id)}
-            onReject={(reason) => onReject?.(doctor.id, reason)}
+            onApprove={() => handleApprove(doctor.id)}
+            onReject={(reason) => handleReject(doctor.id, reason)}
+            isProcessing={processingDoctorId === doctor.id}
           />
         ))
       ) : (

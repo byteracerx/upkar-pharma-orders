@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Define the types for credit-related data
@@ -27,16 +28,15 @@ interface DoctorIdParam {
 // Get credit history for a doctor
 export const fetchCreditTransactions = async (doctorId: string): Promise<CreditTransaction[]> => {
   try {
-    // We're not using RPC since get_doctor_credit_history is not available
-    // Instead we'll directly query the credit_transactions table
+    console.log('Fetching credit transactions for doctor:', doctorId);
     const { data, error } = await supabase
       .from("credit_transactions")
       .select("*")
-      .eq("doctor_id", doctorId);
+      .eq("doctor_id", doctorId)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Transform the data to match the CreditTransaction interface
     const transactions = data.map(item => ({
       id: item.id,
       doctor_id: item.doctor_id,
@@ -47,6 +47,7 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
       reference_id: 'reference_id' in item ? item.reference_id : undefined
     })) as CreditTransaction[];
 
+    console.log('Fetched transactions:', transactions);
     return transactions;
   } catch (error) {
     console.error("Error getting credit history:", error);
@@ -57,38 +58,48 @@ export const fetchCreditTransactions = async (doctorId: string): Promise<CreditT
 // Get credit summary for a doctor
 export const fetchDoctorCreditSummary = async (doctorId: string): Promise<CreditSummary> => {
   try {
-    const { data, error } = await supabase
-      .rpc('get_doctor_credit_summary', { p_doctor_id: doctorId } as DoctorIdParam);
-
-    if (error) throw error;
-
-    // Convert the JSON response to match the CreditSummary interface
-    let summary: CreditSummary = {
-      doctor_id: doctorId,
-      doctor_name: '',
-      doctor_phone: '',
-      doctor_email: '',
-      total_credit: 0
-    };
-
-    // Get doctor information
-    const { data: doctorData } = await supabase
+    console.log('Fetching credit summary for doctor:', doctorId);
+    
+    // Get doctor information first
+    const { data: doctorData, error: doctorError } = await supabase
       .from('doctors')
-      .select('name, phone')
+      .select('name, phone, email')
       .eq('id', doctorId)
       .single();
 
-    if (doctorData) {
-      summary.doctor_name = doctorData.name;
-      summary.doctor_phone = doctorData.phone;
+    if (doctorError) {
+      console.error('Error fetching doctor data:', doctorError);
     }
 
-    // Extract credit information from the response
-    if (typeof data === 'object' && data !== null) {
-      const jsonData = data as Record<string, any>;
-      summary.total_credit = jsonData.available_credit || jsonData.total_credit || 0;
+    // Get credit transactions
+    const { data: transactions, error: txError } = await supabase
+      .from('credit_transactions')
+      .select('amount, type')
+      .eq('doctor_id', doctorId);
+
+    if (txError) {
+      console.error('Error fetching transactions:', txError);
     }
 
+    // Calculate total credit
+    const totalCredit = (transactions || []).reduce((total, transaction) => {
+      if (transaction.type === 'credit') {
+        return total + transaction.amount;
+      } else if (transaction.type === 'debit') {
+        return total - transaction.amount;
+      }
+      return total;
+    }, 0);
+
+    const summary: CreditSummary = {
+      doctor_id: doctorId,
+      doctor_name: doctorData?.name || 'Unknown Doctor',
+      doctor_phone: doctorData?.phone || 'No phone',
+      doctor_email: doctorData?.email || 'No email',
+      total_credit: totalCredit
+    };
+
+    console.log('Credit summary:', summary);
     return summary;
   } catch (error) {
     console.error("Error getting credit summary:", error);
@@ -96,43 +107,40 @@ export const fetchDoctorCreditSummary = async (doctorId: string): Promise<Credit
   }
 };
 
-// Get credit summaries for all doctors (admin view)
+// Get credit summaries for all doctors (admin view) - excluding admins
 export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
   try {
-    // First try using the RPC function
-    try {
-      const { data, error } = await supabase
-        .rpc('get_all_doctor_credits');
-
-      if (!error && data) {
-        return data as CreditSummary[] || [];
-      }
-    } catch (rpcError) {
-      console.warn("RPC function get_all_doctor_credits failed, falling back to direct query:", rpcError);
-    }
-
-    // Fallback to direct query if RPC fails
+    console.log('Fetching all doctor credits...');
+    
+    // Get all doctors (excluding admins)
     const { data: doctors, error: doctorsError } = await supabase
       .from("doctors")
-      .select("id, name, phone")
-      .eq("is_approved", true);
+      .select("id, name, phone, email, is_approved")
+      .neq('gst_number', 'ADMIN00000000000'); // Exclude admin users
 
-    if (doctorsError) throw doctorsError;
+    if (doctorsError) {
+      console.error('Error fetching doctors:', doctorsError);
+      throw doctorsError;
+    }
 
-    // Get credit transactions for each doctor
+    console.log('Found doctors for credit summary:', doctors);
+
     const creditSummaries: CreditSummary[] = [];
 
-    for (const doctor of doctors) {
+    for (const doctor of doctors || []) {
       try {
+        // Get credit transactions for each doctor
         const { data: transactions, error: transactionsError } = await supabase
           .from("credit_transactions")
           .select("amount, type")
           .eq("doctor_id", doctor.id);
 
-        if (transactionsError) throw transactionsError;
+        if (transactionsError) {
+          console.error(`Error fetching transactions for doctor ${doctor.id}:`, transactionsError);
+        }
 
         // Calculate total credit
-        const totalCredit = transactions.reduce((total, transaction) => {
+        const totalCredit = (transactions || []).reduce((total, transaction) => {
           if (transaction.type === 'credit') {
             return total + transaction.amount;
           } else if (transaction.type === 'debit') {
@@ -141,28 +149,20 @@ export const fetchAllDoctorCredits = async (): Promise<CreditSummary[]> => {
           return total;
         }, 0);
 
-        // Get user email from auth
-        let doctorEmail = '';
-        try {
-          const { data: userData } = await supabase.auth.admin.getUserById(doctor.id);
-          doctorEmail = userData?.user?.email || '';
-        } catch (err) {
-          console.error(`Error fetching email for doctor ${doctor.id}:`, err);
-        }
-
         creditSummaries.push({
           doctor_id: doctor.id,
-          doctor_name: doctor.name,
-          doctor_phone: doctor.phone,
-          doctor_email: doctorEmail || `${doctor.name?.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+          doctor_name: doctor.name || 'Unknown Doctor',
+          doctor_phone: doctor.phone || 'No phone',
+          doctor_email: doctor.email || 'No email',
           total_credit: totalCredit
         });
       } catch (error) {
         console.error(`Error processing credit for doctor ${doctor.id}:`, error);
-        // Continue with other doctors even if one fails
+        continue;
       }
     }
 
+    console.log('Final credit summaries:', creditSummaries);
     return creditSummaries;
   } catch (error) {
     console.error("Error getting all doctor credits:", error);

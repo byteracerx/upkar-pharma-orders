@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchPendingDoctors, fetchApprovedDoctors, fetchRejectedDoctors, approveDoctor, rejectDoctor } from '@/services/admin/doctorManagement';
@@ -38,9 +37,6 @@ const DoctorsPage = () => {
         approved: approved.length, 
         rejected: rejected.length 
       });
-      console.log('Pending doctors data:', pending);
-      console.log('Approved doctors data:', approved);
-      console.log('Rejected doctors data:', rejected);
       
       setPendingDoctors(pending);
       setApprovedDoctors(approved);
@@ -124,9 +120,6 @@ const DoctorsPage = () => {
           <p className="text-gray-600 mt-1">
             Manage doctor registrations and approvals
           </p>
-          <div className="text-sm text-gray-500 mt-2">
-            Debug: Pending: {pendingDoctors.length}, Approved: {approvedDoctors.length}, Rejected: {rejectedDoctors.length}
-          </div>
         </div>
         <Button 
           onClick={fetchAllDoctors}

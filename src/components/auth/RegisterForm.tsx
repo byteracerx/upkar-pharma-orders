@@ -77,7 +77,8 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
           description: "Your account has been created and is pending approval."
         });
         
-        // Navigate to pending approval page immediately
+        // Call onSuccess callback and navigate to pending approval page
+        onSuccess();
         navigate("/pending-approval");
       } else {
         console.error("Registration failed:", result.message);

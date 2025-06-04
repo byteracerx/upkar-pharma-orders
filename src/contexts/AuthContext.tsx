@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user) {
         console.log('User created successfully, creating doctor record...');
         
-        // Insert doctor record
+        // Insert doctor record with the user's ID
         const { error: doctorError } = await supabase
           .from('doctors')
           .insert({

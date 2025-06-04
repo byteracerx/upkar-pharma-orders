@@ -37,19 +37,6 @@ import RejectedApproval from '@/pages/RejectedApproval';
 
 const queryClient = new QueryClient();
 
-function App() {
-  return (
-    <Router>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <Toaster />
-          <AppContent />
-        </QueryClientProvider>
-      </AuthProvider>
-    </Router>
-  );
-}
-
 function AppContent() {
   const { isAuthenticated, isAdmin, isApproved, isRejected, loading } = useAuth();
 
@@ -125,6 +112,19 @@ function AppContent() {
       
       <Route path="*" element={<NotFound />} />
     </Routes>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AuthProvider>
+          <Toaster />
+          <AppContent />
+        </AuthProvider>
+      </Router>
+    </QueryClientProvider>
   );
 }
 

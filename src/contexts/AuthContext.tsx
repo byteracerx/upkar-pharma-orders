@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
@@ -166,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: userData,
-          emailRedirectTo: `${window.location.origin}/pending-approval`
         }
       });
 

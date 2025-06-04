@@ -33,7 +33,15 @@ const DoctorsPage = () => {
         fetchRejectedDoctors()
       ]);
       
-      console.log('Received doctors:', { pending, approved, rejected });
+      console.log('Received doctors:', { 
+        pending: pending.length, 
+        approved: approved.length, 
+        rejected: rejected.length 
+      });
+      console.log('Pending doctors data:', pending);
+      console.log('Approved doctors data:', approved);
+      console.log('Rejected doctors data:', rejected);
+      
       setPendingDoctors(pending);
       setApprovedDoctors(approved);
       setRejectedDoctors(rejected);
@@ -116,6 +124,9 @@ const DoctorsPage = () => {
           <p className="text-gray-600 mt-1">
             Manage doctor registrations and approvals
           </p>
+          <div className="text-sm text-gray-500 mt-2">
+            Debug: Pending: {pendingDoctors.length}, Approved: {approvedDoctors.length}, Rejected: {rejectedDoctors.length}
+          </div>
         </div>
         <Button 
           onClick={fetchAllDoctors}

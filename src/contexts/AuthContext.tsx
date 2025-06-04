@@ -71,8 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('Checking user status for:', user.id);
       
-      // Check if user is admin (has admin metadata or is in admin list)
-      const adminEmails = ['admin@upkarpharma.com', 'admin@upkar.com'];
+      // Check if user is admin
+      const adminEmails = ['admin@upkarpharma.com', 'admin@upkar.com', 'admin1@upkarpharma.com'];
       const userIsAdmin = adminEmails.includes(user.email || '') || 
                          user.user_metadata?.isAdmin === true ||
                          user.app_metadata?.role === 'admin';
@@ -97,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error('Error checking doctor status:', error);
         if (error.code === 'PGRST116') {
-          // No doctor record found - user might be pending
           console.log('No doctor record found for user');
           setIsApproved(false);
           setIsRejected(false);
@@ -160,15 +159,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (email: string, password: string, userData: any) => {
     try {
       setLoading(true);
+      console.log('Starting signup process...', { email, userData });
       
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: userData,
-          emailRedirectTo: `${window.location.origin}/`
+          emailRedirectTo: `${window.location.origin}/pending-approval`
         }
       });
+
+      console.log('Supabase signup response:', { data, error });
 
       if (error) {
         console.error('Signup error:', error);
@@ -179,13 +181,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        console.log('User created successfully, creating doctor record...');
+        
         // Insert doctor record
         const { error: doctorError } = await supabase
           .from('doctors')
           .insert({
             id: data.user.id,
             name: userData.name,
-            email: userData.email || email,
+            email: email,
             phone: userData.phone,
             address: userData.address,
             gst_number: userData.gstNumber,
@@ -207,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
         }
 
+        console.log('Doctor record created successfully');
         await checkUserStatus(data.user);
       }
 

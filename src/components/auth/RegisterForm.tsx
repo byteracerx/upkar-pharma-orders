@@ -40,7 +40,7 @@ interface RegisterFormProps {
 }
 
 export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
-  const { signUp } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -61,25 +61,29 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
     setIsLoading(true);
 
     try {
-      const { error } = await signUp(values.email, values.password, {
+      console.log('Starting registration process...', { email: values.email });
+      
+      const result = await signup(values.email, values.password, {
         name: values.name,
         phone: values.phone,
         address: values.address,
         gstNumber: values.gstNumber,
       });
 
-      if (error) {
-        console.error("Registration error:", error);
-        toast.error("Registration Failed", {
-          description: error.message || "Please try again with different credentials"
-        });
-      } else {
+      console.log('Registration result:', result);
+
+      if (result.success) {
         toast.success("Registration Successful!", {
           description: "Your account has been created and is pending approval."
         });
         
-        // Navigate to pending approval page
+        // Navigate to pending approval page immediately
         navigate("/pending-approval");
+      } else {
+        console.error("Registration failed:", result.message);
+        toast.error("Registration Failed", {
+          description: result.message || "Please try again with different credentials"
+        });
       }
     } catch (error: any) {
       console.error("Unexpected registration error:", error);

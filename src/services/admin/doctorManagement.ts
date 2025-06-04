@@ -3,51 +3,56 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Doctor } from './types';
 
-// Function to sync users from auth.users to doctors table if missing
-const syncUsersWithDoctors = async () => {
+// Function to fetch all users from auth.users and ensure they exist in doctors table
+const syncAllUsersWithDoctors = async () => {
   try {
-    console.log('Syncing users with doctors table...');
+    console.log('Syncing all users with doctors table...');
     
-    // Get all users from auth (admin only function)
-    const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
+    // Get all users from auth.users table directly
+    const { data: authUsers, error: authError } = await supabase
+      .from('auth.users')
+      .select('*');
     
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
+    if (authError) {
+      console.log('Cannot access auth.users directly, will work with existing doctors table');
       return;
     }
 
-    for (const user of users) {
+    console.log('Found auth users:', authUsers);
+
+    // Get all existing doctors
+    const { data: existingDoctors } = await supabase
+      .from('doctors')
+      .select('id');
+
+    const existingDoctorIds = new Set((existingDoctors || []).map(d => d.id));
+
+    for (const user of authUsers || []) {
       // Skip admin users
-      if (user.email?.includes('admin') || user.user_metadata?.isAdmin) {
+      const adminEmails = ['admin@upkarpharma.com', 'admin@upkar.com', 'admin1@upkarpharma.com'];
+      if (adminEmails.includes(user.email || '') || user.user_metadata?.isAdmin) {
         continue;
       }
 
-      // Check if doctor record exists
-      const { data: existingDoctor } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      // If no doctor record exists and user has metadata, create one
-      if (!existingDoctor && user.user_metadata) {
+      // If doctor record doesn't exist, create one
+      if (!existingDoctorIds.has(user.id)) {
         console.log('Creating doctor record for user:', user.email);
         
         const { error: insertError } = await supabase
           .from('doctors')
           .insert({
             id: user.id,
-            name: user.user_metadata.name || user.email?.split('@')[0] || 'Unknown Doctor',
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'Unknown Doctor',
             email: user.email || '',
-            phone: user.user_metadata.phone || 'N/A',
-            address: user.user_metadata.address || 'N/A',
-            gst_number: user.user_metadata.gstNumber || 'N/A',
-            clinic_name: user.user_metadata.clinicName || '',
-            city: user.user_metadata.city || '',
-            state: user.user_metadata.state || '',
-            pincode: user.user_metadata.pincode || '',
-            license_number: user.user_metadata.licenseNumber || '',
-            specialization: user.user_metadata.specialization || '',
+            phone: user.user_metadata?.phone || 'N/A',
+            address: user.user_metadata?.address || 'N/A',
+            gst_number: user.user_metadata?.gstNumber || 'N/A',
+            clinic_name: user.user_metadata?.clinicName || '',
+            city: user.user_metadata?.city || '',
+            state: user.user_metadata?.state || '',
+            pincode: user.user_metadata?.pincode || '',
+            license_number: user.user_metadata?.licenseNumber || '',
+            specialization: user.user_metadata?.specialization || '',
             is_approved: false,
             rejection_reason: null
           });
@@ -60,7 +65,7 @@ const syncUsersWithDoctors = async () => {
       }
     }
   } catch (error) {
-    console.error('Error in syncUsersWithDoctors:', error);
+    console.error('Error in syncAllUsersWithDoctors:', error);
   }
 };
 
@@ -69,8 +74,8 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
   try {
     console.log('Fetching all doctors...');
     
-    // First sync users with doctors table
-    await syncUsersWithDoctors();
+    // First sync all users
+    await syncAllUsersWithDoctors();
     
     const { data, error } = await supabase
       .from('doctors')
@@ -92,20 +97,20 @@ export const fetchDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
-// Function to fetch pending doctors (not approved and not rejected, excluding admins)
+// Function to fetch pending doctors
 export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   try {
     console.log('Fetching pending doctors...');
     
-    // First sync users with doctors table
-    await syncUsersWithDoctors();
+    // First sync all users
+    await syncAllUsersWithDoctors();
     
     const { data, error } = await supabase
       .from('doctors')
       .select('*')
       .eq('is_approved', false)
       .is('rejection_reason', null)
-      .neq('gst_number', 'ADMIN00000000000') // Exclude admin users
+      .neq('gst_number', 'ADMIN00000000000')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -122,7 +127,7 @@ export const fetchPendingDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
-// Function to fetch approved doctors (excluding admins)
+// Function to fetch approved doctors
 export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
   try {
     console.log('Fetching approved doctors...');
@@ -130,7 +135,7 @@ export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
       .from('doctors')
       .select('*')
       .eq('is_approved', true)
-      .neq('gst_number', 'ADMIN00000000000') // Exclude admin users
+      .neq('gst_number', 'ADMIN00000000000')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -147,7 +152,7 @@ export const fetchApprovedDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
-// Function to fetch rejected doctors (excluding admins)
+// Function to fetch rejected doctors
 export const fetchRejectedDoctors = async (): Promise<Doctor[]> => {
   try {
     console.log('Fetching rejected doctors...');
@@ -156,7 +161,7 @@ export const fetchRejectedDoctors = async (): Promise<Doctor[]> => {
       .select('*')
       .eq('is_approved', false)
       .not('rejection_reason', 'is', null)
-      .neq('gst_number', 'ADMIN00000000000') // Exclude admin users
+      .neq('gst_number', 'ADMIN00000000000')
       .order('created_at', { ascending: false });
 
     if (error) {

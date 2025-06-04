@@ -16,7 +16,8 @@ const Register = () => {
   const navigate = useNavigate();
   
   const handleRegistrationSuccess = () => {
-    navigate("/registration-confirmation");
+    // Navigation is now handled in the RegisterForm component
+    console.log('Registration successful, navigating to pending approval');
   };
 
   return (

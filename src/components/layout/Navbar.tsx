@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, ShoppingCart } from "lucide-react";
 import { CartBadge } from "@/components/cart/CartBadge";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, isApproved, isRejected, logout } = useAuth();
@@ -83,6 +83,9 @@ export default function Navbar() {
             {/* Auth Buttons */}
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
+                {/* Notification Bell for authenticated users */}
+                <NotificationBell />
+                
                 {!isAdmin && (
                   <Link
                     to="/profile"
@@ -118,6 +121,11 @@ export default function Navbar() {
             {/* Mobile Cart Icon for approved doctors */}
             {isAuthenticated && !isAdmin && isApproved && !isRejected && (
               <CartBadge />
+            )}
+            
+            {/* Mobile Notification Bell for authenticated users */}
+            {isAuthenticated && (
+              <NotificationBell />
             )}
             
             <button

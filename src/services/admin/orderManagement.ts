@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { generateInvoiceEnhanced } from '@/services/enhancedInvoiceService';
 
 // Function to fetch all orders
 export const fetchAllOrders = async () => {
@@ -40,7 +40,7 @@ export const fetchAllOrders = async () => {
   }
 };
 
-// Function to update order status
+// Function to update order status with enhanced notifications
 export const updateOrderStatus = async (orderId: string, status: string, notes?: string): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -52,6 +52,13 @@ export const updateOrderStatus = async (orderId: string, status: string, notes?:
 
     if (error) {
       throw error;
+    }
+
+    // Auto-generate invoice when order is accepted/processing
+    if (status === 'processing' || status === 'delivered') {
+      setTimeout(async () => {
+        await generateInvoiceEnhanced(orderId);
+      }, 1000);
     }
 
     return true;
@@ -90,31 +97,16 @@ export const updateShippingInfo = async (
   }
 };
 
-// Function to generate invoice
+// Function to generate invoice using enhanced system
 export const generateInvoice = async (orderId: string): Promise<string | boolean> => {
   try {
-    const { error } = await supabase
-      .rpc('generate_invoice', {
-        p_order_id: orderId
-      });
-
-    if (error) {
-      throw error;
-    }
-
-    // Fetch the updated order to get the invoice URL
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select('invoice_url')
-      .eq('id', orderId)
-      .single();
-      
-    if (orderError) {
-      console.error('Error fetching invoice URL:', orderError);
-      return true; // Return true to indicate success even without URL
-    }
+    const result = await generateInvoiceEnhanced(orderId);
     
-    return order.invoice_url || true;
+    if (result.success) {
+      return result.invoice_url || true;
+    } else {
+      throw new Error(result.error || 'Failed to generate invoice');
+    }
   } catch (error) {
     console.error('Error generating invoice:', error);
     toast.error('Failed to generate invoice');

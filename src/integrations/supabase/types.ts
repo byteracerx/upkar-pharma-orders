@@ -141,6 +141,42 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       order_communications: {
         Row: {
           created_at: string | null
@@ -564,6 +600,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_type: string
+          p_title: string
+          p_message: string
+          p_data?: Json
+        }
+        Returns: string
+      }
       ensure_doctor_exists: {
         Args: {
           p_user_id: string
@@ -579,6 +625,10 @@ export type Database = {
       generate_invoice: {
         Args: { p_order_id: string }
         Returns: boolean
+      }
+      generate_invoice_enhanced: {
+        Args: { p_order_id: string }
+        Returns: Json
       }
       get_all_doctor_credits: {
         Args: Record<PropertyKey, never>
@@ -630,6 +680,10 @@ export type Database = {
         Args: { p_doctor_id: string }
         Returns: Json
       }
+      get_doctor_credit_summary_enhanced: {
+        Args: { p_doctor_id: string }
+        Returns: Json
+      }
       get_doctor_id_from_user: {
         Args: { p_user_id: string }
         Returns: string
@@ -657,8 +711,16 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: Json
       }
+      get_unread_notification_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       mark_communication_as_read: {
         Args: { p_communication_id: string }
+        Returns: boolean
+      }
+      mark_notification_read: {
+        Args: { p_notification_id: string }
         Returns: boolean
       }
       process_return: {
@@ -681,6 +743,10 @@ export type Database = {
           p_status?: string
         }
         Returns: string
+      }
+      record_payment_enhanced: {
+        Args: { p_doctor_id: string; p_amount: number; p_notes?: string }
+        Returns: Json
       }
       reorder_previous_order: {
         Args: { p_order_id: string; p_doctor_id: string }

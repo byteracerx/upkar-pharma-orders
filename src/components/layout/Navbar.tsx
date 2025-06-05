@@ -1,292 +1,205 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  ShoppingCart, 
-  Menu, 
-  X, 
-  ChevronDown,
-  LogOut,
-  User,
-  Search
-} from "lucide-react";
-import { fetchProducts, Product } from "@/services/productService";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { getUserDisplayName } from "@/utils/user-helpers";
+import { Menu, X, User, LogOut, ShoppingCart } from "lucide-react";
+import { CartBadge } from "@/components/cart/CartBadge";
 
-const Navbar = () => {
-  const { user, logout, isAuthenticated, isAdmin } = useAuth();
+export default function Navbar() {
+  const { isAuthenticated, isAdmin, isApproved, isRejected, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        performSearch();
-      } else {
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Close search results when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowResults(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const performSearch = async () => {
-    try {
-      const results = await fetchProducts(searchQuery);
-      setSearchResults(results.slice(0, 5)); // Limit to 5 results
-      setShowResults(true);
-    } catch (error) {
-      console.error("Error searching products:", error);
-    }
-  };
-
-  const handleSearchSelect = (productId: string) => {
-    navigate(`/products/${productId}`);
-    setShowResults(false);
-    setSearchQuery("");
-  };
-
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
-  return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container-custom mx-auto">
-        <div className="flex justify-between items-center py-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <img 
-              src="/lovable-uploads/65d9d55e-5ea8-491a-8500-3328aa065695.png" 
-              alt="Upkem Labs Logo" 
-              className="h-10" 
-            />
-            <div className="flex flex-col">
-              <span className="text-xl font-poppins font-bold text-upkem-green">UPKEM LABS</span>
-              <span className="text-xs text-gray-500">We Build trust not medicine</span>
-            </div>
-          </Link>
+  // Navigation items for approved doctors
+  const doctorNavItems = [
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "Products", href: "/products" },
+    { label: "Orders", href: "/orders" },
+    { label: "Profile", href: "/profile" },
+    { label: "Credit History", href: "/credit-history" },
+  ];
 
-          {/* Search Bar - Only show for authenticated users */}
-          {isAuthenticated && !isAdmin && (
-            <div className="hidden md:flex relative" ref={searchRef}>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search medicines..."
-                  className="w-64 pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => searchQuery.trim() && setShowResults(true)}
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+  // Public navigation items
+  const publicNavItems = [
+    { label: "Home", href: "/" },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+  ];
+
+  return (
+    <nav className="bg-white shadow-lg sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-upkar-blue rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">U</span>
               </div>
-              
-              {/* Search Results Dropdown */}
-              {showResults && searchResults.length > 0 && (
-                <div className="absolute top-full mt-1 w-full bg-white shadow-lg rounded-md z-50 max-h-80 overflow-y-auto">
-                  {searchResults.map((product) => (
-                    <div
-                      key={product.id}
-                      className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-0"
-                      onClick={() => handleSearchSelect(product.id)}
-                    >
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-gray-500">₹{product.price.toFixed(2)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+              <span className="text-xl font-bold text-gray-900">Upkar Pharma</span>
+            </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {/* Only show these links for non-authenticated or non-admin users */}
-            {(!isAuthenticated || !isAdmin) && (
-              <>
-                <Link to="/products" className="text-gray-600 hover:text-upkem-green transition-colors">
-                  Products
+            {/* Navigation Links */}
+            {isAuthenticated && !isAdmin && isApproved && !isRejected ? (
+              // Approved doctor navigation
+              doctorNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="text-gray-700 hover:text-upkar-blue px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  {item.label}
                 </Link>
-                <Link to="/about" className="text-gray-600 hover:text-upkem-green transition-colors">
-                  About Us
+              ))
+            ) : (
+              // Public navigation
+              publicNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="text-gray-700 hover:text-upkar-blue px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  {item.label}
                 </Link>
-                <Link to="/contact" className="text-gray-600 hover:text-upkem-green transition-colors">
-                  Contact
-                </Link>
-              </>
+              ))
             )}
-            
+
+            {/* Cart Icon for approved doctors */}
+            {isAuthenticated && !isAdmin && isApproved && !isRejected && (
+              <div className="flex items-center">
+                <CartBadge />
+              </div>
+            )}
+
+            {/* Auth Buttons */}
             {isAuthenticated ? (
-              <>
+              <div className="flex items-center space-x-4">
                 {!isAdmin && (
-                  <Link to="/cart" className="relative">
-                    <ShoppingCart className="h-6 w-6 text-gray-600 hover:text-upkem-green transition-colors" />
+                  <Link
+                    to="/profile"
+                    className="text-gray-700 hover:text-upkar-blue flex items-center space-x-1"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Profile</span>
                   </Link>
                 )}
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-1">
-                      <span>{getUserDisplayName(user)}</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>
-                      {isAdmin ? 'Admin Account' : 'My Account'}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {isAdmin ? (
-                      <>
-                        <DropdownMenuItem onClick={() => navigate('/admin')}>
-                          <User className="mr-2 h-4 w-4" />
-                          <span>Admin Dashboard</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate('/admin/orders')}>
-                          <ShoppingCart className="mr-2 h-4 w-4" />
-                          <span>Manage Orders</span>
-                        </DropdownMenuItem>
-                      </>
-                    ) : (
-                      <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-                        <User className="mr-2 h-4 w-4" />
-                        <span>My Dashboard</span>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Logout</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout</span>
+                </Button>
+              </div>
             ) : (
               <div className="flex items-center space-x-4">
-                <Button variant="outline" asChild>
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/register">Register</Link>
-                </Button>
+                <Link to="/login">
+                  <Button variant="outline">Login</Button>
+                </Link>
+                <Link to="/register">
+                  <Button>Register</Button>
+                </Link>
               </div>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-gray-600"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center space-x-4">
+            {/* Mobile Cart Icon for approved doctors */}
+            {isAuthenticated && !isAdmin && isApproved && !isRejected && (
+              <CartBadge />
+            )}
+            
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-gray-700 hover:text-upkar-blue focus:outline-none focus:text-upkar-blue"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Navigation Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200 animate-fade-in">
-            <div className="flex flex-col space-y-4">
-              {(!isAuthenticated || !isAdmin) && (
-                <>
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
+              {/* Navigation Links */}
+              {isAuthenticated && !isAdmin && isApproved && !isRejected ? (
+                // Approved doctor navigation
+                doctorNavItems.map((item) => (
                   <Link
-                    to="/products"
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    key={item.href}
+                    to={item.href}
+                    className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Products
+                    {item.label}
                   </Link>
+                ))
+              ) : (
+                // Public navigation
+                publicNavItems.map((item) => (
                   <Link
-                    to="/about"
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                    key={item.href}
+                    to={item.href}
+                    className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    About Us
+                    {item.label}
                   </Link>
-                  <Link
-                    to="/contact"
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Contact
-                  </Link>
-                </>
+                ))
               )}
-              
+
+              {/* Auth Buttons */}
               {isAuthenticated ? (
-                <>
+                <div className="pt-4 pb-3 border-t border-gray-200">
                   {!isAdmin && (
                     <Link
-                      to="/cart"
-                      className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
+                      to="/profile"
+                      className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <ShoppingCart className="mr-2 h-5 w-5" />
-                      <span>Cart</span>
+                      Profile
                     </Link>
                   )}
-                  
-                  <Link
-                    to={isAdmin ? "/admin" : "/dashboard"}
-                    className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <User className="mr-2 h-5 w-5" />
-                    <span>Dashboard</span>
-                  </Link>
-                  
                   <button
-                    className="px-4 py-2 flex items-center text-gray-600 hover:bg-gray-100 rounded-md"
                     onClick={() => {
                       handleLogout();
                       setIsMenuOpen(false);
                     }}
+                    className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium w-full text-left"
                   >
-                    <LogOut className="mr-2 h-5 w-5" />
-                    <span>Logout</span>
+                    Logout
                   </button>
-                </>
+                </div>
               ) : (
-                <div className="space-y-2 px-4">
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                <div className="pt-4 pb-3 border-t border-gray-200 space-y-2">
+                  <Link
+                    to="/login"
+                    className="block w-full"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button variant="outline" className="w-full">
                       Login
-                    </Link>
-                  </Button>
-                  <Button className="w-full bg-upkem-green hover:bg-upkem-green/90" asChild>
-                    <Link to="/register" onClick={() => setIsMenuOpen(false)}>
-                      Register
-                    </Link>
-                  </Button>
+                    </Button>
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="block w-full"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button className="w-full">Register</Button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -295,6 +208,4 @@ const Navbar = () => {
       </div>
     </nav>
   );
-};
-
-export default Navbar;
+}

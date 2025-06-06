@@ -41,7 +41,7 @@ export const getDoctorCreditSummary = async (doctorId: string): Promise<CreditSu
       });
 
     if (error) throw error;
-    return data as CreditSummary;
+    return data as unknown as CreditSummary;
   } catch (error) {
     console.error('Error fetching doctor credit summary:', error);
     toast.error('Failed to load credit summary');
@@ -81,7 +81,7 @@ export const recordPayment = async (
 
     if (error) throw error;
 
-    const result = data as { success: boolean; error?: string };
+    const result = data as unknown as { success: boolean; error?: string };
     if (!result.success) {
       throw new Error(result.error || 'Failed to record payment');
     }

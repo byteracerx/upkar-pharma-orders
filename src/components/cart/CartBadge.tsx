@@ -12,10 +12,18 @@ export const CartBadge = () => {
     updateCartCount();
     
     // Set up event listener for cart updates
-    window.addEventListener('cart-updated', updateCartCount);
+    const handleCartUpdate = () => {
+      updateCartCount();
+    };
+    
+    window.addEventListener('cart-updated', handleCartUpdate);
+    
+    // Also listen for storage changes in case cart is updated in another tab
+    window.addEventListener('storage', handleCartUpdate);
     
     return () => {
-      window.removeEventListener('cart-updated', updateCartCount);
+      window.removeEventListener('cart-updated', handleCartUpdate);
+      window.removeEventListener('storage', handleCartUpdate);
     };
   }, []);
   

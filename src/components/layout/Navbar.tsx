@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, ShoppingCart } from "lucide-react";
+import { Menu, X, User, LogOut } from "lucide-react";
 import { CartBadge } from "@/components/cart/CartBadge";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -21,7 +22,6 @@ export default function Navbar() {
     { label: "Dashboard", href: "/dashboard" },
     { label: "Products", href: "/products" },
     { label: "Orders", href: "/orders" },
-    { label: "Profile", href: "/profile" },
     { label: "Credit History", href: "/credit-history" },
   ];
 
@@ -86,15 +86,13 @@ export default function Navbar() {
                 {/* Notification Bell for authenticated users */}
                 <NotificationBell />
                 
-                {!isAdmin && (
-                  <Link
-                    to="/profile"
-                    className="text-gray-700 hover:text-upkar-blue flex items-center space-x-1"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
-                )}
+                <Link
+                  to="/profile"
+                  className="text-gray-700 hover:text-upkar-blue flex items-center space-x-1"
+                >
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
                 <Button
                   variant="outline"
                   onClick={handleLogout}
@@ -171,15 +169,13 @@ export default function Navbar() {
               {/* Auth Buttons */}
               {isAuthenticated ? (
                 <div className="pt-4 pb-3 border-t border-gray-200">
-                  {!isAdmin && (
-                    <Link
-                      to="/profile"
-                      className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Profile
-                    </Link>
-                  )}
+                  <Link
+                    to="/profile"
+                    className="text-gray-700 hover:text-upkar-blue block px-3 py-2 rounded-md text-base font-medium"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
                   <button
                     onClick={() => {
                       handleLogout();
@@ -207,7 +203,7 @@ export default function Navbar() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <Button className="w-full">Register</Button>
-                  </Link>
+                    </Link>
                 </div>
               )}
             </div>

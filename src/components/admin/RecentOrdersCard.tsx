@@ -1,24 +1,19 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Loader2, Eye } from "lucide-react";
-
-interface RecentOrder {
-  id: string;
-  doctor_name: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-  invoice_number?: string;
-}
+import { Loader2, Eye, FileText, Truck } from "lucide-react";
+import { fetchAllOrders, generateInvoice, updateOrderStatus } from "@/services/admin/orderManagement";
+import { Order } from "@/services/order/types";
+import { toast } from "sonner";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const RecentOrdersCard = () => {
-  const [orders, setOrders] = useState<RecentOrder[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecentOrders();
@@ -26,37 +21,57 @@ export const RecentOrdersCard = () => {
 
   const fetchRecentOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          total_amount,
-          status,
-          created_at,
-          invoice_number,
-          doctor:doctor_id (
-            name
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-
-      const formattedOrders = data.map(order => ({
-        id: order.id,
-        doctor_name: order.doctor?.name || 'Unknown Doctor',
-        total_amount: order.total_amount,
-        status: order.status,
-        created_at: order.created_at,
-        invoice_number: order.invoice_number
-      }));
-
-      setOrders(formattedOrders);
+      setLoading(true);
+      const allOrders = await fetchAllOrders();
+      // Get the 5 most recent orders
+      setOrders(allOrders.slice(0, 5));
     } catch (error) {
       console.error('Error fetching recent orders:', error);
+      toast.error('Failed to load recent orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateInvoice = async (orderId: string) => {
+    setActionLoading(orderId);
+    try {
+      const result = await generateInvoice(orderId);
+      if (result) {
+        // Update local state
+        setOrders(orders.map(order => 
+          order.id === orderId 
+            ? { ...order, invoice_generated: true }
+            : order
+        ));
+        toast.success("Invoice generated successfully");
+      }
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      toast.error('Failed to generate invoice');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStatusUpdate = async (orderId: string, status: string) => {
+    setActionLoading(orderId);
+    try {
+      const success = await updateOrderStatus(orderId, status);
+      if (success) {
+        // Update local state
+        setOrders(orders.map(order => 
+          order.id === orderId 
+            ? { ...order, status }
+            : order
+        ));
+        toast.success(`Order ${status} successfully`);
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error('Failed to update order status');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -64,10 +79,12 @@ export const RecentOrdersCard = () => {
     switch (status) {
       case 'delivered':
         return 'bg-green-100 text-green-800';
+      case 'shipped':
+        return 'bg-blue-100 text-blue-800';
       case 'processing':
         return 'bg-yellow-100 text-yellow-800';
       case 'pending':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-red-100 text-red-800';
     }
@@ -94,9 +111,9 @@ export const RecentOrdersCard = () => {
         ) : orders.length > 0 ? (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+              <div key={order.id} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">
                       {order.invoice_number || `Order ${order.id.substring(0, 8)}...`}
                     </span>
@@ -104,19 +121,58 @@ export const RecentOrdersCard = () => {
                       {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                     </Badge>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    <div>Dr. {order.doctor_name}</div>
-                    <div>₹{order.total_amount.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </div>
+                  <span className="text-sm font-medium">{formatCurrency(order.total_amount)}</span>
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  <div>Dr. {order.doctor?.name || 'Unknown'}</div>
+                  <div className="text-xs text-gray-500">
+                    {formatDate(order.created_at)}
                   </div>
                 </div>
-                <Link to={`/admin/orders`}>
-                  <Button variant="ghost" size="sm">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </Link>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Link to={`/admin/enhanced-orders`}>
+                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      View
+                    </Button>
+                  </Link>
+                  
+                  {!order.invoice_generated && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => handleGenerateInvoice(order.id)}
+                      disabled={actionLoading === order.id}
+                    >
+                      {actionLoading === order.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <FileText className="h-3 w-3" />
+                      )}
+                      Invoice
+                    </Button>
+                  )}
+
+                  {order.status === 'pending' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => handleStatusUpdate(order.id, 'processing')}
+                      disabled={actionLoading === order.id}
+                    >
+                      {actionLoading === order.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Truck className="h-3 w-3" />
+                      )}
+                      Process
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

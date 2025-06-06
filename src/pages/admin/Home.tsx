@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Users, ShoppingCart, DollarSign, Clock, TrendingUp } from "lucide-react";
 import { RecentOrdersCard } from "@/components/admin/RecentOrdersCard";
+import { Link } from "react-router-dom";
 
 interface DashboardStats {
   totalDoctors: number;
@@ -179,45 +179,45 @@ const AdminHome = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
-              <a 
-                href="/admin/doctors" 
+              <Link 
+                to="/admin/doctors" 
                 className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium">Review Doctor Applications</div>
                 <div className="text-sm text-gray-600">
                   {stats.pendingApprovals} pending approvals
                 </div>
-              </a>
+              </Link>
               
-              <a 
-                href="/admin/orders" 
+              <Link 
+                to="/admin/enhanced-orders" 
                 className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium">Process Orders</div>
                 <div className="text-sm text-gray-600">
                   {stats.pendingOrders} orders waiting
                 </div>
-              </a>
+              </Link>
               
-              <a 
-                href="/admin/products" 
+              <Link 
+                to="/admin/products" 
                 className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium">Manage Products</div>
                 <div className="text-sm text-gray-600">
                   Add or update product catalog
                 </div>
-              </a>
+              </Link>
               
-              <a 
-                href="/admin/credits" 
+              <Link 
+                to="/admin/credits" 
                 className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium">Credit Management</div>
                 <div className="text-sm text-gray-600">
                   Review doctor credits and payments
                 </div>
-              </a>
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,8 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { generateInvoiceEnhanced } from '@/services/enhancedInvoiceService';
+import { createNotification } from '@/services/notificationService';
 
 // Function to fetch all orders
 export const fetchAllOrders = async () => {
@@ -28,7 +30,13 @@ export const fetchAllOrders = async () => {
       return {
         ...order,
         product_summary: productSummary,
-        total_items: items?.length || 0
+        total_items: items?.length || 0,
+        doctor: {
+          id: order.doctor_id,
+          name: order.doctor_name,
+          phone: order.doctor_phone,
+          email: order.doctor_email
+        }
       };
     }));
 
@@ -52,6 +60,24 @@ export const updateOrderStatus = async (orderId: string, status: string, notes?:
 
     if (error) {
       throw error;
+    }
+
+    // Get order details for notification
+    const { data: orderData } = await supabase
+      .from('orders')
+      .select('*, doctor:doctor_id(id, name)')
+      .eq('id', orderId)
+      .single();
+
+    if (orderData && orderData.doctor) {
+      // Auto-send notification to doctor
+      await createNotification(
+        orderData.doctor.id,
+        'order_status_update',
+        'Order Status Updated',
+        `Your order has been updated to ${status}`,
+        { order_id: orderId, status }
+      );
     }
 
     // Auto-generate invoice when order is accepted/processing
@@ -89,6 +115,24 @@ export const updateShippingInfo = async (
       throw error;
     }
 
+    // Get order details for notification
+    const { data: orderData } = await supabase
+      .from('orders')
+      .select('*, doctor:doctor_id(id, name)')
+      .eq('id', orderId)
+      .single();
+
+    if (orderData && orderData.doctor) {
+      // Auto-send notification to doctor
+      await createNotification(
+        orderData.doctor.id,
+        'order_status_update',
+        'Order Shipped',
+        `Your order has been shipped. Tracking: ${trackingNumber}`,
+        { order_id: orderId, tracking_number: trackingNumber, carrier: shippingCarrier }
+      );
+    }
+
     return true;
   } catch (error) {
     console.error('Error updating shipping info:', error);
@@ -103,6 +147,24 @@ export const generateInvoice = async (orderId: string): Promise<string | boolean
     const result = await generateInvoiceEnhanced(orderId);
     
     if (result.success) {
+      // Get order details for notification
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('*, doctor:doctor_id(id, name)')
+        .eq('id', orderId)
+        .single();
+
+      if (orderData && orderData.doctor) {
+        // Auto-send notification to doctor
+        await createNotification(
+          orderData.doctor.id,
+          'invoice_generated',
+          'Invoice Generated',
+          `Invoice ${result.invoice_number} has been generated for your order`,
+          { order_id: orderId, invoice_number: result.invoice_number }
+        );
+      }
+
       return result.invoice_url || true;
     } else {
       throw new Error(result.error || 'Failed to generate invoice');
@@ -156,6 +218,24 @@ export const updateReturnStatus = async (
 
     if (error) {
       throw error;
+    }
+
+    // Get return details for notification
+    const { data: returnData } = await supabase
+      .from('returns')
+      .select('*, order:order_id(doctor_id)')
+      .eq('id', returnId)
+      .single();
+
+    if (returnData && returnData.order) {
+      // Auto-send notification to doctor
+      await createNotification(
+        returnData.order.doctor_id,
+        'return_status_update',
+        'Return Status Updated',
+        `Your return request has been ${status}`,
+        { return_id: returnId, status }
+      );
     }
 
     return true;

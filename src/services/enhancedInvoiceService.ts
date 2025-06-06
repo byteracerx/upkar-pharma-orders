@@ -20,8 +20,9 @@ export const generateInvoiceEnhanced = async (orderId: string): Promise<InvoiceR
 
     if (error) throw error;
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to generate invoice');
+    const result = data as { success: boolean; error?: string; invoice_number?: string; invoice_url?: string };
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to generate invoice');
     }
 
     // Generate actual PDF
@@ -43,13 +44,13 @@ export const generateInvoiceEnhanced = async (orderId: string): Promise<InvoiceR
     }
 
     toast.success("Invoice Generated", {
-      description: `Invoice ${data.invoice_number} has been generated and credit added to doctor's account.`
+      description: `Invoice ${result.invoice_number} has been generated and credit added to doctor's account.`
     });
 
     return {
       success: true,
-      invoice_number: data.invoice_number,
-      invoice_url: pdfDataUri || data.invoice_url
+      invoice_number: result.invoice_number,
+      invoice_url: pdfDataUri || result.invoice_url
     };
   } catch (error: any) {
     console.error('Error generating enhanced invoice:', error);

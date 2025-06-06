@@ -41,7 +41,7 @@ export const getDoctorCreditSummary = async (doctorId: string): Promise<CreditSu
       });
 
     if (error) throw error;
-    return data;
+    return data as CreditSummary;
   } catch (error) {
     console.error('Error fetching doctor credit summary:', error);
     toast.error('Failed to load credit summary');
@@ -58,7 +58,7 @@ export const getCreditTransactions = async (doctorId: string): Promise<CreditTra
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as CreditTransaction[];
   } catch (error) {
     console.error('Error fetching credit transactions:', error);
     toast.error('Failed to load credit transactions');
@@ -81,8 +81,9 @@ export const recordPayment = async (
 
     if (error) throw error;
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to record payment');
+    const result = data as { success: boolean; error?: string };
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to record payment');
     }
 
     toast.success("Payment Recorded", {

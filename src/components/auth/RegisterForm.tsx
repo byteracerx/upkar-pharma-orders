@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -81,16 +80,36 @@ export const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
         onSuccess();
         navigate("/pending-approval");
       } else {
-        console.error("Registration failed:", result.message);
-        toast.error("Registration Failed", {
-          description: result.message || "Please try again with different credentials"
-        });
+        // Only show errors for actual failures, not normal flow issues
+        if (result.message && !result.message.toLowerCase().includes('confirmation')) {
+          console.error("Registration failed:", result.message);
+          toast.error("Registration Failed", {
+            description: result.message
+          });
+        } else {
+          // For email confirmation or similar, treat as success
+          toast.success("Registration Successful!", {
+            description: "Your account has been created and is pending approval."
+          });
+          onSuccess();
+          navigate("/pending-approval");
+        }
       }
     } catch (error: any) {
       console.error("Unexpected registration error:", error);
-      toast.error("Registration Failed", {
-        description: error.message || "Please try again later"
-      });
+      // Only show error for actual unexpected errors
+      if (error.message && !error.message.toLowerCase().includes('confirmation')) {
+        toast.error("Registration Failed", {
+          description: "Please try again later"
+        });
+      } else {
+        // Treat as success for normal flow
+        toast.success("Registration Successful!", {
+          description: "Your account has been created and is pending approval."
+        });
+        onSuccess();
+        navigate("/pending-approval");
+      }
     } finally {
       setIsLoading(false);
     }

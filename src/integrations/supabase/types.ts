@@ -16,6 +16,7 @@ export type Database = {
           description: string | null
           doctor_id: string
           id: string
+          reference_id: string | null
           status: string | null
           type: string
           updated_at: string | null
@@ -26,6 +27,7 @@ export type Database = {
           description?: string | null
           doctor_id: string
           id?: string
+          reference_id?: string | null
           status?: string | null
           type: string
           updated_at?: string | null
@@ -36,6 +38,7 @@ export type Database = {
           description?: string | null
           doctor_id?: string
           id?: string
+          reference_id?: string | null
           status?: string | null
           type?: string
           updated_at?: string | null

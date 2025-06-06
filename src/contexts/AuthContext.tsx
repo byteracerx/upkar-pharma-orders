@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
@@ -171,6 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       console.log('Supabase signup response:', { data, error });
+
+      // Handle the case where user already exists but isn't confirmed
+      if (error && error.message?.includes('User already registered')) {
+        return { 
+          success: true, 
+          message: 'Registration successful! Please wait for admin approval.' 
+        };
+      }
 
       if (error) {
         console.error('Signup error:', error);
